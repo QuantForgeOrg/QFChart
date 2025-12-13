@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QFChart - Demo</title>
+
+    <!-- QFChart Library (Bundled with ECharts) -->
+    <script src="../dist/qfchart.dev.browser.js"></script>
+
+    <style>
+      body {
+        background-color: #0f172a;
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+        color: #cbd5e1;
+        font-family: "Segoe UI", system-ui, sans-serif;
+      }
+
+      #container {
+        width: 100%;
+        max-width: 90vw;
+        margin: 0 auto;
+        padding: 1.5rem;
+        background-color: #1e293b;
+        border: 1px solid #334155;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+      }
+
+      h1 {
+        color: #5eead4;
+        font-size: 2rem;
+        margin-bottom: 1rem;
+        text-align: center;
+      }
+
+      #main-chart {
+        width: 100%;
+        height: 100%;
+      }
+    </style>
+  </head>
+
+  <body>
+    <div id="container">
+      <h1>QFChart Library Demo</h1>
+      <div id="main-chart"></div>
+    </div>
+
+    <!-- Dependencies for Data Loading -->
+    <script src="./js/pinets.dev.browser.js"></script>
+    <script src="./indicator.js"></script>
+    <script src="./macd.js"></script>
+    <script src="./instit-bias.js"></script>
+
+    <script>
+      // Data Loading Helper (Simulating what was in chart.js)
+      const DATA_LENGTH = 500;
+      async function loadIndicatorData() {
+        try {
+          // Assuming indicator() is global from indicator.js
+          const data = await indicator("BTCUSDT", "W", DATA_LENGTH);
+          return data;
+        } catch (error) {
+          console.error("Error loading indicator data:", error);
+          return null;
+        }
+      }
+
+      async function loadMacdData() {
+        try {
+          const data = await macd("BTCUSDT", "W", DATA_LENGTH);
+          return data;
+        } catch (error) {
+          console.error("Error loading macd data:", error);
+          return null;
+        }
+      }
+
+      async function loadInstitBiasData() {
+        try {
+          const data = await instit_bias("BTCUSDT", "W", DATA_LENGTH);
+          return data;
+        } catch (error) {
+          console.error("Error loading instit bias data:", error);
+          return null;
+        }
+      }
+      // Initialize QFChart
+      document.addEventListener("DOMContentLoaded", async () => {
+        const result = await loadIndicatorData();
+        if (!result) return;
+
+        const macdData = await loadMacdData();
+        if (!macdData) return;
+
+        const institBiasData = await loadInstitBiasData();
+        if (!institBiasData) return;
+
+        const { marketData: institBiasMarketData, plots: institBiasPlots } =
+          institBiasData;
+        const { marketData: macdMarketData, plots: macdPlots } = macdData;
+        const { marketData, plots } = result;
+
+        // Map Market Data to QFChart OHLCV format
+        // marketData is array of objects: { openTime, open, high, low, close, volume }
+        const ohlcvData = marketData.map((k) => ({
+          time: k.openTime,
+          open: k.open,
+          high: k.high,
+          low: k.low,
+          close: k.close,
+          volume: k.volume,
+        }));
+
+        // Initialize Chart
+        const chartContainer = document.getElementById("main-chart");
+        const chart = new QFChart.QFChart(chartContainer, {
+          title: "BTC/USDT", // Custom title
+          height: "600px",
+          tooltip: {
+            position: "right",
+          },
+          dataZoom: {
+            visible: true,
+            position: "top",
+            height: 6,
+          },
+          layout: {
+            mainPaneHeight: "60%",
+            gap: 5,
+          },
+        });
+
+        // Set Market Data
+        chart.setMarketData(ohlcvData);
+
+        chart.addIndicator("Institutional Bias", institBiasPlots, {
+          isOverlay: true,
+          height: 10,
+          titleColor: "#2962FF",
+        });
+
+        // Set Indicators
+        // Group plots into one indicator
+        chart.addIndicator("SQZMOM", plots, { isOverlay: false, height: 10 });
+
+        chart.addIndicator("MACD", macdPlots, {
+          isOverlay: false,
+          height: 10,
+          titleColor: "#ff9900",
+        });
+      });
+    </script>
+  </body>
+</html>
