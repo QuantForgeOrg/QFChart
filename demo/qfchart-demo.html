@@ -155,6 +155,10 @@
           height: 10,
           titleColor: "#ff9900",
         });
+
+        // Register Measure Tool Plugin
+        const measureTool = new QFChart.MeasureTool();
+        chart.registerPlugin(measureTool);
       });
     </script>
   </body>

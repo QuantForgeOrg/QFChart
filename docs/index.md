@@ -16,6 +16,7 @@ permalink: /
 - **Overlay Indicators**: Add indicators directly on top of the main chart (e.g., SMA, Bollinger Bands).
 - **Flexible Layouts**: Configurable sidebars for tooltips (Left/Right/Floating) to avoid obstructing the chart.
 - **Dynamic Resizing**: Automatically handles window resizing and layout adjustments.
+- **Plugin System**: Extensible architecture for adding interactive tools (e.g., Measure Tool).
 - **TypeScript Support**: Written in TypeScript with full type definitions.
 
 ## Installation
