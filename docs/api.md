@@ -42,6 +42,30 @@ Adds an indicator to the chart.
 
 Removes an indicator by its ID and redraws the layout.
 
+#### `registerPlugin(plugin: Plugin)`
+
+Registers a plugin instance with the chart.
+
+- **plugin**: An object implementing the `Plugin` interface (or extending `AbstractPlugin`).
+
+#### `addDrawing(drawing: DrawingElement)`
+
+Adds a persistent drawing (like a line or shape) to the chart. These drawings move and zoom naturally with the chart.
+
+- **drawing**: Object defining the drawing type and coordinates.
+  ```typescript
+  interface DrawingElement {
+    id: string;
+    type: "line";
+    points: DataCoordinate[]; // [{ timeIndex, value }, ...]
+    style?: { color?: string; lineWidth?: number };
+  }
+  ```
+
+#### `removeDrawing(id: string)`
+
+Removes a drawing by its ID.
+
 #### `resize()`
 
 Manually triggers a resize of the chart. Useful if the container size changes programmatically.

@@ -104,6 +104,20 @@ export interface ChartContext {
 
   // Interaction Control
   disableTools(): void; // To disable other active tools
+
+  // Drawing Management
+  addDrawing(drawing: DrawingElement): void;
+  removeDrawing(id: string): void;
+}
+
+export interface DrawingElement {
+  id: string;
+  type: "line";
+  points: DataCoordinate[];
+  style?: {
+    color?: string;
+    lineWidth?: number;
+  };
 }
 ```
 
@@ -115,20 +129,30 @@ The chart exposes an Event Bus via `context.events` for communication between pl
 - `chart:resize`, `chart:dataZoom`, `chart:updated`
 - `plugin:activated`, `plugin:deactivated`
 
-### Coordinate Conversion
+### Coordinate Conversion & Native Drawings
 
-Use the built-in helpers for easy coordinate mapping:
+For persistent drawings (lines, shapes that stick to the chart), you should use the `addDrawing` API instead of manual ZRender management.
+
+1.  **Use ZRender for Interaction**: While the user is drawing (dragging mouse), use ZRender graphics (via `chart.getZr()`) for smooth, high-performance feedback.
+2.  **Use Native Drawings for Persistence**: Once drawing is finished, convert pixels to data coordinates and call `context.addDrawing()`.
+
+#### Example: Creating a Line
 
 ```typescript
-const dataPoint = this.context.coordinateConversion.pixelToData({
-  x: 100,
-  y: 200,
-});
-// Returns { timeIndex: 45, value: 50000.50 }
+// 1. Convert pixels to data coordinates
+const start = this.context.coordinateConversion.pixelToData({ x: 100, y: 200 });
+const end = this.context.coordinateConversion.pixelToData({ x: 300, y: 400 });
 
-const pixelPoint = this.context.coordinateConversion.dataToPixel({
-  timeIndex: 45,
-  value: 50000,
-});
-// Returns { x: 100, y: 200 }
+// 2. Add persistent drawing
+if (start && end) {
+  this.context.addDrawing({
+    id: "my-line-1",
+    type: "line",
+    points: [start, end],
+    style: {
+      color: "#3b82f6",
+      lineWidth: 2,
+    },
+  });
+}
 ```

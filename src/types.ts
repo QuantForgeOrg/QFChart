@@ -80,6 +80,7 @@ export interface Coordinate {
 export interface DataCoordinate {
   timeIndex: number;
   value: number;
+  paneIndex?: number; // Optional pane index
 }
 
 export interface ChartContext {
@@ -100,6 +101,23 @@ export interface ChartContext {
 
   // Interaction Control
   disableTools(): void; // To disable other active tools
+
+  // Drawing Management
+  addDrawing(drawing: DrawingElement): void;
+  removeDrawing(id: string): void;
+}
+
+export type DrawingType = "line";
+
+export interface DrawingElement {
+  id: string;
+  type: DrawingType;
+  points: DataCoordinate[]; // [start, end]
+  paneIndex?: number; // Pane where this drawing belongs (default 0)
+  style?: {
+    color?: string;
+    lineWidth?: number;
+  };
 }
 
 export interface PluginConfig {

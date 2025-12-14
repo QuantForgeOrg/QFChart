@@ -159,6 +159,10 @@
         // Register Measure Tool Plugin
         const measureTool = new QFChart.MeasureTool();
         chart.registerPlugin(measureTool);
+
+        // Register Line Tool Plugin
+        const lineTool = new QFChart.LineTool();
+        chart.registerPlugin(lineTool);
       });
     </script>
   </body>

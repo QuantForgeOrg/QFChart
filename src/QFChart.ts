@@ -24,19 +24,53 @@ export class QFChart implements ChartContext {
   private pluginManager: PluginManager;
   public events: EventBus = new EventBus();
 
+  // Drawing System
+  private drawings: import("./types").DrawingElement[] = [];
+
   public coordinateConversion = {
     pixelToData: (point: { x: number; y: number }) => {
-      const p = this.chart.convertFromPixel({ seriesIndex: 0 }, [
-        point.x,
-        point.y,
-      ]);
-      if (p) {
-        return { timeIndex: p[0], value: p[1] };
+      // Find which grid/pane the point is in
+      // We iterate through all panes (series indices usually match pane indices for base series)
+      // Actually, we need to know how many panes there are.
+      // We can use the layout logic or just check grid indices.
+      // ECharts instance has getOption().
+      const option = this.chart.getOption() as any;
+      if (!option || !option.grid) return null;
+
+      const gridCount = option.grid.length;
+      for (let i = 0; i < gridCount; i++) {
+        if (this.chart.containPixel({ gridIndex: i }, [point.x, point.y])) {
+          // Found the pane
+          const p = this.chart.convertFromPixel({ seriesIndex: i }, [
+            point.x,
+            point.y,
+          ]);
+          // Note: convertFromPixel might need seriesIndex or gridIndex depending on setup.
+          // Using gridIndex in convertFromPixel is supported in newer ECharts but sometimes tricky.
+          // Since we have one base series per pane (candlestick at 0, indicators at 1+),
+          // assuming seriesIndex = gridIndex usually works if they are mapped 1:1.
+          // Wait, candlestick is series 0. Indicators are subsequent series.
+          // Series index != grid index necessarily.
+          // BUT we can use { gridIndex: i } for convertFromPixel too!
+          const pGrid = this.chart.convertFromPixel({ gridIndex: i }, [
+            point.x,
+            point.y,
+          ]);
+
+          if (pGrid) {
+            return { timeIndex: pGrid[0], value: pGrid[1], paneIndex: i };
+          }
+        }
       }
       return null;
     },
-    dataToPixel: (point: { timeIndex: number; value: number }) => {
-      const p = this.chart.convertToPixel({ seriesIndex: 0 }, [
+    dataToPixel: (point: {
+      timeIndex: number;
+      value: number;
+      paneIndex?: number;
+    }) => {
+      const paneIdx = point.paneIndex || 0;
+      const p = this.chart.convertToPixel({ gridIndex: paneIdx }, [
         point.timeIndex,
         point.value,
       ]);
@@ -159,6 +193,26 @@ export class QFChart implements ChartContext {
     this.chart = echarts.init(this.chartContainer);
     this.pluginManager = new PluginManager(this, this.toolbarContainer);
 
+    // Bind global chart/ZRender events to the EventBus
+    this.chart.on("dataZoom", (params: any) =>
+      this.events.emit("chart:dataZoom", params)
+    );
+    this.chart.on("finished", (params: any) =>
+      this.events.emit("chart:updated", params)
+    ); // General chart update
+    this.chart
+      .getZr()
+      .on("mousedown", (params: any) => this.events.emit("mouse:down", params));
+    this.chart
+      .getZr()
+      .on("mousemove", (params: any) => this.events.emit("mouse:move", params));
+    this.chart
+      .getZr()
+      .on("mouseup", (params: any) => this.events.emit("mouse:up", params));
+    this.chart
+      .getZr()
+      .on("click", (params: any) => this.events.emit("mouse:click", params));
+
     window.addEventListener("resize", this.resize.bind(this));
   }
 
@@ -186,6 +240,18 @@ export class QFChart implements ChartContext {
 
   public registerPlugin(plugin: Plugin): void {
     this.pluginManager.register(plugin);
+  }
+
+  // --- Drawing System ---
+
+  public addDrawing(drawing: import("./types").DrawingElement): void {
+    this.drawings.push(drawing);
+    this.render(); // Re-render to show new drawing
+  }
+
+  public removeDrawing(id: string): void {
+    this.drawings = this.drawings.filter((d) => d.id !== id);
+    this.render();
   }
 
   // --------------------------------
@@ -273,6 +339,30 @@ export class QFChart implements ChartContext {
   private render(): void {
     if (this.marketData.length === 0) return;
 
+    // Capture current zoom state before rebuilding options
+    let currentZoomState: { start: number; end: number } | null = null;
+    try {
+      const currentOption = this.chart.getOption() as any;
+      if (
+        currentOption &&
+        currentOption.dataZoom &&
+        currentOption.dataZoom.length > 0
+      ) {
+        // Find the slider or inside zoom component that controls the x-axis
+        const zoomComponent = currentOption.dataZoom.find(
+          (dz: any) => dz.type === "slider" || dz.type === "inside"
+        );
+        if (zoomComponent) {
+          currentZoomState = {
+            start: zoomComponent.start,
+            end: zoomComponent.end,
+          };
+        }
+      }
+    } catch (e) {
+      // Chart might not be initialized yet
+    }
+
     // --- Sidebar Layout Management ---
     const tooltipPos = this.options.tooltip?.position || "floating";
     const prevLeftDisplay = this.leftSidebar.style.display;
@@ -302,6 +392,14 @@ export class QFChart implements ChartContext {
       this.indicators,
       this.options
     );
+
+    // Apply preserved zoom state if available
+    if (currentZoomState && layout.dataZoom) {
+      layout.dataZoom.forEach((dz) => {
+        dz.start = currentZoomState!.start;
+        dz.end = currentZoomState!.end;
+      });
+    }
 
     // Patch X-Axis with Data and Padding
     layout.xAxis.forEach((axis) => {
@@ -338,7 +436,89 @@ export class QFChart implements ChartContext {
       this.toggleIndicator.bind(this)
     );
 
-    // 4. Tooltip Formatter
+    // 4. Build Drawings Series (One Custom Series per Pane used)
+    const drawingsByPane = new Map<
+      number,
+      import("./types").DrawingElement[]
+    >();
+    this.drawings.forEach((d) => {
+      const paneIdx = d.paneIndex || 0;
+      if (!drawingsByPane.has(paneIdx)) {
+        drawingsByPane.set(paneIdx, []);
+      }
+      drawingsByPane.get(paneIdx)!.push(d);
+    });
+
+    const drawingSeriesList: any[] = [];
+    drawingsByPane.forEach((drawings, paneIndex) => {
+      drawingSeriesList.push({
+        type: "custom",
+        name: `drawings-pane-${paneIndex}`,
+        xAxisIndex: paneIndex,
+        yAxisIndex: paneIndex,
+        renderItem: (params: any, api: any) => {
+          const drawing = drawings[params.dataIndex];
+          if (!drawing) return;
+
+          const start = drawing.points[0];
+          const end = drawing.points[1];
+
+          if (!start || !end) return;
+
+          const p1 = api.coord([start.timeIndex, start.value]);
+          const p2 = api.coord([end.timeIndex, end.value]);
+
+          if (drawing.type === "line") {
+            return {
+              type: "group",
+              children: [
+                {
+                  type: "line",
+                  shape: {
+                    x1: p1[0],
+                    y1: p1[1],
+                    x2: p2[0],
+                    y2: p2[1],
+                  },
+                  style: {
+                    stroke: drawing.style?.color || "#3b82f6",
+                    lineWidth: drawing.style?.lineWidth || 2,
+                  },
+                },
+                {
+                  type: "circle",
+                  shape: { cx: p1[0], cy: p1[1], r: 4 },
+                  style: {
+                    fill: "#fff",
+                    stroke: drawing.style?.color || "#3b82f6",
+                    lineWidth: 1,
+                  },
+                },
+                {
+                  type: "circle",
+                  shape: { cx: p2[0], cy: p2[1], r: 4 },
+                  style: {
+                    fill: "#fff",
+                    stroke: drawing.style?.color || "#3b82f6",
+                    lineWidth: 1,
+                  },
+                },
+              ],
+            };
+          }
+        },
+        data: drawings.map((d) => [
+          d.points[0].timeIndex,
+          d.points[0].value,
+          d.points[1].timeIndex,
+          d.points[1].value,
+        ]),
+        z: 100,
+        silent: true,
+      });
+    });
+
+    // 5. Tooltip Formatter
     const tooltipFormatter = (params: any[]) => {
       const html = TooltipFormatter.format(params, this.options);
       const mode = this.options.tooltip?.position || "floating";
@@ -398,7 +578,7 @@ export class QFChart implements ChartContext {
       xAxis: layout.xAxis,
       yAxis: layout.yAxis,
       dataZoom: layout.dataZoom,
-      series: [candlestickSeries, ...indicatorSeries],
+      series: [candlestickSeries, ...indicatorSeries, ...drawingSeriesList],
     };
 
     // Note: We should preserve any extra options (like custom graphics from plugins)
