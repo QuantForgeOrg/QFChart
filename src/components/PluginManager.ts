@@ -6,11 +6,95 @@ export class PluginManager {
   private activePluginId: string | null = null;
   private context: ChartContext;
   private toolbarContainer: HTMLElement;
+  private tooltipElement: HTMLElement | null = null;
+  private hideTimeout: any = null;
 
   constructor(context: ChartContext, toolbarContainer: HTMLElement) {
     this.context = context;
     this.toolbarContainer = toolbarContainer;
+    this.createTooltip();
     this.renderToolbar();
+  }
+
+  private createTooltip() {
+    this.tooltipElement = document.createElement("div");
+    Object.assign(this.tooltipElement.style, {
+      position: "fixed",
+      display: "none",
+      backgroundColor: "#1e293b",
+      color: "#e2e8f0",
+      padding: "6px 10px",
+      borderRadius: "6px",
+      fontSize: "13px",
+      lineHeight: "1.4",
+      fontWeight: "500",
+      border: "1px solid #334155",
+      zIndex: "9999",
+      pointerEvents: "none",
+      whiteSpace: "nowrap",
+      boxShadow:
+        "0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.15)",
+      fontFamily: this.context.getOptions().fontFamily || "sans-serif",
+      transition: "opacity 0.15s ease-in-out, transform 0.15s ease-in-out",
+      opacity: "0",
+      transform: "translateX(-5px)",
+    });
+    document.body.appendChild(this.tooltipElement);
+  }
+
+  public destroy() {
+    if (this.tooltipElement && this.tooltipElement.parentNode) {
+      this.tooltipElement.parentNode.removeChild(this.tooltipElement);
+    }
+    this.tooltipElement = null;
+  }
+
+  private showTooltip(target: HTMLElement, text: string) {
+    if (!this.tooltipElement) return;
+
+    // Clear any pending hide to prevent race conditions
+    if (this.hideTimeout) {
+      clearTimeout(this.hideTimeout);
+      this.hideTimeout = null;
+    }
+
+    const rect = target.getBoundingClientRect();
+    this.tooltipElement.textContent = text;
+    this.tooltipElement.style.display = "block";
+
+    // Position to the right of the button, centered vertically
+    const tooltipRect = this.tooltipElement.getBoundingClientRect();
+    const top = rect.top + (rect.height - tooltipRect.height) / 2;
+    const left = rect.right + 10; // 10px gap
+
+    this.tooltipElement.style.top = `${top}px`;
+    this.tooltipElement.style.left = `${left}px`;
+
+    // Trigger animation
+    requestAnimationFrame(() => {
+      if (this.tooltipElement) {
+        this.tooltipElement.style.opacity = "1";
+        this.tooltipElement.style.transform = "translateX(0)";
+      }
+    });
+  }
+
+  private hideTooltip() {
+    if (!this.tooltipElement) return;
+    this.tooltipElement.style.opacity = "0";
+    this.tooltipElement.style.transform = "translateX(-5px)";
+
+    if (this.hideTimeout) {
+      clearTimeout(this.hideTimeout);
+    }
+
+    // Wait for transition to finish before hiding
+    this.hideTimeout = setTimeout(() => {
+      if (this.tooltipElement) {
+        this.tooltipElement.style.display = "none";
+      }
+      this.hideTimeout = null;
+    }, 150);
   }
 
   public register(plugin: Plugin): void {
@@ -83,7 +167,8 @@ export class PluginManager {
   private addButton(plugin: Plugin): void {
     const btn = document.createElement("button");
     btn.id = `qfchart-plugin-btn-${plugin.id}`;
-    btn.title = plugin.name || plugin.id;
+    // Removed native title to use custom tooltip
+    // btn.title = plugin.name || plugin.id;
     btn.style.width = "30px";
     btn.style.height = "30px";
     btn.style.padding = "4px";
@@ -103,16 +188,19 @@ export class PluginManager {
       btn.innerText = (plugin.name || plugin.id).substring(0, 2).toUpperCase();
     }
 
-    // Hover effects
+    // Hover effects and Tooltip
     btn.addEventListener("mouseenter", () => {
       if (this.activePluginId !== plugin.id) {
         btn.style.backgroundColor = "rgba(255, 255, 255, 0.1)";
       }
+      this.showTooltip(btn, plugin.name || plugin.id);
     });
+
     btn.addEventListener("mouseleave", () => {
       if (this.activePluginId !== plugin.id) {
         btn.style.backgroundColor = "transparent";
       }
+      this.hideTooltip();
     });
 
     btn.onclick = () => this.activatePlugin(plugin.id);

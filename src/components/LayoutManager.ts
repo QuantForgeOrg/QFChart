@@ -7,6 +7,9 @@ export interface PaneConfiguration {
   isCollapsed: boolean;
   indicatorId?: string;
   titleColor?: string;
+  controls?: {
+    collapse?: boolean;
+  };
 }
 
 export interface LayoutResult {
@@ -24,8 +27,16 @@ export class LayoutManager {
   public static calculate(
     containerHeight: number,
     indicators: Map<string, IndicatorType>,
-    options: QFChartOptions
+    options: QFChartOptions,
+    isMainCollapsed: boolean = false,
+    maximizedPaneId: string | null = null
   ): LayoutResult {
+    // Calculate pixelToPercent early for maximized logic
+    let pixelToPercent = 0;
+    if (containerHeight > 0) {
+      pixelToPercent = (1 / containerHeight) * 100;
+    }
+
     // Identify unique separate panes (indices > 0) and sort them
     const separatePaneIndices = Array.from(indicators.values())
       .map((ind) => ind.paneIndex)
@@ -43,6 +54,123 @@ export class LayoutManager {
     // Layout Calculation
     let mainPaneTop = 8;
     let chartAreaBottom = 92; // Default if no dataZoom at bottom
+
+    // Maximized State Logic
+    let maximizeTargetIndex = -1; // -1 = none
+
+    if (maximizedPaneId) {
+      if (maximizedPaneId === "main") {
+        maximizeTargetIndex = 0;
+      } else {
+        const ind = indicators.get(maximizedPaneId);
+        if (ind) {
+          maximizeTargetIndex = ind.paneIndex;
+        }
+      }
+    }
+
+    if (maximizeTargetIndex !== -1) {
+      // Special Layout for Maximize
+      // We must generate grid/axis definitions for ALL indices to maintain series mapping,
+      // but hide the non-maximized ones.
+
+      const grid: any[] = [];
+      const xAxis: any[] = [];
+      const yAxis: any[] = [];
+      const dataZoom: any[] = []; // Hide slider, keep inside?
+
+      // DataZoom: keep inside, maybe slider if main?
+      // Let's keep strict maximize: Full container.
+      dataZoom.push({ type: "inside", xAxisIndex: "all", start: 50, end: 100 });
+
+      // Need to know total panes to iterate
+      const maxPaneIndex = hasSeparatePane
+        ? Math.max(...separatePaneIndices)
+        : 0;
+
+      const paneConfigs: PaneConfiguration[] = []; // For GraphicBuilder title placement
+
+      // Iterate 0 to maxPaneIndex
+      for (let i = 0; i <= maxPaneIndex; i++) {
+        const isTarget = i === maximizeTargetIndex;
+
+        // Grid
+        grid.push({
+          left: "10%",
+          right: "10%",
+          top: isTarget ? "5%" : "0%",
+          height: isTarget ? "90%" : "0%",
+          show: isTarget,
+          containLabel: false,
+        });
+
+        // X-Axis
+        xAxis.push({
+          type: "category",
+          gridIndex: i,
+          data: [],
+          show: isTarget,
+          axisLabel: {
+            show: isTarget,
+            color: "#94a3b8",
+            fontFamily: options.fontFamily,
+          },
+          axisLine: { show: isTarget, lineStyle: { color: "#334155" } },
+          splitLine: {
+            show: isTarget,
+            lineStyle: { color: "#334155", opacity: 0.5 },
+          },
+        });
+
+        // Y-Axis
+        yAxis.push({
+          position: "right",
+          gridIndex: i,
+          show: isTarget,
+          scale: true,
+          axisLabel: {
+            show: isTarget,
+            color: "#94a3b8",
+            fontFamily: options.fontFamily,
+          },
+          splitLine: {
+            show: isTarget,
+            lineStyle: { color: "#334155", opacity: 0.5 },
+          },
+        });
+
+        // Reconstruct Pane Config for GraphicBuilder
+        // We need to return `paneLayout` so GraphicBuilder can draw the Restore button
+        if (i > 0) {
+          // Find indicator for this pane
+          const ind = Array.from(indicators.values()).find(
+            (ind) => ind.paneIndex === i
+          );
+          if (ind) {
+            paneConfigs.push({
+              index: i,
+              height: isTarget ? 90 : 0,
+              top: isTarget ? 5 : 0,
+              isCollapsed: false,
+              indicatorId: ind.id,
+              titleColor: ind.titleColor,
+              controls: ind.controls,
+            });
+          }
+        }
+      }
+
+      return {
+        grid,
+        xAxis,
+        yAxis,
+        dataZoom,
+        paneLayout: paneConfigs,
+        mainPaneHeight: maximizeTargetIndex === 0 ? 90 : 0,
+        mainPaneTop: maximizeTargetIndex === 0 ? 5 : 0,
+        pixelToPercent,
+      };
+    }
 
     if (dzVisible) {
       if (dzPosition === "top") {
@@ -65,10 +193,8 @@ export class LayoutManager {
     // We need to calculate height distribution dynamically to avoid overlap.
     // Calculate gap in percent
     let gapPercent = 5;
-    let pixelToPercent = 0;
     if (containerHeight > 0) {
       gapPercent = (20 / containerHeight) * 100;
-      pixelToPercent = (1 / containerHeight) * 100;
     }
 
     let mainHeightVal = 75; // Default if no separate pane
@@ -89,6 +215,7 @@ export class LayoutManager {
           isCollapsed: ind?.collapsed ?? false,
           indicatorId: ind?.id,
           titleColor: ind?.titleColor,
+          controls: ind?.controls,
         };
       });
 
@@ -116,9 +243,13 @@ export class LayoutManager {
       const totalAvailable = chartAreaBottom - mainPaneTop;
       mainHeightVal = totalAvailable - totalBottomSpace;
 
-      // Safety check: ensure main chart has at least some space (e.g. 20%)
-      if (mainHeightVal < 20) {
-        mainHeightVal = Math.max(mainHeightVal, 10);
+      if (isMainCollapsed) {
+        mainHeightVal = 3;
+      } else {
+        // Safety check: ensure main chart has at least some space (e.g. 20%)
+        if (mainHeightVal < 20) {
+          mainHeightVal = Math.max(mainHeightVal, 10);
+        }
       }
 
       // 5. Calculate positions
@@ -132,12 +263,16 @@ export class LayoutManager {
           isCollapsed: p.isCollapsed,
           indicatorId: p.indicatorId,
           titleColor: p.titleColor,
+          controls: p.controls,
         };
         currentTop += p.height + gapPercent;
         return config;
       });
     } else {
       mainHeightVal = chartAreaBottom - mainPaneTop;
+      if (isMainCollapsed) {
+        mainHeightVal = 3;
+      }
     }
 
     // --- Generate Grids ---
@@ -167,27 +302,40 @@ export class LayoutManager {
     const xAxis: any[] = [];
 
     // Main X-Axis
+    const isMainBottom = paneConfigs.length === 0;
     xAxis.push({
       type: "category",
-      data: [], // Will be filled by SeriesBuilder or QFChart, or we pass data here?
-      // Actually QFChart sets categoryData separately usually, but here we define the axis structure
-      // Wait, QFChart sets `categoryData` in render. We should probably accept it or let caller set it.
-      // Let's set the structure and let caller populate `data`.
+      data: [], // Will be filled by SeriesBuilder or QFChart
       gridIndex: 0,
       scale: true,
       boundaryGap: false,
-      axisLine: { onZero: false, lineStyle: { color: "#334155" } },
-      splitLine: { show: true, lineStyle: { color: "#334155", opacity: 0.5 } },
+      axisLine: {
+        onZero: false,
+        show: !isMainCollapsed,
+        lineStyle: { color: "#334155" },
+      },
+      splitLine: {
+        show: !isMainCollapsed,
+        lineStyle: { color: "#334155", opacity: 0.5 },
+      },
       axisLabel: {
+        show: !isMainCollapsed,
         color: "#94a3b8",
         fontFamily: options.fontFamily || "sans-serif",
       },
-      axisPointer: { label: { show: false } }, // Hide date on main axis pointer to avoid duplication if we want
-      // Actually user wanted date only on main chart.
+      axisTick: { show: !isMainCollapsed },
+      axisPointer: {
+        label: {
+          show: isMainBottom,
+          fontSize: 11,
+          backgroundColor: "#475569",
+        },
+      },
     });
 
     // Separate Panes X-Axes
     paneConfigs.forEach((pane, i) => {
+      const isBottom = i === paneConfigs.length - 1;
       xAxis.push({
         type: "category",
         gridIndex: i + 1, // 0 is main
@@ -196,7 +344,13 @@ export class LayoutManager {
         axisLine: { show: !pane.isCollapsed, lineStyle: { color: "#334155" } },
         axisTick: { show: false },
         splitLine: { show: false },
-        axisPointer: { label: { show: false } },
+        axisPointer: {
+          label: {
+            show: isBottom,
+            fontSize: 11,
+            backgroundColor: "#475569",
+          },
+        },
       });
     });
 
@@ -207,9 +361,13 @@ export class LayoutManager {
       position: "right",
       scale: true,
       gridIndex: 0,
-      splitLine: { show: true, lineStyle: { color: "#334155", opacity: 0.5 } },
-      axisLine: { lineStyle: { color: "#334155" } },
+      splitLine: {
+        show: !isMainCollapsed,
+        lineStyle: { color: "#334155", opacity: 0.5 },
+      },
+      axisLine: { show: !isMainCollapsed, lineStyle: { color: "#334155" } },
       axisLabel: {
+        show: !isMainCollapsed,
         color: "#94a3b8",
         fontFamily: options.fontFamily || "sans-serif",
       },
@@ -282,5 +440,22 @@ export class LayoutManager {
       mainPaneTop,
       pixelToPercent,
     };
+  }
+
+  private static calculateMaximized(
+    containerHeight: number,
+    options: QFChartOptions,
+    targetPaneIndex: number // 0 for main, 1+ for indicators
+  ): LayoutResult {
+    return {
+      grid: [],
+      xAxis: [],
+      yAxis: [],
+      dataZoom: [],
+      paneLayout: [],
+      mainPaneHeight: 0,
+      mainPaneTop: 0,
+      pixelToPercent: 0,
+    } as any;
   }
 }

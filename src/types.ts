@@ -43,7 +43,10 @@ export interface Indicator {
   paneIndex: number;
   height?: number; // Desired height in percentage (e.g. 15 for 15%)
   collapsed?: boolean;
-  titleColor?: string;
+  controls?: {
+    collapse?: boolean;
+    maximize?: boolean;
+  };
 }
 
 export interface QFChartOptions {
@@ -56,12 +59,17 @@ export interface QFChartOptions {
   fontFamily?: string;
   padding?: number; // Defaults to 0.2
   height?: string | number;
+  controls?: {
+    collapse?: boolean;
+    maximize?: boolean;
+    fullscreen?: boolean;
+  };
   dataZoom?: {
     visible?: boolean;
     position?: "top" | "bottom";
     height?: number; // height in %, default 6
   };
-  tooltip?: {
+  databox?: {
     position: "floating" | "left" | "right";
   };
   layout?: {
@@ -105,9 +113,15 @@ export interface ChartContext {
   // Drawing Management
   addDrawing(drawing: DrawingElement): void;
   removeDrawing(id: string): void;
+  getDrawing(id: string): DrawingElement | undefined;
+  updateDrawing(drawing: DrawingElement): void;
+
+  // Interaction Locking
+  lockChart(): void;
+  unlockChart(): void;
 }
 
-export type DrawingType = "line";
+export type DrawingType = "line" | "fibonacci";
 
 export interface DrawingElement {
   id: string;

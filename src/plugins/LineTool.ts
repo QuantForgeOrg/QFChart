@@ -13,11 +13,13 @@ export class LineTool extends AbstractPlugin {
   private startCircle: any = null;
   private endCircle: any = null;
 
-  constructor() {
+  constructor(options: { name?: string; icon?: string }) {
     super({
-      id: "line-tool",
-      name: "Line Tool",
-      icon: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="22" x2="22" y2="2" /></svg>`,
+      id: "trend-line",
+      name: options?.name || "Trend Line",
+      icon:
+        options?.icon ||
+        `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="2" y1="22" x2="22" y2="2" /></svg>`,
     });
   }
 

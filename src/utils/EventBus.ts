@@ -7,7 +7,24 @@ export type EventType =
   | "chart:dataZoom"
   | "chart:updated"
   | "plugin:activated"
-  | "plugin:deactivated";
+  | "plugin:deactivated"
+  | "drawing:hover"
+  | "drawing:mouseout"
+  | "drawing:mousedown"
+  | "drawing:click"
+  | "drawing:point:hover"
+  | "drawing:point:mouseout"
+  | "drawing:point:mousedown"
+  | "drawing:point:click";
+
+export interface DrawingEventPayload {
+  id: string;
+  type?: string;
+  pointIndex?: number;
+  event?: any;
+  x?: number;
+  y?: number;
+}
 
 export type EventHandler<T = any> = (payload: T) => void;
 
@@ -45,4 +62,3 @@ export class EventBus {
     this.handlers.clear();
   }
 }
-

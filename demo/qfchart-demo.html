@@ -122,8 +122,8 @@
         const chartContainer = document.getElementById("main-chart");
         const chart = new QFChart.QFChart(chartContainer, {
           title: "BTC/USDT", // Custom title
-          height: "600px",
-          tooltip: {
+          height: "740px",
+          databox: {
             position: "right",
           },
           dataZoom: {
@@ -135,6 +135,11 @@
             mainPaneHeight: "60%",
             gap: 5,
           },
+          controls: {
+            collapse: true,
+            maximize: true,
+            fullscreen: true,
+          },
         });
 
         // Set Market Data
@@ -142,18 +147,23 @@
 
         chart.addIndicator("Institutional Bias", institBiasPlots, {
           isOverlay: true,
-          height: 10,
+          height: 14,
           titleColor: "#2962FF",
         });
 
         // Set Indicators
         // Group plots into one indicator
-        chart.addIndicator("SQZMOM", plots, { isOverlay: false, height: 10 });
+        chart.addIndicator("SQZMOM", plots, {
+          isOverlay: false,
+          height: 14,
+          controls: { collapse: true, maximize: true },
+        });
 
         chart.addIndicator("MACD", macdPlots, {
           isOverlay: false,
           height: 10,
           titleColor: "#ff9900",
+          controls: { collapse: true, maximize: true },
         });
 
         // Register Measure Tool Plugin
@@ -163,6 +173,36 @@
         // Register Line Tool Plugin
         const lineTool = new QFChart.LineTool();
         chart.registerPlugin(lineTool);
+
+        // Register Fibonacci Tool Plugin
+        const fibTool = new QFChart.FibonacciTool();
+        chart.registerPlugin(fibTool);
+
+        // Logging Event Listeners for Drawing Tools
+        chart.events.on("drawing:hover", (payload) =>
+          console.log("Event: drawing:hover", payload)
+        );
+        chart.events.on("drawing:mouseout", (payload) =>
+          console.log("Event: drawing:mouseout", payload)
+        );
+        chart.events.on("drawing:mousedown", (payload) =>
+          console.log("Event: drawing:mousedown", payload)
+        );
+        chart.events.on("drawing:click", (payload) =>
+          console.log("Event: drawing:click", payload)
+        );
+        chart.events.on("drawing:point:hover", (payload) =>
+          console.log("Event: drawing:point:hover", payload)
+        );
+        chart.events.on("drawing:point:mouseout", (payload) =>
+          console.log("Event: drawing:point:mouseout", payload)
+        );
+        chart.events.on("drawing:point:mousedown", (payload) =>
+          console.log("Event: drawing:point:mousedown", payload)
+        );
+        chart.events.on("drawing:point:click", (payload) =>
+          console.log("Event: drawing:point:click", payload)
+        );
       });
     </script>
   </body>

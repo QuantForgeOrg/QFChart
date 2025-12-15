@@ -39,6 +39,17 @@ The `MeasureTool` is a built-in plugin that allows users to measure price and ti
   3.  **Click** again to finish and freeze the measurement.
   4.  **Click** anywhere else or drag the chart to clear the measurement.
 
+### Fibonacci Tool
+
+The `FibonacciTool` allows users to draw Fibonacci retracement levels on the chart.
+
+- **Usage**: Click the Fibonacci icon in the toolbar.
+- **Interaction**:
+  1.  **Click** to set the start point (e.g., swing high).
+  2.  **Move** mouse to set the end point (e.g., swing low).
+  3.  **Click** to finish drawing.
+- **Levels**: 0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.
+
 ## Creating Custom Plugins
 
 You can create your own plugins by extending the `AbstractPlugin` class or implementing the `Plugin` interface directly. We recommend extending `AbstractPlugin` as it provides useful helpers and automatic event cleanup.
@@ -112,8 +123,9 @@ export interface ChartContext {
 
 export interface DrawingElement {
   id: string;
-  type: "line";
+  type: "line" | "fibonacci";
   points: DataCoordinate[];
+  paneIndex?: number;
   style?: {
     color?: string;
     lineWidth?: number;
@@ -128,6 +140,31 @@ The chart exposes an Event Bus via `context.events` for communication between pl
 - `mouse:down`, `mouse:move`, `mouse:up`, `mouse:click`
 - `chart:resize`, `chart:dataZoom`, `chart:updated`
 - `plugin:activated`, `plugin:deactivated`
+
+#### Drawing Events
+
+When using the native drawing system (via `addDrawing`), the chart emits granular events for interactions with drawing elements:
+
+- **Shape Events**:
+  - `drawing:hover`: Mouse over a drawing shape (e.g., line).
+  - `drawing:mouseout`: Mouse out of a drawing shape.
+  - `drawing:mousedown`: Mouse down on a drawing shape.
+  - `drawing:click`: Click on a drawing shape.
+- **Control Point Events**:
+  - `drawing:point:hover`: Mouse over a control point (start/end).
+  - `drawing:point:mouseout`: Mouse out of a control point.
+  - `drawing:point:mousedown`: Mouse down on a control point.
+  - `drawing:point:click`: Click on a control point.
+
+All drawing events carry a payload identifying the drawing:
+
+```typescript
+{
+  id: string,       // The ID of the drawing
+  type?: string,    // The type of drawing (e.g., "line")
+  pointIndex?: number // For point events: 0 (start), 1 (end), etc.
+}
+```
 
 ### Coordinate Conversion & Native Drawings
 
