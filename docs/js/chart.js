@@ -25,22 +25,13 @@ console.log('Getting indicator data...');
     const chartContainer = document.getElementById('main-chart');
     window.chart = new QFChart.QFChart(chartContainer, {
         title: 'BTC/USDT', // Custom title
-        height: '700px',
-        padding: 0.2,
+        height: '600px',
+        padding: 0.1,
         databox: {
             position: 'floating',
         },
         dataZoom: {
-            visible: true,
-            position: 'top',
-            height: 6,
-            start: 50,
-            end: 100,
-
-            zoomLock: false,
-            moveOnMouseMove: true,
-            // This prevents the grab cursor
-            preventDefaultMouseMove: false,
+            visible: false,
         },
         layout: {
             mainPaneHeight: '60%',
@@ -59,4 +50,17 @@ console.log('Getting indicator data...');
         titleColor: '#ff9900',
         controls: { collapse: true, maximize: true },
     });
+
+    //add plugins
+    // Register Measure Tool Plugin
+    const measureTool = new QFChart.MeasureTool();
+    chart.registerPlugin(measureTool);
+
+    // Register Line Tool Plugin
+    const lineTool = new QFChart.LineTool();
+    chart.registerPlugin(lineTool);
+
+    // Register Fibonacci Tool Plugin
+    const fibTool = new QFChart.FibonacciTool();
+    chart.registerPlugin(fibTool);
 })();
