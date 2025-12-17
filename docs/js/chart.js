@@ -8,10 +8,7 @@ async function getIndicatorData(inficatorCode, tickerId, timeframe = '1w', perio
 console.log('Getting indicator data...');
 
 (async () => {
-    const promises = [getIndicatorData(macdIndicator, 'BTCUSDT', 'W', DATA_LENGTH)];
-    const results = await Promise.all(promises);
-
-    const { marketData, plots: macdPlots } = results[1];
+    const { marketData, plots: macdPlots } = await getIndicatorData(macdIndicator, 'BTCUSDT', 'W', DATA_LENGTH);
 
     // Map Market Data to QFChart OHLCV format
     // marketData is array of objects: { openTime, open, high, low, close, volume }
