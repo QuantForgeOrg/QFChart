@@ -40,9 +40,9 @@ permalink: /
 <script src="./js/indicators/sqzmom.js"></script>
 <script src="./js/indicators/macd.js"></script>
 <script src="./js/indicators/instit-bias.js"></script>
-<script src="./js/chart.js">
+<script src="./js/chart.js"></script>
 
-
+---
 
 ## Installation
 
@@ -51,15 +51,14 @@ permalink: /
 Include the bundled script in your HTML file:
 
 ```html
-<script src="dist/qfchart.dev.browser.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@qfo/qfchart/dist/qfchart.min.browser.js"></script>
+```
 
-````
-
-### NPM (Coming Soon)
+### NPM
 
 ```bash
-npm install qfchart
-````
+npm install @qfo/qfchart
+```
 
 ## Quick Start
 
