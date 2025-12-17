@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>QFChart - Demo</title>
+
+        <!-- QFChart Library (Bundled with ECharts) -->
+        <script src="https://cdn.jsdelivr.net/npm/@qfo/qfchart/dist/qfchart.min.browser.js"></script>
+
+        <style>
+            body {
+                background-color: #0f172a;
+                margin: 0;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                min-height: 100vh;
+                color: #cbd5e1;
+                font-family: 'Segoe UI', system-ui, sans-serif;
+            }
+
+            #container {
+                width: 100%;
+                max-width: 90vw;
+                margin: 0 auto;
+                padding: 1.5rem;
+                background-color: #1e293b;
+                border: 1px solid #334155;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+            }
+
+            h1 {
+                color: #5eead4;
+                font-size: 2rem;
+                margin-bottom: 1rem;
+                text-align: center;
+            }
+
+            #main-chart {
+                width: 100%;
+                height: 100%;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div id="container">
+            <h1>QFChart Library Demo</h1>
+            <div id="main-chart"></div>
+        </div>
+
+        <!-- Dependencies for Data Loading -->
+        <script src="https://cdn.jsdelivr.net/npm/pinets/dist/pinets.min.browser.js"></script>
+
+        <script>
+            // Initialize QFChart
+            document.addEventListener('DOMContentLoaded', async () => {
+                const indicatorData = JSON.parse(
+                    `{"Histogram":{"data":[{"time":1748217600000,"value":513.1184116809054,"options":{"color":"#26A69A"}},{"time":1748822400000,"value":2549.221759259306,"options":{"color":"#26A69A"}},{"time":1749427200000,"value":3987.921930199399,"options":{"color":"#26A69A"}},{"time":1750032000000,"value":4791.949558404609,"options":{"color":"#26A69A"}},{"time":1750636800000,"value":5840.860199430197,"options":{"color":"#26A69A"}},{"time":1751241600000,"value":6343.027578347601,"options":{"color":"#26A69A"}},{"time":1751846400000,"value":6787.023589743704,"options":{"color":"#26A69A"}},{"time":1752451200000,"value":6569.962735042713,"options":{"color":"#B2DFDB"}},{"time":1753056000000,"value":6382.915163817607,"options":{"color":"#B2DFDB"}},{"time":1753660800000,"value":5124.596787749298,"options":{"color":"#B2DFDB"}},{"time":1754265600000,"value":4025.523361823399,"options":{"color":"#B2DFDB"}},{"time":1754870400000,"value":2804.955178062697,"options":{"color":"#B2DFDB"}},{"time":1755475200000,"value":1842.6144017094957,"options":{"color":"#B2DFDB"}},{"time":1756080000000,"value":811.8633333332982,"options":{"color":"#B2DFDB"}},{"time":1756684800000,"value":-330.2337108262054,"options":{"color":"#FF5252"}},{"time":1757289600000,"value":-614.0109472934018,"options":{"color":"#FF5252"}},{"time":1757894400000,"value":-1169.999423076908,"options":{"color":"#FF5252"}},{"time":1758499200000,"value":-1815.451794871713,"options":{"color":"#FF5252"}},{"time":1759104000000,"value":-2754.1869943019046,"options":{"color":"#FF5252"}},{"time":1759708800000,"value":-3542.59394586891,"options":{"color":"#FF5252"}},{"time":1760313600000,"value":-4552.193233618094,"options":{"color":"#FF5252"}},{"time":1760918400000,"value":-4448.068952991496,"options":{"color":"#FFCDD2"}},{"time":1761523200000,"value":-4813.635235042701,"options":{"color":"#FF5252"}},{"time":1762128000000,"value":-4862.948639601192,"options":{"color":"#FF5252"}},{"time":1762732800000,"value":-4847.181994302,"options":{"color":"#FFCDD2"}},{"time":1763337600000,"value":-4586.906139601204,"options":{"color":"#FFCDD2"}},{"time":1763942400000,"value":-4511.187521367604,"options":{"color":"#FFCDD2"}},{"time":1764547200000,"value":-4761.682058404597,"options":{"color":"#FF5252"}},{"time":1765152000000,"value":-5092.919102564101,"options":{"color":"#FF5252"}},{"time":1765756800000,"value":-5308.2002564102,"options":{"color":"#FF5252"}}],"options":{"title":"Histogram","style":"histogram","color":"#FF5252"}},"MACD":{"data":[{"time":1748217600000,"value":-2152.4025641025946,"options":{"color":"#2962FF"}},{"time":1748822400000,"value":-400.3086538461939,"options":{"color":"#2962FF"}},{"time":1749427200000,"value":1182.188205128099,"options":{"color":"#2962FF"}},{"time":1750032000000,"value":2507.7961538461095,"options":{"color":"#2962FF"}},{"time":1750636800000,"value":4439.448141025598,"options":{"color":"#2962FF"}},{"time":1751241600000,"value":6142.836217948701,"options":{"color":"#2962FF"}},{"time":1751846400000,"value":8024.545961538504,"options":{"color":"#2962FF"}},{"time":1752451200000,"value":9371.368782051213,"options":{"color":"#2962FF"}},{"time":1753056000000,"value":10820.213589743507,"options":{"color":"#2962FF"}},{"time":1753660800000,"value":11026.182435897397,"options":{"color":"#2962FF"}},{"time":1754265600000,"value":11218.036217948698,"options":{"color":"#2962FF"}},{"time":1754870400000,"value":11099.378012820496,"options":{"color":"#2962FF"}},{"time":1755475200000,"value":11090.692371794896,"options":{"color":"#2962FF"}},{"time":1756080000000,"value":10762.502948717898,"options":{"color":"#2962FF"}},{"time":1756684800000,"value":10055.102115384594,"options":{"color":"#2962FF"}},{"time":1757289600000,"value":9989.672243589797,"options":{"color":"#2962FF"}},{"time":1757894400000,"value":9441.473141025592,"options":{"color":"#2962FF"}},{"time":1758499200000,"value":8542.996666666688,"options":{"color":"#2962FF"}},{"time":1759104000000,"value":7176.521346153895,"options":{"color":"#2962FF"}},{"time":1759708800000,"value":5784.37416666669,"options":{"color":"#2962FF"}},{"time":1760313600000,"value":3984.199487179605,"options":{"color":"#2962FF"}},{"time":1760918400000,"value":3213.0276923077035,"options":{"color":"#2962FF"}},{"time":1761523200000,"value":1858.0812179487984,"options":{"color":"#2962FF"}},{"time":1762128000000,"value":777.9760256410082,"options":{"color":"#2962FF"}},{"time":1762732800000,"value":-355.748525641,"options":{"color":"#2962FF"}},{"time":1763337600000,"value":-1287.5908974359045,"options":{"color":"#2962FF"}},{"time":1763942400000,"value":-2431.230897435904,"options":{"color":"#2962FF"}},{"time":1764547200000,"value":-3914.0062820512976,"options":{"color":"#2962FF"}},{"time":1765152000000,"value":-5498.945512820501,"options":{"color":"#2962FF"}},{"time":1765756800000,"value":-6926.529935897401,"options":{"color":"#2962FF"}}],"options":{"title":"MACD","color":"#2962FF"}},"Signal":{"data":[{"time":1748217600000,"value":-2665.5209757835,"options":{"color":"#FF6D00"}},{"time":1748822400000,"value":-2949.5304131055,"options":{"color":"#FF6D00"}},{"time":1749427200000,"value":-2805.7337250713,"options":{"color":"#FF6D00"}},{"time":1750032000000,"value":-2284.1534045585,"options":{"color":"#FF6D00"}},{"time":1750636800000,"value":-1401.4120584046,"options":{"color":"#FF6D00"}},{"time":1751241600000,"value":-200.1913603989,"options":{"color":"#FF6D00"}},{"time":1751846400000,"value":1237.5223717948,"options":{"color":"#FF6D00"}},{"time":1752451200000,"value":2801.4060470085,"options":{"color":"#FF6D00"}},{"time":1753056000000,"value":4437.2984259259,"options":{"color":"#FF6D00"}},{"time":1753660800000,"value":5901.5856481481,"options":{"color":"#FF6D00"}},{"time":1754265600000,"value":7192.5128561253,"options":{"color":"#FF6D00"}},{"time":1754870400000,"value":8294.4228347578,"options":{"color":"#FF6D00"}},{"time":1755475200000,"value":9248.0779700854,"options":{"color":"#FF6D00"}},{"time":1756080000000,"value":9950.6396153846,"options":{"color":"#FF6D00"}},{"time":1756684800000,"value":10385.3358262108,"options":{"color":"#FF6D00"}},{"time":1757289600000,"value":10603.6831908832,"options":{"color":"#FF6D00"}},{"time":1757894400000,"value":10611.4725641025,"options":{"color":"#FF6D00"}},{"time":1758499200000,"value":10358.4484615384,"options":{"color":"#FF6D00"}},{"time":1759104000000,"value":9930.7083404558,"options":{"color":"#FF6D00"}},{"time":1759708800000,"value":9326.9681125356,"options":{"color":"#FF6D00"}},{"time":1760313600000,"value":8536.3927207977,"options":{"color":"#FF6D00"}},{"time":1760918400000,"value":7661.0966452992,"options":{"color":"#FF6D00"}},{"time":1761523200000,"value":6671.7164529915,"options":{"color":"#FF6D00"}},{"time":1762128000000,"value":5640.9246652422,"options":{"color":"#FF6D00"}},{"time":1762732800000,"value":4491.433468661,"options":{"color":"#FF6D00"}},{"time":1763337600000,"value":3299.3152421653,"options":{"color":"#FF6D00"}},{"time":1763942400000,"value":2079.9566239317,"options":{"color":"#FF6D00"}},{"time":1764547200000,"value":847.6757763533,"options":{"color":"#FF6D00"}},{"time":1765152000000,"value":-406.0264102564,"options":{"color":"#FF6D00"}},{"time":1765756800000,"value":-1618.3296794872,"options":{"color":"#FF6D00"}}],"options":{"title":"Signal","color":"#FF6D00"}}}`
+                );
+
+                // Map Market Data to QFChart OHLCV format
+                // marketData is array of objects: { openTime, open, high, low, close, volume }
+                const ohlcvData = JSON.parse(
+                    `[{"time":1748217600000,"open":109004.2,"high":110718,"low":103068.55,"close":105642.93,"volume":116099.819},{"time":1748822400000,"open":105642.93,"high":106794.67,"low":100372.26,"close":105734,"volume":95301.97979},{"time":1749427200000,"open":105734.01,"high":110530.17,"low":102664.31,"close":105594.01,"volume":110085.74896},{"time":1750032000000,"open":105594.02,"high":108952.38,"low":98200,"close":100963.87,"volume":110755.93156},{"time":1750636800000,"open":100963.87,"high":108528.5,"low":99613.33,"close":108356.93,"volume":91938.97808},{"time":1751241600000,"open":108356.93,"high":110529.18,"low":105100.19,"close":109203.84,"volume":72977.1763},{"time":1751846400000,"open":109203.85,"high":119488,"low":107429.57,"close":119086.64,"volume":104658.05244},{"time":1752451200000,"open":119086.65,"high":123218,"low":115736.92,"close":117265.12,"volume":131579.689337},{"time":1753056000000,"open":117265.11,"high":120247.8,"low":114723.16,"close":119415.55,"volume":123158.43225},{"time":1753660800000,"open":119415.56,"high":119800,"low":111920,"close":114208.8,"volume":105088.6224},{"time":1754265600000,"open":114208.81,"high":119311.11,"low":112650,"close":119294.01,"volume":78822.4007},{"time":1754870400000,"open":119294.27,"high":124474,"low":116803.99,"close":117405.01,"volume":120321.123656},{"time":1755475200000,"open":117405.01,"high":117543.75,"low":110680,"close":113493.59,"volume":117920.88503},{"time":1756080000000,"open":113493.59,"high":113667.28,"low":107350.1,"close":108246.35,"volume":110910.33675},{"time":1756684800000,"open":108246.36,"high":113384.62,"low":107255,"close":111137.34,"volume":90809.75324},{"time":1757289600000,"open":111137.35,"high":116665.63,"low":110621.78,"close":115268.01,"volume":88456.94711},{"time":1757894400000,"open":115268.01,"high":117900,"low":114384,"close":115232.29,"volume":70729.4403},{"time":1758499200000,"open":115232.29,"high":115379.25,"low":108620.07,"close":112163.95,"volume":93970.57704},{"time":1759104000000,"open":112163.96,"high":125708.42,"low":111560.65,"close":123482.31,"volume":124480.098903},{"time":1759708800000,"open":123482.32,"high":126199.63,"low":102000,"close":114958.8,"volume":211576.359223},{"time":1760313600000,"open":114958.81,"high":115963.81,"low":103528.23,"close":108642.78,"volume":171795.75097},{"time":1760918400000,"open":108642.77,"high":115466.8,"low":106666.69,"close":114559.4,"volume":137472.95078},{"time":1761523200000,"open":114559.41,"high":116400,"low":106304.34,"close":110540.68,"volume":125045.90669},{"time":1762128000000,"open":110540.69,"high":110750,"low":98944.36,"close":104722.96,"volume":199598.71888},{"time":1762732800000,"open":104722.95,"high":107500,"low":93005.55,"close":94261.44,"volume":189823.3545},{"time":1763337600000,"open":94261.45,"high":96043,"low":80600,"close":86830,"volume":257258.09768},{"time":1763942400000,"open":86830,"high":93092,"low":85272,"close":90360,"volume":118687.98554},{"time":1764547200000,"open":90360.01,"high":94150,"low":83822.76,"close":90395.31,"volume":149459.29022},{"time":1765152000000,"open":90395.32,"high":94588.99,"low":87577.36,"close":88172.17,"volume":107997.17703},{"time":1765756800000,"open":88172.16,"high":90365.85,"low":85146.64,"close":89817.98,"volume":48359.26652}]`
+                );
+
+                // Initialize Chart
+                const chartContainer = document.getElementById('main-chart');
+                const chart = new QFChart.QFChart(chartContainer, {
+                    title: 'BTC/USDT', // Custom title
+                });
+
+                // Set Market Data
+                chart.setMarketData(ohlcvData);
+
+                chart.addIndicator('Indicator', indicatorData, {
+                    isOverlay: false,
+                    height: 20,
+                    titleColor: '#ffffff',
+                });
+            });
+        </script>
+    </body>
+</html>

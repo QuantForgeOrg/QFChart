@@ -8,15 +8,10 @@ async function getIndicatorData(inficatorCode, tickerId, timeframe = '1w', perio
 console.log('Getting indicator data...');
 
 (async () => {
-    const promises = [
-        getIndicatorData(sqzmomIndicator, 'BTCUSDT', 'W', DATA_LENGTH),
-        getIndicatorData(macdIndicator, 'BTCUSDT', 'W', DATA_LENGTH),
-        getIndicatorData(institBiasIndicator, 'BTCUSDT', 'W', DATA_LENGTH),
-    ];
+    const promises = [getIndicatorData(macdIndicator, 'BTCUSDT', 'W', DATA_LENGTH)];
     const results = await Promise.all(promises);
-    const { marketData, plots: sqzmomPlots } = results[0];
-    const { plots: institBiasPlots } = results[2];
-    const { plots: macdPlots } = results[1];
+
+    const { marketData, plots: macdPlots } = results[1];
 
     // Map Market Data to QFChart OHLCV format
     // marketData is array of objects: { openTime, open, high, low, close, volume }
@@ -33,7 +28,7 @@ console.log('Getting indicator data...');
     const chartContainer = document.getElementById('main-chart');
     window.chart = new QFChart.QFChart(chartContainer, {
         title: 'BTC/USDT', // Custom title
-        height: '840px',
+        height: '700px',
         padding: 0.2,
         databox: {
             position: 'floating',
@@ -59,23 +54,12 @@ console.log('Getting indicator data...');
     // Set Market Data
     chart.setMarketData(ohlcvData);
 
-    chart.addIndicator('Institutional Bias', institBiasPlots, {
-        isOverlay: true,
-        titleColor: '#2962FF',
-    });
-
     // Set Indicators
     // Group plots into one indicator
     chart.addIndicator('MACD', macdPlots, {
         isOverlay: false,
         height: 16,
         titleColor: '#ff9900',
-        controls: { collapse: true, maximize: true },
-    });
-
-    chart.addIndicator('SQZMOM', sqzmomPlots, {
-        isOverlay: false,
-        height: 16,
         controls: { collapse: true, maximize: true },
     });
 })();

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>QFChart - Demo</title>
+
+        <style>
+            body {
+                background-color: #0f172a;
+                margin: 0;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                min-height: 100vh;
+                color: #cbd5e1;
+                font-family: 'Segoe UI', system-ui, sans-serif;
+            }
+
+            #container {
+                width: 100%;
+                max-width: 90vw;
+                margin: 0 auto;
+                padding: 1.5rem;
+                background-color: #1e293b;
+                border: 1px solid #334155;
+                border-radius: 8px;
+                box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+            }
+
+            h1 {
+                color: #5eead4;
+                font-size: 2rem;
+                margin-bottom: 1rem;
+                text-align: center;
+            }
+
+            #main-chart {
+                width: 100%;
+                height: 100%;
+            }
+            a {
+                color: #5eead4;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div id="container">
+            <!-- <h1>QFChart Library Demo</h1> -->
+            <p>
+                This is a demo of the QFChart library. It uses the
+                <a href="https://github.com/QuantForgeOrg/PineTS" target="_blank">PineTS</a> library to get the data and the indicators.
+            </p>
+            <hr />
+            <div id="main-chart"><center>Loading...</center></div>
+        </div>
+
+        <!-- QFChart Library (Bundled with ECharts) -->
+        <script src="https://cdn.jsdelivr.net/npm/@qfo/qfchart/dist/qfchart.min.browser.js"></script>
+
+        <!-- Dependencies for Data Loading -->
+        <script src="https://cdn.jsdelivr.net/npm/pinets/dist/pinets.min.browser.js"></script>
+        <script src="../js/indicators/sqzmom.js"></script>
+        <script src="../js/indicators/macd.js"></script>
+        <script src="../js/indicators/instit-bias.js"></script>
+
+        <script>
+            // Data Loading Helper (Simulating what was in chart.js)
+            const DATA_LENGTH = 500;
+            async function getIndicatorData(inficatorCode, tickerId, timeframe = '1w', periods = 500, stime, etime) {
+                const pineTS = new PineTS(PineTS.Provider.Binance, tickerId, timeframe, periods, stime, etime);
+                const { result, plots, marketData } = await pineTS.run(inficatorCode);
+                return { result, plots, marketData };
+            }
+
+            // Initialize QFChart
+            document.addEventListener('DOMContentLoaded', async () => {
+                const promises = [
+                    getIndicatorData(sqzmomIndicator, 'BTCUSDT', 'W', DATA_LENGTH),
+                    getIndicatorData(macdIndicator, 'BTCUSDT', 'W', DATA_LENGTH),
+                    getIndicatorData(institBiasIndicator, 'BTCUSDT', 'W', DATA_LENGTH),
+                ];
+                const results = await Promise.all(promises);
+                const { marketData, plots: sqzmomPlots } = results[0];
+                const { plots: institBiasPlots } = results[2];
+                const { plots: macdPlots } = results[1];
+
+                // Map Market Data to QFChart OHLCV format
+                // marketData is array of objects: { openTime, open, high, low, close, volume }
+                const ohlcvData = marketData.map((k) => ({
+                    time: k.openTime,
+                    open: k.open,
+                    high: k.high,
+                    low: k.low,
+                    close: k.close,
+                    volume: k.volume,
+                }));
+
+                // Initialize Chart
+                const chartContainer = document.getElementById('main-chart');
+                window.chart = new QFChart.QFChart(chartContainer, {
+                    title: 'BTC/USDT', // Custom title
+                    height: '840px',
+                    padding: 0.2,
+                    databox: {
+                        position: 'right',
+                    },
+                    dataZoom: {
+                        visible: true,
+                        position: 'top',
+                        height: 6,
+                        start: 50,
+                        end: 100,
+
+                        zoomLock: false,
+                        moveOnMouseMove: true,
+                        // This prevents the grab cursor
+                        preventDefaultMouseMove: false,
+                    },
+                    layout: {
+                        mainPaneHeight: '60%',
+                        gap: 5,
+                    },
+                    controls: {
+                        collapse: true,
+                        maximize: true,
+                        fullscreen: true,
+                    },
+                });
+
+                // Set Market Data
+                chart.setMarketData(ohlcvData);
+
+                chart.addIndicator('Institutional Bias', institBiasPlots, {
+                    isOverlay: true,
+                    titleColor: '#2962FF',
+                });
+
+                // Set Indicators
+                // Group plots into one indicator
+                chart.addIndicator('MACD', macdPlots, {
+                    isOverlay: false,
+                    height: 16,
+                    titleColor: '#ff9900',
+                    controls: { collapse: true, maximize: true },
+                });
+
+                chart.addIndicator('SQZMOM', sqzmomPlots, {
+                    isOverlay: false,
+                    height: 16,
+                    controls: { collapse: true, maximize: true },
+                });
+
+                // Register Measure Tool Plugin
+                const measureTool = new QFChart.MeasureTool();
+                chart.registerPlugin(measureTool);
+
+                // Register Line Tool Plugin
+                const lineTool = new QFChart.LineTool();
+                chart.registerPlugin(lineTool);
+
+                // Register Fibonacci Tool Plugin
+                const fibTool = new QFChart.FibonacciTool();
+                chart.registerPlugin(fibTool);
+
+                // Logging Event Listeners for Drawing Tools
+                chart.events.on('drawing:hover', (payload) => console.log('Event: drawing:hover', payload));
+                chart.events.on('drawing:mouseout', (payload) => console.log('Event: drawing:mouseout', payload));
+                chart.events.on('drawing:mousedown', (payload) => console.log('Event: drawing:mousedown', payload));
+                chart.events.on('drawing:click', (payload) => console.log('Event: drawing:click', payload));
+                chart.events.on('drawing:point:hover', (payload) => console.log('Event: drawing:point:hover', payload));
+                chart.events.on('drawing:point:mouseout', (payload) => console.log('Event: drawing:point:mouseout', payload));
+                chart.events.on('drawing:point:mousedown', (payload) => console.log('Event: drawing:point:mousedown', payload));
+                chart.events.on('drawing:point:click', (payload) => console.log('Event: drawing:point:click', payload));
+                chart.events.on('drawing:selected', (payload) => console.log('Event: drawing:selected', payload));
+                chart.events.on('drawing:deselected', (payload) => console.log('Event: drawing:deselected', payload));
+                chart.events.on('drawing:deleted', (payload) => console.log('Event: drawing:deleted', payload));
+                // chart.events.on('mouse:down', (payload) => console.log('Event: mouse:down', payload));
+                // chart.events.on('mouse:move', (payload) => console.log('Event: mouse:move', payload));
+                // chart.events.on('mouse:up', (payload) => console.log('Event: mouse:up', payload));
+                // chart.events.on('mouse:click', (payload) => console.log('Event: mouse:click', payload));
+            });
+        </script>
+    </body>
+</html>

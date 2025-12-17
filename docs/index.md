@@ -20,6 +20,8 @@ permalink: /
 -   **Plugin System**: Extensible architecture for adding interactive tools (e.g., Measure Tool, Line Drawing, Fibonacci Retracements).
 -   **TypeScript Support**: Written in TypeScript with full type definitions.
 
+## QFChart in Action
+
 <div id="container">
     <!-- <h1>QFChart Library Demo</h1> -->
     <p>
@@ -39,6 +41,8 @@ permalink: /
 <script src="./js/indicators/macd.js"></script>
 <script src="./js/indicators/instit-bias.js"></script>
 <script src="./js/chart.js">
+
+
 
 ## Installation
 
