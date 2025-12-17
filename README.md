@@ -21,12 +21,14 @@ QFChart is a lightweight, feature-rich financial charting library designed for b
 -   **📈 Overlay Indicators** - Add indicators directly on top of the main chart (SMA, Bollinger Bands, etc.)
 -   **🔍 Interactive Zoom** - Smooth zooming and panning with customizable data range controls
 
-### Drawing Tools
+### Drawing Tools (Plugins)
+
+A plugin system is used to allow adding custom drawing tools to the charts.
+Currently available plugins :
 
 -   **✏️ Line Drawing** - Draw trend lines and support/resistance levels
 -   **📏 Fibonacci Retracements** - Interactive Fibonacci levels with automatic ratio calculations
 -   **📐 Measure Tool** - Measure price and time distances between any two points
--   **🎨 Customizable Styles** - Full control over colors, line widths, and visual appearance
 
 ### Layout & Customization
 
@@ -47,7 +49,7 @@ QFChart is a lightweight, feature-rich financial charting library designed for b
 ### Browser (UMD)
 
 ```html
-<script src="https://unpkg.com/@qfo/qfchart/dist/qfchart.min.browser.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@qfo/qfchart/dist/qfchart.min.browser.js"></script>
 ```
 
 ### NPM
@@ -125,6 +127,13 @@ chart.addIndicator('SMA_20', smaPlots, {
 
 // Add separate pane indicator (e.g., MACD)
 const macdPlots = {
+    histogram: {
+        data: [
+            { time: 1748217600000, value: 513.1184116809054, options: { color: '#26A69A' } },
+            /* ... */
+        ],
+        options: { style: 'histogram', color: '#26A69A' },
+    },
     macd: {
         data: [
             /* ... */
@@ -136,12 +145,6 @@ const macdPlots = {
             /* ... */
         ],
         options: { style: 'line', color: '#FF6D00' },
-    },
-    histogram: {
-        data: [
-            /* ... */
-        ],
-        options: { style: 'histogram', color: '#26A69A' },
     },
 };
 
