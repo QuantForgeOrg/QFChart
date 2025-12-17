@@ -5,6 +5,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 [![npm version](https://img.shields.io/npm/v/@qfo/qfchart.svg)](https://www.npmjs.com/package/@qfo/qfchart)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.1+-blue.svg)](https://www.typescriptlang.org/)
+[![Reddit](https://img.shields.io/reddit/subreddit-subscribers/QuantForge?style=flat-square&logo=reddit)](https://www.reddit.com/r/QuantForge/)
 
 QFChart is a lightweight, feature-rich financial charting library designed for building professional trading platforms. It combines the power of Apache ECharts with an intuitive API specifically tailored for OHLCV candlestick charts, technical indicators, and interactive drawing tools.
 
