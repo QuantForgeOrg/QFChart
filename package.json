@@ -1,0 +1,71 @@
+{
+    "name": "@qfo/qfchart",
+    "version": "0.5.0",
+    "description": "Professional financial charting library built on Apache ECharts with candlestick charts, technical indicators, and interactive drawing tools",
+    "keywords": [
+        "chart",
+        "charting",
+        "candlestick",
+        "financial",
+        "trading",
+        "technical-analysis",
+        "indicators",
+        "echarts",
+        "ohlcv",
+        "stock-chart",
+        "crypto",
+        "forex",
+        "drawing-tools",
+        "fibonacci",
+        "typescript"
+    ],
+    "homepage": "https://github.com/QuantForgeOrg/QFChart#readme",
+    "bugs": {
+        "url": "https://github.com/QuantForgeOrg/QFChart/issues"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/QuantForgeOrg/QFChart.git"
+    },
+    "license": "Apache-2.0",
+    "author": "Alaa-eddine KADDOURI",
+    "type": "module",
+    "main": "dist/qfchart.min.browser.js",
+    "types": "dist/index.d.ts",
+    "files": [
+        "dist",
+        "src",
+        "README.md",
+        "LICENSE"
+    ],
+    "publishConfig": {
+        "access": "public"
+    },
+    "scripts": {
+        "clean": "node -e \"const fs = require('fs'); if (fs.existsSync('dist')) fs.rmSync('dist', { recursive: true, force: true })\"",
+        "build": "npm run clean && rollup -c",
+        "build:dev": "npm run clean && cross-env BUILD=dev rollup -c",
+        "build:prod": "npm run clean && cross-env BUILD=prod rollup -c",
+        "watch": "rollup -c -w",
+        "prepublishOnly": "npm run build:prod",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "devDependencies": {
+        "@rollup/plugin-commonjs": "^25.0.0",
+        "@rollup/plugin-json": "^6.0.0",
+        "@rollup/plugin-node-resolve": "^15.0.0",
+        "@rollup/plugin-replace": "^6.0.3",
+        "cross-env": "^7.0.3",
+        "esbuild": "^0.19.0",
+        "rollup": "^3.28.0",
+        "rollup-plugin-dts": "^6.3.0",
+        "rollup-plugin-esbuild": "^5.0.0",
+        "rollup-plugin-sourcemaps": "^0.6.3",
+        "rollup-plugin-typescript-paths": "^1.4.0",
+        "tslib": "^2.6.0",
+        "typescript": "^5.1.0"
+    },
+    "dependencies": {
+        "echarts": "^6.0.0"
+    }
+}
