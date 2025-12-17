@@ -1,0 +1,23 @@
+# Development files
+.github/
+demo/
+docs/
+node_modules/
+
+# Build configuration
+rollup.config.js
+tsconfig.json
+.prettierrc
+
+# Version control
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+
+# Misc
+*.log
+*.md.backup
+.DS_Store

@@ -9,6 +9,7 @@ export interface PaneConfiguration {
     titleColor?: string;
     controls?: {
         collapse?: boolean;
+        maximize?: boolean;
     };
 }
 
@@ -305,7 +306,7 @@ export class LayoutManager {
             data: [], // Will be filled by SeriesBuilder or QFChart
             gridIndex: 0,
             scale: true,
-            boundaryGap: false,
+            // boundaryGap will be set in QFChart.ts based on padding option
             axisLine: {
                 onZero: false,
                 show: !isMainCollapsed,

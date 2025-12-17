@@ -51,7 +51,9 @@ export class QFChart implements ChartContext {
                     const pGrid = this.chart.convertFromPixel({ gridIndex: i }, [point.x, point.y]);
 
                     if (pGrid) {
-                        return { timeIndex: pGrid[0], value: pGrid[1], paneIndex: i };
+                        // Store padded coordinates directly (don't subtract offset)
+                        // This ensures all coordinates are positive and within the valid padded range
+                        return { timeIndex: Math.round(pGrid[0]), value: pGrid[1], paneIndex: i };
                     }
                 }
             }
@@ -59,6 +61,7 @@ export class QFChart implements ChartContext {
         },
         dataToPixel: (point: { timeIndex: number; value: number; paneIndex?: number }) => {
             const paneIdx = point.paneIndex || 0;
+            // Coordinates are already in padded space, so use directly
             const p = this.chart.convertToPixel({ gridIndex: paneIdx }, [point.timeIndex, point.value]);
             if (p) {
                 return { x: p[0], y: p[1] };
@@ -70,8 +73,9 @@ export class QFChart implements ChartContext {
     // Default colors and constants
     private readonly upColor: string = '#00da3c';
     private readonly downColor: string = '#ec0000';
-    private readonly defaultPadding = 0.2;
+    private readonly defaultPadding = 0.0;
     private padding: number;
+    private dataIndexOffset: number = 0; // Offset for phantom padding data
 
     // DOM Elements for Layout
     private rootContainer: HTMLElement;
@@ -91,7 +95,7 @@ export class QFChart implements ChartContext {
             downColor: '#ec0000',
             fontColor: '#cbd5e1',
             fontFamily: 'sans-serif',
-            padding: 0.2,
+            padding: 0.01,
             dataZoom: {
                 visible: true,
                 position: 'top',
@@ -175,10 +179,15 @@ export class QFChart implements ChartContext {
 
         // Bind global chart/ZRender events to the EventBus
         this.chart.on('dataZoom', (params: any) => this.events.emit('chart:dataZoom', params));
+        // @ts-ignore - ECharts event handler type mismatch
         this.chart.on('finished', (params: any) => this.events.emit('chart:updated', params)); // General chart update
+        // @ts-ignore - ECharts ZRender event handler type mismatch
         this.chart.getZr().on('mousedown', (params: any) => this.events.emit('mouse:down', params));
+        // @ts-ignore - ECharts ZRender event handler type mismatch
         this.chart.getZr().on('mousemove', (params: any) => this.events.emit('mouse:move', params));
+        // @ts-ignore - ECharts ZRender event handler type mismatch
         this.chart.getZr().on('mouseup', (params: any) => this.events.emit('mouse:up', params));
+        // @ts-ignore - ECharts ZRender event handler type mismatch
         this.chart.getZr().on('click', (params: any) => this.events.emit('mouse:click', params));
 
         const zr = this.chart.getZr();
@@ -541,6 +550,119 @@ export class QFChart implements ChartContext {
         this.render();
     }
 
+    /**
+     * Update market data incrementally without full re-render
+     * Merges new/updated OHLCV data with existing data by timestamp
+     *
+     * @param data - Array of OHLCV data to merge
+     *
+     * @remarks
+     * **Performance Optimization**: This method only triggers a chart update if the data array contains
+     * new or modified bars. If an empty array is passed, no update occurs (expected behavior).
+     *
+     * **Usage Pattern for Updating Indicators**:
+     * When updating both market data and indicators, follow this order:
+     *
+     * 1. Update indicator data first using `indicator.updateData(plots)`
+     * 2. Then call `chart.updateData(newBars)` with the new/modified market data
+     *
+     * The chart update will trigger a re-render that includes the updated indicator data.
+     *
+     * **Important**: If you update indicator data without updating market data (e.g., recalculation
+     * with same bars), you must still call `chart.updateData([...])` with at least one bar
+     * to trigger the re-render. Calling with an empty array will NOT trigger an update.
+     *
+     * @example
+     * ```typescript
+     * // Step 1: Update indicator data
+     * macdIndicator.updateData({
+     *   macd: { data: [{ time: 1234567890, value: 150 }], options: { style: 'line', color: '#2962FF' } }
+     * });
+     *
+     * // Step 2: Update market data (triggers re-render with new indicator data)
+     * chart.updateData([
+     *   { time: 1234567890, open: 100, high: 105, low: 99, close: 103, volume: 1000 }
+     * ]);
+     * ```
+     *
+     * @example
+     * ```typescript
+     * // If only updating existing bar (e.g., real-time tick updates):
+     * const lastBar = { ...existingBar, close: newPrice, high: Math.max(existingBar.high, newPrice) };
+     * chart.updateData([lastBar]); // Updates by timestamp
+     * ```
+     */
+    public updateData(data: OHLCV[]): void {
+        if (data.length === 0) return;
+
+        // Build a map of existing data by time for O(1) lookups
+        const existingTimeMap = new Map<number, OHLCV>();
+        this.marketData.forEach((bar) => {
+            existingTimeMap.set(bar.time, bar);
+        });
+
+        // Track if we added new data or only updated existing
+        let hasNewData = false;
+
+        // Merge new data
+        data.forEach((bar) => {
+            if (!existingTimeMap.has(bar.time)) {
+                hasNewData = true;
+            }
+            existingTimeMap.set(bar.time, bar);
+        });
+
+        // Rebuild marketData array sorted by time
+        this.marketData = Array.from(existingTimeMap.values()).sort((a, b) => a.time - b.time);
+
+        // Update timeToIndex map
+        this.rebuildTimeIndex();
+
+        // Use pre-calculated padding points from rebuildTimeIndex
+        const paddingPoints = this.dataIndexOffset;
+
+        // Build candlestick data with padding
+        const candlestickData = this.marketData.map((d) => [d.open, d.close, d.low, d.high]);
+        const emptyCandle = { value: [NaN, NaN, NaN, NaN], itemStyle: { opacity: 0 } };
+        const paddedCandlestickData = [...Array(paddingPoints).fill(emptyCandle), ...candlestickData, ...Array(paddingPoints).fill(emptyCandle)];
+
+        // Build category data with padding
+        const categoryData = [
+            ...Array(paddingPoints).fill(''),
+            ...this.marketData.map((k) => new Date(k.time).toLocaleString()),
+            ...Array(paddingPoints).fill(''),
+        ];
+
+        // Build indicator series data
+        const currentOption = this.chart.getOption() as any;
+        const layout = LayoutManager.calculate(this.chart.getHeight(), this.indicators, this.options, this.isMainCollapsed, this.maximizedPaneId);
+        const indicatorSeries = SeriesBuilder.buildIndicatorSeries(
+            this.indicators,
+            this.timeToIndex,
+            layout.paneLayout,
+            categoryData.length,
+            paddingPoints
+        );
+
+        // Update only the data arrays in the option, not the full config
+        const updateOption: any = {
+            xAxis: currentOption.xAxis.map((axis: any, index: number) => ({
+                data: categoryData,
+            })),
+            series: [
+                {
+                    data: paddedCandlestickData,
+                },
+                ...indicatorSeries.map((s) => ({
+                    data: s.data,
+                })),
+            ],
+        };
+
+        // Merge the update (don't replace entire config)
+        this.chart.setOption(updateOption, { notMerge: false });
+    }
+
     public addIndicator(
         id: string,
         plots: { [name: string]: IndicatorPlot },
@@ -550,7 +672,7 @@ export class QFChart implements ChartContext {
             titleColor?: string;
             controls?: { collapse?: boolean; maximize?: boolean };
         } = { isOverlay: false }
-    ): void {
+    ): Indicator {
         const isOverlay = options.isOverlay ?? false;
         let paneIndex = 0;
         if (!isOverlay) {
@@ -575,6 +697,7 @@ export class QFChart implements ChartContext {
 
         this.indicators.set(id, indicator);
         this.render();
+        return indicator;
     }
 
     // Deprecated: keeping for compatibility if needed, but redirects to addIndicator logic
@@ -640,6 +763,11 @@ export class QFChart implements ChartContext {
         this.marketData.forEach((k, index) => {
             this.timeToIndex.set(k.time, index);
         });
+
+        // Update dataIndexOffset whenever data changes
+        const dataLength = this.marketData.length;
+        const paddingPoints = Math.ceil(dataLength * this.padding);
+        this.dataIndexOffset = paddingPoints;
     }
 
     private render(): void {
@@ -682,7 +810,15 @@ export class QFChart implements ChartContext {
         }
         // ---------------------------------
 
-        const categoryData = this.marketData.map((k) => new Date(k.time).toLocaleString());
+        // Use pre-calculated padding points from rebuildTimeIndex
+        const paddingPoints = this.dataIndexOffset;
+
+        // Create extended category data with empty labels for padding
+        const categoryData = [
+            ...Array(paddingPoints).fill(''), // Left padding
+            ...this.marketData.map((k) => new Date(k.time).toLocaleString()),
+            ...Array(paddingPoints).fill(''), // Right padding
+        ];
 
         // 1. Calculate Layout
         const layout = LayoutManager.calculate(this.chart.getHeight(), this.indicators, this.options, this.isMainCollapsed, this.maximizedPaneId);
@@ -695,25 +831,25 @@ export class QFChart implements ChartContext {
             });
         }
 
-        // Patch X-Axis with Data and Padding
+        // Patch X-Axis with extended data
         layout.xAxis.forEach((axis) => {
             axis.data = categoryData;
-            axis.min = (value: { min: number; max: number }) => {
-                const dataMin = value.min;
-                const range = value.max - value.min;
-                return dataMin + range * this.padding;
-            };
-            axis.max = (value: { min: number; max: number }) => {
-                const dataMax = value.max;
-                const range = value.max - value.min;
-                return dataMax + range * this.padding;
-            };
+            axis.boundaryGap = false; // No additional gap needed, we have phantom data
         });
 
-        // 2. Build Series
+        // 2. Build Series with phantom data padding
         const candlestickSeries = SeriesBuilder.buildCandlestickSeries(this.marketData, this.options);
+        // Extend candlestick data with empty objects (not null) to avoid rendering errors
+        const emptyCandle = { value: [NaN, NaN, NaN, NaN], itemStyle: { opacity: 0 } };
+        candlestickSeries.data = [...Array(paddingPoints).fill(emptyCandle), ...candlestickSeries.data, ...Array(paddingPoints).fill(emptyCandle)];
 
-        const indicatorSeries = SeriesBuilder.buildIndicatorSeries(this.indicators, this.timeToIndex, layout.paneLayout, this.marketData.length);
+        const indicatorSeries = SeriesBuilder.buildIndicatorSeries(
+            this.indicators,
+            this.timeToIndex,
+            layout.paneLayout,
+            categoryData.length,
+            paddingPoints
+        );
 
         // 3. Build Graphics
         const graphic = GraphicBuilder.build(layout, this.options, this.toggleIndicator.bind(this), this.isMainCollapsed, this.maximizedPaneId);
@@ -745,6 +881,7 @@ export class QFChart implements ChartContext {
 
                     if (!start || !end) return;
 
+                    // Coordinates are already in padded space, use directly
                     const p1 = api.coord([start.timeIndex, start.value]);
                     const p2 = api.coord([end.timeIndex, end.value]);
 
@@ -859,17 +996,8 @@ export class QFChart implements ChartContext {
                                 shape: { x1: startX, y1: levelY, x2: endX, y2: levelY },
                                 style: { stroke: color, lineWidth: 1 },
                                 silent: true, // Make internal lines silent so clicks pass to background/diagonal?
-                                // Or maybe we want to hover them to see price?
-                                // For now, silent to simplify interaction, drag via diagonal or background?
-                                // Actually, dragging via diagonal is standard.
                             });
 
-                            // Text Label
-                            // Calculate price
-                            // We need convertFromPixel to get price?
-                            // We have p1/p2 data coordinates in 'drawing.points' but calculating price at level:
-                            // Price = P2.value - (P2.value - P1.value) * level
-                            // Note: value is price.
                             const startVal = drawing.points[0].value;
                             const endVal = drawing.points[1].value;
                             const valDiff = endVal - startVal;
@@ -902,29 +1030,10 @@ export class QFChart implements ChartContext {
                                         opacity: 0.1,
                                     },
                                     silent: true, // Let clicks pass through?
-                                    // If silent=true, we can't click "inside the drawing" to move it.
-                                    // But the user asked "move the whole line when clicking inside the line".
-                                    // For Fib, moving the whole fib object by clicking inside (the colored area) is nice.
-                                    // So let's make it NOT silent, but give it a name that triggers drag?
-                                    // Currently 'line' triggers drag.
-                                    // Let's name it 'fib-bg' and update QFChart to handle it?
-                                    // Or just name it 'line' (hacky)?
-                                    // Let's leave silent=true for now to ensure standard behavior,
-                                    // and rely on the diagonal line for interaction.
                                 });
                             }
                         });
 
-                        // Wrap diagonal line last to be on top? No, z-order in children array.
-                        // We want diagonal line on top to be clickable.
-                        // Re-order: Backgrounds first, then lines, then diagonal, then points.
-                        // Sorting manually:
-                        // 1. Backgrounds
-                        // 2. Level Lines + Text
-                        // 3. Diagonal Line
-                        // 4. Points
-
-                        // Let's restructure the array construction
                         const backgrounds: any[] = [];
                         const linesAndText: any[] = [];
 
@@ -1021,21 +1130,6 @@ export class QFChart implements ChartContext {
 
         // 5. Tooltip Formatter
         const tooltipFormatter = (params: any[]) => {
-            // If databox is not configured (undefined), we don't show custom tooltip content in sidebars.
-            // But echarts tooltip still needs content.
-            // If the user wants NO tooltip, they should set tooltip: { show: false } in echarts options,
-            // but we control that.
-
-            // If databox is absent, maybe we should fallback to default echarts tooltip behavior (floating)?
-            // Or show nothing?
-            // "don't show it in the chart if databox entry is absent" implies hiding the custom box.
-            // But normal hovering usually shows values.
-            // Assuming "floating" is the default if absent is NOT desired.
-
-            // If options.databox is undefined, we return default HTML string for floating tooltip?
-            // Or if we strictly follow "don't show it", maybe return empty string?
-            // Let's assume if databox is missing, we use standard floating tooltip behavior.
-
             const html = TooltipFormatter.format(params, this.options);
             const mode = this.options.databox?.position; // undefined if not present
 
@@ -1047,13 +1141,6 @@ export class QFChart implements ChartContext {
                 this.rightSidebar.innerHTML = html;
                 return ''; // Hide tooltip box
             }
-
-            // If mode is 'floating' OR undefined (not set), we show floating tooltip.
-            // Wait, request said: "don't assume a default value, don't show it in the chart if databox entry is absent"
-            // If databox is absent, does it mean NO tooltip at all?
-            // Or just no "databox" (side panel)?
-            // Usually "databox" refers to the OHLCV display.
-            // If I interpret "don't show it" as "don't show the tooltips", then I should return ''.
 
             if (!this.options.databox) {
                 return ''; // No tooltip content
@@ -1105,19 +1192,6 @@ export class QFChart implements ChartContext {
             dataZoom: layout.dataZoom,
             series: [candlestickSeries, ...indicatorSeries, ...drawingSeriesList],
         };
-
-        // Note: We should preserve any extra options (like custom graphics from plugins)
-        // For now, plugins will inject graphics directly via setOption or we might need a hook.
-        // The current design implies plugins use the echarts instance directly, which is fine.
-        // However, if we call setOption here with `true` (not merge), it will wipe plugin graphics.
-        // We should probably change `true` to `false` or let plugins re-render.
-        // For this implementation, I'll stick to `true` (reset) and assume plugins handle their own state
-        // or we might need to change this behavior if plugin graphics disappear on re-render.
-        // Ideally, `setMarketData` or `addIndicator` causes full re-render.
-        // If a plugin has active graphics, they might be cleared.
-        // But typically drawing tools are transient or added as persistent components.
-        // For the "Measure" tool, it's temporary interaction. If data updates while measuring, it might be tricky.
-        // Let's assume standard flow for now.
 
         this.chart.setOption(option, true); // true = not merge, replace.
     }

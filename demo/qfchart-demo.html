@@ -48,8 +48,12 @@
 
     <body>
         <div id="container">
-            <h1>QFChart Library Demo</h1>
-            <div id="main-chart"></div>
+            <!-- <h1>QFChart Library Demo</h1> -->
+            <p>
+                This is a demo of the QFChart library. It uses the
+                <a href="https://github.com/QuantForgeOrg/PineTS" target="_blank">PineTS</a> library to get the data and the indicators.
+            </p>
+            <div id="main-chart"><center>Loading...</center></div>
         </div>
 
         <!-- Dependencies for Data Loading -->
@@ -81,9 +85,7 @@
 
                 const macdCopy = JSON.parse(JSON.stringify(macdPlots));
                 for (let i in macdCopy) {
-                    macdCopy[i].data = macdCopy[i].data
-                        .slice(-30)
-                        .map((k) => ({ time: k.time, value: k.value, options: { color: k.options.color } }));
+                    macdCopy[i].data = macdCopy[i].data.slice(-1).map((k) => ({ time: k.time, value: k.value, options: { color: k.options.color } }));
                     delete macdCopy[i].title;
                 }
                 console.log('macdCopy', JSON.stringify(macdCopy));
@@ -102,13 +104,14 @@
                 //console.log('ohlcvData', ohlcvData);
 
                 const ohlcvDataCopy = ohlcvData.slice(-30);
-                console.log('ohlcvDataCopy', JSON.stringify(ohlcvDataCopy));
+                console.log('ohlcvDataCopy', ohlcvDataCopy);
 
                 // Initialize Chart
                 const chartContainer = document.getElementById('main-chart');
                 window.chart = new QFChart.QFChart(chartContainer, {
                     title: 'BTC/USDT', // Custom title
-                    height: '740px',
+                    height: '840px',
+                    padding: 0.2,
                     databox: {
                         position: 'right',
                     },
@@ -140,22 +143,21 @@
 
                 chart.addIndicator('Institutional Bias', institBiasPlots, {
                     isOverlay: true,
-                    height: 14,
                     titleColor: '#2962FF',
                 });
 
                 // Set Indicators
                 // Group plots into one indicator
-                chart.addIndicator('SQZMOM', sqzmomPlots, {
+                chart.addIndicator('MACD', macdPlots, {
                     isOverlay: false,
-                    height: 14,
+                    height: 16,
+                    titleColor: '#ff9900',
                     controls: { collapse: true, maximize: true },
                 });
 
-                chart.addIndicator('MACD', macdPlots, {
+                chart.addIndicator('SQZMOM', sqzmomPlots, {
                     isOverlay: false,
-                    height: 10,
-                    titleColor: '#ff9900',
+                    height: 16,
                     controls: { collapse: true, maximize: true },
                 });
 

@@ -17,8 +17,8 @@ The main class for interacting with the chart.
 new QFChart(container: HTMLElement, options?: QFChartOptions)
 ```
 
-- **container**: The DOM element where the chart will be rendered.
-- **options**: Configuration object for the chart.
+-   **container**: The DOM element where the chart will be rendered.
+-   **options**: Configuration object for the chart.
 
 ### Methods
 
@@ -26,45 +26,149 @@ new QFChart(container: HTMLElement, options?: QFChartOptions)
 
 Sets the main OHLCV data for the candlestick chart.
 
-- **data**: Array of `OHLCV` objects.
+-   **data**: Array of `OHLCV` objects.
 
-#### `addIndicator(id: string, plots: IndicatorPlots, options?: IndicatorOptions)`
+**Note**: This method performs a full chart re-render. For incremental updates (e.g., real-time data), use `updateData()` instead.
 
-Adds an indicator to the chart.
+#### `updateData(data: OHLCV[])`
 
-- **id**: Unique identifier for the indicator.
-- **plots**: Object containing plot data definitions.
-- **options**:
-  - `isOverlay`: (boolean) If `true`, renders on the main chart. If `false`, creates a new pane below.
-  - `height`: (number) Height percentage for the new pane (e.g., `15` for 15%).
-  - `controls`: (object) Control buttons configuration.
-    - `collapse`: (boolean) Show collapse/expand button.
-    - `maximize`: (boolean) Show maximize/restore pane button.
+**NEW** - Incrementally updates market data without full re-render for optimal performance.
+
+-   **data**: Array of `OHLCV` objects to merge with existing data.
+
+**Behavior**:
+
+-   Merges data by timestamp: bars with matching timestamps are updated, new timestamps are appended
+-   Only triggers re-render if the array contains data (empty array is ignored for performance)
+-   Automatically maintains sort order and updates internal indices
+-   Preserves phantom padding for scroll zones
+
+**Usage Pattern with Indicators**:
+
+When updating both market data and indicators, **always follow this order**:
+
+1. **First**: Update indicator data using `indicator.updateData(plots)`
+2. **Then**: Call `chart.updateData(newBars)` to trigger the re-render
+
+```typescript
+// Step 1: Update indicator data
+macdIndicator.updateData({
+    macd: { data: [{ time: 1234567890, value: 150 }], options: { style: 'line', color: '#2962FF' } },
+});
+
+// Step 2: Update chart data (triggers re-render with updated indicators)
+chart.updateData([{ time: 1234567890, open: 100, high: 105, low: 99, close: 103, volume: 1000 }]);
+```
+
+**Real-time Tick Updates** (updating last bar):
+
+```typescript
+const lastBar = marketData[marketData.length - 1];
+const updatedBar = {
+    time: lastBar.time, // Same timestamp = update existing bar
+    open: lastBar.open,
+    high: Math.max(lastBar.high, newPrice),
+    low: Math.min(lastBar.low, newPrice),
+    close: newPrice,
+    volume: lastBar.volume + tickVolume,
+};
+chart.updateData([updatedBar]);
+```
+
+**Important**: If you only update indicator data without corresponding market data changes, you must pass at least one bar (even an existing one) to trigger the re-render. Calling with an empty array will NOT update the chart.
+
+#### `addIndicator(id: string, plots: IndicatorPlots, options?: IndicatorOptions): Indicator`
+
+Adds an indicator to the chart and returns the indicator instance.
+
+-   **id**: Unique identifier for the indicator.
+-   **plots**: Object containing plot data definitions.
+-   **options**:
+    -   `isOverlay`: (boolean) If `true`, renders on the main chart. If `false`, creates a new pane below.
+    -   `height`: (number) Height percentage for the new pane (e.g., `15` for 15%).
+    -   `titleColor`: (string) Color for the indicator title.
+    -   `controls`: (object) Control buttons configuration.
+        -   `collapse`: (boolean) Show collapse/expand button.
+        -   `maximize`: (boolean) Show maximize/restore pane button.
+
+**Returns**: An `Indicator` instance that can be used for incremental updates via `indicator.updateData()`.
+
+```typescript
+const macdIndicator = chart.addIndicator('MACD', macdPlots, {
+    isOverlay: false,
+    height: 15,
+    titleColor: '#ff9900',
+});
+
+// Later: update this indicator incrementally
+macdIndicator.updateData(newMacdPlots);
+```
 
 #### `removeIndicator(id: string)`
 
 Removes an indicator by its ID and redraws the layout.
 
+---
+
+## Class: `Indicator`
+
+Represents an indicator instance returned by `addIndicator()`.
+
+### Methods
+
+#### `updateData(plots: IndicatorPlots)`
+
+Incrementally updates the indicator's data by merging new points with existing data.
+
+-   **plots**: Object containing plot data definitions (same structure as `addIndicator`).
+
+**Behavior**:
+
+-   Merges data by timestamp: existing timestamps are updated, new timestamps are added
+-   Automatically sorts all data by time after merge
+-   Only updates the indicator's internal data structure
+-   **Must** be followed by `chart.updateData()` to trigger a visual re-render
+
+```typescript
+// Update indicator data
+indicator.updateData({
+    macd: {
+        data: [
+            { time: 1234567890, value: 150 },
+            { time: 1234567900, value: 155 },
+        ],
+        options: { style: 'line', color: '#2962FF' },
+    },
+});
+
+// Trigger chart re-render
+chart.updateData([{ time: 1234567890, open: 100, high: 105, low: 99, close: 103, volume: 1000 }]);
+```
+
+**Note**: In normal workflows, indicator values are derived from market data, so indicator updates should correspond to new or modified market bars. Updating indicator data without corresponding market data typically indicates a recalculation scenario.
+
+---
+
 #### `registerPlugin(plugin: Plugin)`
 
 Registers a plugin instance with the chart.
 
-- **plugin**: An object implementing the `Plugin` interface (or extending `AbstractPlugin`).
+-   **plugin**: An object implementing the `Plugin` interface (or extending `AbstractPlugin`).
 
 #### `addDrawing(drawing: DrawingElement)`
 
 Adds a persistent drawing (like a line or shape) to the chart. These drawings move and zoom naturally with the chart.
 
-- **drawing**: Object defining the drawing type and coordinates.
-  ```typescript
-  interface DrawingElement {
-    id: string;
-    type: "line" | "fibonacci";
-    points: DataCoordinate[]; // [{ timeIndex, value }, ...]
-    paneIndex?: number;
-    style?: { color?: string; lineWidth?: number };
-  }
-  ```
+-   **drawing**: Object defining the drawing type and coordinates.
+    ```typescript
+    interface DrawingElement {
+        id: string;
+        type: 'line' | 'fibonacci';
+        points: DataCoordinate[]; // [{ timeIndex, value }, ...]
+        paneIndex?: number;
+        style?: { color?: string; lineWidth?: number };
+    }
+    ```
 
 #### `removeDrawing(id: string)`
 
@@ -104,12 +208,12 @@ Data structure for a single candle.
 
 ```typescript
 interface OHLCV {
-  time: number; // Timestamp (ms)
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume?: number;
+    time: number; // Timestamp (ms)
+    open: number;
+    high: number;
+    low: number;
+    close: number;
+    volume?: number;
 }
 ```
 
@@ -119,17 +223,11 @@ Definition of a single data series within an indicator.
 
 ```typescript
 interface IndicatorPlot {
-  data: IndicatorPoint[];
-  options: {
-    style:
-      | "line"
-      | "histogram"
-      | "columns"
-      | "circles"
-      | "cross"
-      | "background";
-    color: string;
-    linewidth?: number;
-  };
+    data: IndicatorPoint[];
+    options: {
+        style: 'line' | 'histogram' | 'columns' | 'circles' | 'cross' | 'background';
+        color: string;
+        linewidth?: number;
+    };
 }
 ```

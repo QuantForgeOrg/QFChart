@@ -37,6 +37,7 @@ export interface Indicator {
     paneIndex: number;
     height?: number; // Desired height in percentage (e.g. 15 for 15%)
     collapsed?: boolean;
+    titleColor?: string;
     controls?: {
         collapse?: boolean;
         maximize?: boolean;

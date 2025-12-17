@@ -1,0 +1,60 @@
+title: QFChart
+description: Professional financial charting library built on Apache ECharts
+baseurl: '/QFChart'
+url: 'https://quantforgeorg.github.io'
+
+theme: just-the-docs
+
+# Navigation
+nav_sort: case_insensitive
+
+# Footer
+footer_content: 'Built with ❤️ by <a href="https://quantforge.org">QuantForge</a> | Licensed under <a href="https://github.com/QuantForgeOrg/QFChart/blob/main/LICENSE">Apache 2.0</a>'
+
+# Search
+search_enabled: true
+search:
+    heading_level: 2
+    previews: 3
+    preview_words_before: 5
+    preview_words_after: 10
+    tokenizer_separator: /[\s/]+/
+    rel_url: true
+    button: false
+
+# Aux links
+aux_links:
+    'QFChart on GitHub':
+        - 'https://github.com/QuantForgeOrg/QFChart'
+    'npm Package':
+        - 'https://www.npmjs.com/package/@qfo/qfchart'
+
+# Color scheme
+color_scheme: dark
+
+# Callouts
+callouts:
+    warning:
+        title: Warning
+        color: red
+    note:
+        title: Note
+        color: blue
+    tip:
+        title: Tip
+        color: green
+
+# Back to top link
+back_to_top: true
+back_to_top_text: 'Back to top'
+
+# Plugins
+plugins:
+    - jekyll-seo-tag
+
+# Markdown
+markdown: kramdown
+kramdown:
+    syntax_highlighter_opts:
+        block:
+            line_numbers: false
