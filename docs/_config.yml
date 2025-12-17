@@ -3,7 +3,7 @@ description: Professional financial charting library built on Apache ECharts
 baseurl: '/QFChart'
 url: 'https://quantforgeorg.github.io'
 
-theme: just-the-docs
+remote_theme: just-the-docs/just-the-docs
 
 # Navigation
 nav_sort: case_insensitive
@@ -50,6 +50,7 @@ back_to_top_text: 'Back to top'
 
 # Plugins
 plugins:
+    - jekyll-remote-theme
     - jekyll-seo-tag
 
 # Markdown
