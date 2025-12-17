@@ -6,73 +6,76 @@ async function getIndicatorData(inficatorCode, tickerId, timeframe = '1w', perio
     return { result, plots, marketData };
 }
 console.log('Getting indicator data...');
-const promises = [
-    getIndicatorData(sqzmomIndicator, 'BTCUSDT', 'W', DATA_LENGTH),
-    getIndicatorData(macdIndicator, 'BTCUSDT', 'W', DATA_LENGTH),
-    getIndicatorData(institBiasIndicator, 'BTCUSDT', 'W', DATA_LENGTH),
-];
-const results = await Promise.all(promises);
-const { marketData, plots: sqzmomPlots } = results[0];
-const { plots: institBiasPlots } = results[2];
-const { plots: macdPlots } = results[1];
 
-// Map Market Data to QFChart OHLCV format
-// marketData is array of objects: { openTime, open, high, low, close, volume }
-const ohlcvData = marketData.map((k) => ({
-    time: k.openTime,
-    open: k.open,
-    high: k.high,
-    low: k.low,
-    close: k.close,
-    volume: k.volume,
-}));
+(async () => {
+    const promises = [
+        getIndicatorData(sqzmomIndicator, 'BTCUSDT', 'W', DATA_LENGTH),
+        getIndicatorData(macdIndicator, 'BTCUSDT', 'W', DATA_LENGTH),
+        getIndicatorData(institBiasIndicator, 'BTCUSDT', 'W', DATA_LENGTH),
+    ];
+    const results = await Promise.all(promises);
+    const { marketData, plots: sqzmomPlots } = results[0];
+    const { plots: institBiasPlots } = results[2];
+    const { plots: macdPlots } = results[1];
 
-// Initialize Chart
-const chartContainer = document.getElementById('main-chart');
-window.chart = new QFChart.QFChart(chartContainer, {
-    title: 'BTC/USDT', // Custom title
-    height: '840px',
-    padding: 0.2,
-    databox: {
-        position: 'floating',
-    },
-    dataZoom: {
-        visible: true,
-        position: 'top',
-        height: 6,
-        start: 50,
-        end: 100,
+    // Map Market Data to QFChart OHLCV format
+    // marketData is array of objects: { openTime, open, high, low, close, volume }
+    const ohlcvData = marketData.map((k) => ({
+        time: k.openTime,
+        open: k.open,
+        high: k.high,
+        low: k.low,
+        close: k.close,
+        volume: k.volume,
+    }));
 
-        zoomLock: false,
-        moveOnMouseMove: true,
-        // This prevents the grab cursor
-        preventDefaultMouseMove: false,
-    },
-    layout: {
-        mainPaneHeight: '60%',
-        gap: 5,
-    },
-});
+    // Initialize Chart
+    const chartContainer = document.getElementById('main-chart');
+    window.chart = new QFChart.QFChart(chartContainer, {
+        title: 'BTC/USDT', // Custom title
+        height: '840px',
+        padding: 0.2,
+        databox: {
+            position: 'floating',
+        },
+        dataZoom: {
+            visible: true,
+            position: 'top',
+            height: 6,
+            start: 50,
+            end: 100,
 
-// Set Market Data
-chart.setMarketData(ohlcvData);
+            zoomLock: false,
+            moveOnMouseMove: true,
+            // This prevents the grab cursor
+            preventDefaultMouseMove: false,
+        },
+        layout: {
+            mainPaneHeight: '60%',
+            gap: 5,
+        },
+    });
 
-chart.addIndicator('Institutional Bias', institBiasPlots, {
-    isOverlay: true,
-    titleColor: '#2962FF',
-});
+    // Set Market Data
+    chart.setMarketData(ohlcvData);
 
-// Set Indicators
-// Group plots into one indicator
-chart.addIndicator('MACD', macdPlots, {
-    isOverlay: false,
-    height: 16,
-    titleColor: '#ff9900',
-    controls: { collapse: true, maximize: true },
-});
+    chart.addIndicator('Institutional Bias', institBiasPlots, {
+        isOverlay: true,
+        titleColor: '#2962FF',
+    });
 
-chart.addIndicator('SQZMOM', sqzmomPlots, {
-    isOverlay: false,
-    height: 16,
-    controls: { collapse: true, maximize: true },
-});
+    // Set Indicators
+    // Group plots into one indicator
+    chart.addIndicator('MACD', macdPlots, {
+        isOverlay: false,
+        height: 16,
+        titleColor: '#ff9900',
+        controls: { collapse: true, maximize: true },
+    });
+
+    chart.addIndicator('SQZMOM', sqzmomPlots, {
+        isOverlay: false,
+        height: 16,
+        controls: { collapse: true, maximize: true },
+    });
+})();
