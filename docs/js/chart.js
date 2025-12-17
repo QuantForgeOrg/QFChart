@@ -31,7 +31,11 @@ console.log('Getting indicator data...');
             position: 'floating',
         },
         dataZoom: {
-            visible: false,
+            visible: true,
+            position: 'inside',
+            height: 6,
+            start: 70,
+            end: 100,
         },
         layout: {
             mainPaneHeight: '60%',
