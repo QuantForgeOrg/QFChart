@@ -14,15 +14,18 @@ export interface IndicatorPoint {
     value: number | null;
     options?: {
         color?: string;
+        offset?: number;
     };
 }
 
-export type IndicatorStyle = 'line' | 'columns' | 'histogram' | 'circles' | 'cross' | 'background';
+export type IndicatorStyle = 'line' | 'step' | 'columns' | 'histogram' | 'circles' | 'cross' | 'background';
 
 export interface IndicatorOptions {
     style: IndicatorStyle;
     color: string;
+    offset?: number;
     linewidth?: number;
+    smooth?: boolean;
 }
 
 export interface IndicatorPlot {

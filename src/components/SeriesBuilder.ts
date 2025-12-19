@@ -69,12 +69,29 @@ export class SeriesBuilder {
                 plot.data.forEach((point) => {
                     const index = timeToIndex.get(point.time);
                     if (index !== undefined) {
-                        const offsetIndex = index + dataIndexOffset;
-                        dataArray[offsetIndex] = point.value;
-                        colorArray[offsetIndex] = point.options?.color || plot.options.color;
+                        const plotOffset = point.options?.offset ?? plot.options.offset ?? 0;
+                        const offsetIndex = index + dataIndexOffset + plotOffset;
+
+                        if (offsetIndex >= 0 && offsetIndex < totalDataLength) {
+                            let value = point.value;
+                            const pointColor = point.options?.color;
+
+                            // TradingView compatibility: if color is 'na' (NaN, null, or "na"), break the line
+                            const isNaColor =
+                                pointColor === null ||
+                                pointColor === 'na' ||
+                                pointColor === 'NaN' ||
+                                (typeof pointColor === 'number' && isNaN(pointColor));
+
+                            if (isNaColor) {
+                                value = null;
+                            }
+
+                            dataArray[offsetIndex] = value;
+                            colorArray[offsetIndex] = pointColor || plot.options.color;
+                        }
                     }
                 });
-
                 switch (plot.options.style) {
                     case 'histogram':
                     case 'columns':
@@ -163,24 +180,75 @@ export class SeriesBuilder {
                         });
                         break;
 
+                    case 'step':
+                        series.push({
+                            name: seriesName,
+                            type: 'custom',
+                            xAxisIndex: xAxisIndex,
+                            yAxisIndex: yAxisIndex,
+                            renderItem: (params: any, api: any) => {
+                                const x = api.value(0);
+                                const y = api.value(1);
+                                if (isNaN(y) || y === null) return;
+
+                                const coords = api.coord([x, y]);
+                                const width = api.size([1, 0])[0];
+
+                                return {
+                                    type: 'line',
+                                    shape: {
+                                        x1: coords[0] - width / 2,
+                                        y1: coords[1],
+                                        x2: coords[0] + width / 2,
+                                        y2: coords[1],
+                                    },
+                                    style: {
+                                        stroke: colorArray[params.dataIndex] || plot.options.color,
+                                        lineWidth: plot.options.linewidth || 1,
+                                    },
+                                    silent: true,
+                                };
+                            },
+                            data: dataArray.map((val, i) => [i, val]),
+                        });
+                        break;
+
                     case 'line':
                     default:
                         series.push({
                             name: seriesName,
-                            type: 'line',
+                            type: 'custom',
                             xAxisIndex: xAxisIndex,
                             yAxisIndex: yAxisIndex,
-                            smooth: true,
-                            showSymbol: false,
-                            data: dataArray.map((val, i) => ({
-                                value: val,
-                                itemStyle: colorArray[i] ? { color: colorArray[i] } : undefined,
-                            })),
-                            itemStyle: { color: plot.options.color },
-                            lineStyle: {
-                                width: plot.options.linewidth || 1,
-                                color: plot.options.color,
+                            renderItem: (params: any, api: any) => {
+                                const index = params.dataIndex;
+                                if (index === 0) return; // Need at least two points for a line segment
+
+                                const y2 = api.value(1);
+                                const y1 = api.value(2); // We'll store prevValue in the data
+
+                                if (y2 === null || isNaN(y2) || y1 === null || isNaN(y1)) return;
+
+                                const p1 = api.coord([index - 1, y1]);
+                                const p2 = api.coord([index, y2]);
+
+                                return {
+                                    type: 'line',
+                                    shape: {
+                                        x1: p1[0],
+                                        y1: p1[1],
+                                        x2: p2[0],
+                                        y2: p2[1],
+                                    },
+                                    style: {
+                                        stroke: colorArray[index] || plot.options.color,
+                                        lineWidth: plot.options.linewidth || 1,
+                                    },
+                                    silent: true,
+                                };
                             },
+                            // Data format: [index, value, prevValue]
+                            data: dataArray.map((val, i) => [i, val, i > 0 ? dataArray[i - 1] : null]),
                         });
                         break;
                 }
