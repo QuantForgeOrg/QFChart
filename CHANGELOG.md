@@ -5,6 +5,31 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] - 2025-12-20
+
+### Added
+
+-   **Enhanced Plot Types**
+    -   Multi-color support for Line plots, allowing different colors per segment.
+    -   New Step plot type for discrete value visualization.
+-   **Documentation & Examples**
+    -   Live demos integrated into documentation pages.
+    -   Additional demo examples showcasing plugin usage and features.
+    -   Plugin integration examples in demo charts.
+
+### Fixed
+
+-   Zoom controller improvements and tweaks for better user experience.
+-   Chart.js integration fixes for proper module loading.
+-   Documentation page rendering and theme consistency.
+-   Updated internal GitHub repository links.
+
+### Changed
+
+-   Enhanced demo pages with more comprehensive examples.
+-   Improved documentation structure and navigation.
+-   Optimized chart sizing for various use cases.
+
 ## [0.5.0] - 2025-12-17 (first public release)
 
 ### Added

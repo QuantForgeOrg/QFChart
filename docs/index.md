@@ -25,8 +25,8 @@ permalink: /
 <div id="container">
     <!-- <h1>QFChart Library Demo</h1> -->
     <p>
-        This is a demo of the QFChart library. It uses the
-        <a href="https://github.com/QuantForgeOrg/PineTS" target="_blank">PineTS</a> library to get the data and the indicators.
+        This is demo uses <a href="https://github.com/QuantForgeOrg/QFChart" target="_blank">QFChart</a> for visualization and 
+        <a href="https://github.com/QuantForgeOrg/PineTS" target="_blank">PineTS</a> library for market data loading and indicators processing.
     </p>
     <hr />
     <div id="main-chart"></div>
@@ -40,7 +40,7 @@ permalink: /
 <script src="./js/indicators/sqzmom.js"></script>
 <script src="./js/indicators/macd.js"></script>
 <script src="./js/indicators/instit-bias.js"></script>
-<script src="./js/chart.js"></script>
+<script src="./js/chart-script.js"></script>
 
 ---
 
