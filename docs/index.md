@@ -32,7 +32,8 @@ permalink: /
     <div id="main-chart"></div>
 </div>
 
-<!-- QFChart Library (Bundled with ECharts) -->
+<!-- QFChart Library and Dependencies -->
+<script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@qfo/qfchart/dist/qfchart.min.browser.js"></script>
 
 <!-- Dependencies for Data Loading -->
@@ -48,16 +49,20 @@ permalink: /
 
 ### Browser (UMD)
 
-Include the bundled script in your HTML file:
+Include the ECharts library and QFChart in your HTML file:
 
 ```html
+<!-- 1. Include ECharts (Required) -->
+<script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+
+<!-- 2. Include QFChart -->
 <script src="https://cdn.jsdelivr.net/npm/@qfo/qfchart/dist/qfchart.min.browser.js"></script>
 ```
 
 ### NPM
 
 ```bash
-npm install @qfo/qfchart
+npm install @qfo/qfchart echarts
 ```
 
 ## Quick Start
