@@ -137,6 +137,12 @@ const plots = {
 chart.addIndicator('SMA_14', plots, { isOverlay: true });
 ```
 
+#### Plotting System
+
+QFChart supports multiple plot styles for rendering technical indicators: `line`, `step`, `histogram`, `columns`, `circles`, `cross`, `background`, and `shape`. Each style offers different visualization options and per-point styling capabilities. The `shape` style is particularly powerful, with support for various shapes (arrows, triangles, labels), custom sizes, text labels, and flexible positioning modes.
+
+For detailed information about plot styles, options, and examples, see the [Plotting System Documentation](/plots).
+
 ### 5. Real-time Updates (Optional)
 
 For real-time data feeds (e.g., WebSocket), use `updateData()` for optimal performance:

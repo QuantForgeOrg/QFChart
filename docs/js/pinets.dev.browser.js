@@ -8010,6 +8010,8 @@
     ...KNOWN_NAMESPACES,
     //plots
     "plotchar",
+    "plotshape",
+    "plotarrow",
     "plot",
     "hline",
     //declarations
@@ -8045,6 +8047,10 @@
     "order",
     "currency",
     "display",
+    "shape",
+    "location",
+    "size",
+    "format",
     "dayofweek"
   ];
   const CONTEXT_CORE_VARS = ["na", "nz", "plot", "plotchar", "color", "hline"];
@@ -12868,7 +12874,7 @@ ${code}
     };
   }
 
-  function size$1(context) {
+  function size$2(context) {
     return (id) => {
       return id.array.length;
     };
@@ -12970,11 +12976,73 @@ ${code}
     display2["status_line"] = "status_line";
     return display2;
   })(display || {});
+  var shape = /* @__PURE__ */ ((shape2) => {
+    shape2["flag"] = "flag";
+    shape2["arrowdown"] = "arrowdown";
+    shape2["arrowup"] = "arrowup";
+    shape2["circle"] = "circle";
+    shape2["cross"] = "cross";
+    shape2["diamond"] = "diamond";
+    shape2["labeldown"] = "labeldown";
+    shape2["labelup"] = "labelup";
+    shape2["square"] = "square";
+    shape2["triangledown"] = "triangledown";
+    shape2["triangleup"] = "triangleup";
+    shape2["xcross"] = "xcross";
+    return shape2;
+  })(shape || {});
+  var location = /* @__PURE__ */ ((location2) => {
+    location2["abovebar"] = "abovebar";
+    location2["belowbar"] = "belowbar";
+    location2["absolute"] = "absolute";
+    location2["bottom"] = "bottom";
+    location2["top"] = "top";
+    return location2;
+  })(location || {});
+  var size$1 = /* @__PURE__ */ ((size2) => {
+    size2["auto"] = "auto";
+    size2["tiny"] = "tiny";
+    size2["small"] = "small";
+    size2["normal"] = "normal";
+    size2["large"] = "large";
+    size2["huge"] = "huge";
+    return size2;
+  })(size$1 || {});
+  var format = /* @__PURE__ */ ((format2) => {
+    format2["inherit"] = "inherit";
+    format2["mintick"] = "mintick";
+    format2["percent"] = "percent";
+    format2["price"] = "price";
+    format2["volume"] = "volume";
+    return format2;
+  })(format || {});
+  var plot = /* @__PURE__ */ ((plot2) => {
+    plot2["linestyle_dashed"] = "linestyle_dashed";
+    plot2["linestyle_dotted"] = "linestyle_dotted";
+    plot2["linestyle_solid"] = "linestyle_solid";
+    plot2["style_area"] = "style_area";
+    plot2["style_areabr"] = "style_areabr";
+    plot2["style_circles"] = "style_circles";
+    plot2["style_columns"] = "style_columns";
+    plot2["style_cross"] = "style_cross";
+    plot2["style_histogram"] = "style_histogram";
+    plot2["style_line"] = "style_line";
+    plot2["style_linebr"] = "style_linebr";
+    plot2["style_stepline"] = "style_stepline";
+    plot2["style_stepline_diamond"] = "style_stepline_diamond";
+    plot2["style_steplinebr"] = "style_steplinebr";
+    return plot2;
+  })(plot || {});
   const types = {
     order,
     currency,
     dayofweek,
-    display
+    display,
+    shape,
+    location,
+    size: size$1,
+    format,
+    plot
   };
 
   function sort$1(context) {
@@ -13200,7 +13268,7 @@ ${code}
       this._reverse = reverse$1(this.context);
       this._set = set$1(this.context);
       this._shift = shift(this.context);
-      this._size = size$1(this.context);
+      this._size = size$2(this.context);
       this._slice = slice(this.context);
       this._some = some(this.context);
       this._sort = sort$1(this.context);
@@ -18313,6 +18381,38 @@ ${code}
     "precision",
     "force_overlay"
   ];
+  const PLOT_SHAPE_SIGNATURE = [
+    "series",
+    "title",
+    "style",
+    "location",
+    "color",
+    "offset",
+    "text",
+    "textcolor",
+    "editable",
+    "size",
+    "show_last",
+    "display",
+    "format",
+    "precision",
+    "force_overlay"
+  ];
+  const PLOT_ARROW_SIGNATURE = [
+    "series",
+    "title",
+    "colorup",
+    "colordown",
+    "offset",
+    "minheight",
+    "maxheight",
+    "editable",
+    "show_last",
+    "display",
+    "format",
+    "precision",
+    "force_overlay"
+  ];
   const PLOT_ARGS_TYPES = {
     series: "series",
     title: "string",
@@ -18323,6 +18423,38 @@ ${code}
     histbase: "number",
     offset: "number",
     join: "bool",
+    editable: "boolean",
+    show_last: "number",
+    display: "string",
+    format: "string",
+    precision: "number",
+    force_overlay: "boolean"
+  };
+  const PLOT_SHAPE_ARGS_TYPES = {
+    series: "series",
+    title: "string",
+    style: "string",
+    location: "string",
+    color: "string",
+    offset: "number",
+    text: "string",
+    textcolor: "string",
+    editable: "boolean",
+    size: "string",
+    show_last: "number",
+    display: "string",
+    format: "string",
+    precision: "number",
+    force_overlay: "boolean"
+  };
+  const PLOT_ARROW_ARGS_TYPES = {
+    series: "series",
+    title: "string",
+    colorup: "string",
+    colordown: "string",
+    offset: "number",
+    minheight: "number",
+    maxheight: "number",
     editable: "boolean",
     show_last: "number",
     display: "string",
@@ -18342,16 +18474,8 @@ ${code}
       return _options;
     }
     //in the current implementation, plot functions are only used to collect data for the plots array and map it to the market data
-    plotchar(series, title, options) {
-      if (!this.context.plots[title]) {
-        this.context.plots[title] = { data: [], options: this.extractPlotOptions(options), title };
-      }
-      const value = Series.from(series).get(0);
-      this.context.plots[title].data.push({
-        time: this.context.marketData[this.context.idx].openTime,
-        value,
-        options: { ...this.extractPlotOptions(options), style: "char" }
-      });
+    plotchar(...args) {
+      this.plot(...args);
     }
     plot(...args) {
       const _parsed = parseArgsForPineParams(args, PLOT_SIGNATURE, PLOT_ARGS_TYPES);
@@ -18365,6 +18489,50 @@ ${code}
         time: this.context.marketData[this.context.idx].openTime,
         value,
         options: { color: options.color, offset: options.offset }
+      });
+    }
+    plotshape(...args) {
+      const _parsed = parseArgsForPineParams(args, PLOT_SHAPE_SIGNATURE, PLOT_SHAPE_ARGS_TYPES);
+      const { series, title, ...others } = _parsed;
+      const options = this.extractPlotOptions(others);
+      if (!this.context.plots[title]) {
+        this.context.plots[title] = { data: [], options: { ...options, style: "shape", shape: options.style }, title };
+      }
+      const value = Series.from(series).get(0);
+      this.context.plots[title].data.push({
+        time: this.context.marketData[this.context.idx].openTime,
+        value,
+        options: options?.location === "absolute" || value ? {
+          text: options.text,
+          textcolor: options.textcolor,
+          color: options.color,
+          offset: options.offset,
+          shape: options.style,
+          location: options.location,
+          size: options.size
+        } : void 0
+      });
+    }
+    plotarrow(...args) {
+      const _parsed = parseArgsForPineParams(args, PLOT_ARROW_SIGNATURE, PLOT_ARROW_ARGS_TYPES);
+      const { series, title, ...others } = _parsed;
+      const value = Series.from(series).get(0);
+      const options = this.extractPlotOptions(others);
+      if (!this.context.plots[title]) {
+        this.context.plots[title] = { data: [], options: { ...options, style: "shape" }, title };
+      }
+      this.context.plots[title].data.push({
+        time: this.context.marketData[this.context.idx].openTime,
+        value,
+        options: value !== 0 ? {
+          text: void 0,
+          textcolor: void 0,
+          color: value > 0 ? options.colorup : options.colordown,
+          offset: options.offset,
+          shape: value > 0 ? "arrowup" : "arrowdown",
+          location: value > 0 ? "belowbar" : "abovebar",
+          height: options.maxheight
+        } : void 0
       });
     }
   }
@@ -18472,11 +18640,6 @@ ${code}
         array: new PineArray(this),
         map: new PineMap(this),
         matrix: new PineMatrix(this),
-        //na: coreFunctions.na,
-        //plotchar: coreFunctions.plotchar,
-        //color: coreFunctions.color,
-        //plot: coreFunctions.plot,
-        //nz: coreFunctions.nz,
         syminfo: null,
         timeframe: new Timeframe(this),
         //FIXME : this is a temporary solution to get the barstate values,
@@ -18501,7 +18664,7 @@ ${code}
       };
       const plotHelper = new PlotHelper(this);
       const hlineHelper = new HlineHelper(this);
-      this.bindContextObject(plotHelper, ["plot", "plotchar"]);
+      this.bindContextObject(plotHelper, ["plot", "plotchar", "plotshape", "plotarrow"]);
       this.bindContextObject(hlineHelper, ["any", "style_dashed", "style_solid", "style_dotted", "param"], "hline");
     }
     bindContextObject(instance, entries, root = "") {
@@ -18696,6 +18859,8 @@ ${code}
       return {
         na: this.pine.na,
         plotchar: this.pine.plotchar,
+        plotshape: this.pine.plotshape,
+        plotarrow: this.pine.plotarrow,
         color: this.pine.color,
         plot: this.pine.plot,
         nz: this.pine.nz

@@ -636,12 +636,26 @@ export class QFChart implements ChartContext {
         // Build indicator series data
         const currentOption = this.chart.getOption() as any;
         const layout = LayoutManager.calculate(this.chart.getHeight(), this.indicators, this.options, this.isMainCollapsed, this.maximizedPaneId);
+
+        // Pass full padded candlestick data for shape positioning
+        // But SeriesBuilder expects 'OHLCV[]', while paddedCandlestickData is array of arrays [open,close,low,high]
+        // We need to pass the raw marketData but ALIGNED with padding?
+        // Or better, pass the processed OHLCV array?
+        // Let's pass the raw marketData, but SeriesBuilder needs to handle the padding internally or we pass padded data?
+        // SeriesBuilder.buildIndicatorSeries iterates over 'totalDataLength' (which includes padding) and uses 'dataIndexOffset'.
+        // So passing 'this.marketData' is not enough because index 0 in marketData corresponds to 'paddingPoints' index in chart.
+        // We should pass an array that aligns with chart indices.
+        // Let's reconstruct an array of objects {high, low} that includes padding.
+
+        const paddedOHLCVForShapes = [...Array(paddingPoints).fill(null), ...this.marketData, ...Array(paddingPoints).fill(null)];
+
         const indicatorSeries = SeriesBuilder.buildIndicatorSeries(
             this.indicators,
             this.timeToIndex,
             layout.paneLayout,
             categoryData.length,
-            paddingPoints
+            paddingPoints,
+            paddedOHLCVForShapes // Pass padded OHLCV data
         );
 
         // Update only the data arrays in the option, not the full config
@@ -843,12 +857,16 @@ export class QFChart implements ChartContext {
         const emptyCandle = { value: [NaN, NaN, NaN, NaN], itemStyle: { opacity: 0 } };
         candlestickSeries.data = [...Array(paddingPoints).fill(emptyCandle), ...candlestickSeries.data, ...Array(paddingPoints).fill(emptyCandle)];
 
+        // Build array of OHLCV aligned with indices for shape positioning
+        const paddedOHLCVForShapes = [...Array(paddingPoints).fill(null), ...this.marketData, ...Array(paddingPoints).fill(null)];
+
         const indicatorSeries = SeriesBuilder.buildIndicatorSeries(
             this.indicators,
             this.timeToIndex,
             layout.paneLayout,
             categoryData.length,
-            paddingPoints
+            paddingPoints,
+            paddedOHLCVForShapes // Pass padded OHLCV
         );
 
         // 3. Build Graphics

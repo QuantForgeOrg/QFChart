@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.7] - 2025-12-24
+
+### Added
+
+-   **Shape Plot Style**
+    -   New `shape` plot style with extensive customization options for technical indicator signals.
+    -   Support for 12 shape types: `circle`, `square`, `diamond`, `triangleup`, `triangledown`, `arrowup`, `arrowdown`, `flag`, `cross`, `xcross`, `labelup`, `labeldown`.
+    -   6 size presets: `tiny`, `small`, `normal`, `large`, `huge`, `auto`.
+    -   Custom dimensions support with `width` and `height` attributes for non-uniform shapes.
+    -   5 location modes: `absolute`, `abovebar`, `belowbar`, `top`, `bottom` for flexible positioning.
+    -   Text label support with configurable color and automatic positioning based on location.
+    -   Per-point overrides for all shape attributes (shape, size, color, text, location, dimensions).
+-   **Documentation**
+    -   Comprehensive plotting system documentation (`/plots`) covering all 7 plot styles.
+    -   Detailed shape plot examples and configuration guide.
+    -   PineScript demo page showing runtime transpilation with PineTS.
+    -   Cross-signal indicator example demonstrating shape plots with EMA crossover signals.
+
+### Changed
+
+-   **Build Pipeline Modernization**
+    -   Migrated from UMD-only to hybrid ESM/CJS/UMD build system.
+    -   Added `exports` field in `package.json` for modern bundler support.
+    -   Externalized ECharts dependency - now required as peer dependency.
+    -   Separate ESM (`qfchart.min.es.js`) and UMD (`qfchart.min.browser.js`) bundles.
+    -   Updated all demo pages to include ECharts script tag.
+    -   Improved Rollup configuration for better tree-shaking and bundle optimization.
+
+### Fixed
+
+-   Binance provider hotfix for USA users connectivity issues.
+
 ## [0.5.2] - 2025-12-20
 
 ### Added
