@@ -34,10 +34,10 @@ permalink: /
 
 <!-- QFChart Library and Dependencies -->
 <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@qfo/qfchart/dist/qfchart.min.browser.js"></script>
+<script src="./js/qfchart.min.browser.js"></script>
 
 <!-- Dependencies for Data Loading -->
-<script src="https://cdn.jsdelivr.net/npm/pinets/dist/pinets.min.browser.js"></script>
+<script src="./js/pinets.dev.browser.js"></script>
 <script src="./js/indicators/sqzmom.js"></script>
 <script src="./js/indicators/macd.js"></script>
 <script src="./js/indicators/instit-bias.js"></script>
