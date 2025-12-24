@@ -49,19 +49,23 @@ Currently available plugins :
 ### Browser (UMD)
 
 ```html
+<!-- 1. Include ECharts (Required) -->
+<script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+
+<!-- 2. Include QFChart -->
 <script src="https://cdn.jsdelivr.net/npm/@qfo/qfchart/dist/qfchart.min.browser.js"></script>
 ```
 
 ### NPM
 
 ```bash
-npm install @qfo/qfchart
+npm install @qfo/qfchart echarts
 ```
 
 ### Yarn
 
 ```bash
-yarn add @qfo/qfchart
+yarn add @qfo/qfchart echarts
 ```
 
 ## 🚀 Quick Start

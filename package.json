@@ -1,6 +1,6 @@
 {
     "name": "@qfo/qfchart",
-    "version": "0.5.0",
+    "version": "0.5.7",
     "description": "Professional financial charting library built on Apache ECharts with candlestick charts, technical indicators, and interactive drawing tools",
     "keywords": [
         "chart",
@@ -30,8 +30,17 @@
     "license": "Apache-2.0",
     "author": "Alaa-eddine KADDOURI",
     "type": "module",
-    "main": "dist/qfchart.min.browser.js",
-    "types": "dist/index.d.ts",
+    "main": "./dist/qfchart.min.browser.js",
+    "module": "./dist/qfchart.min.es.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+        ".": {
+            "types": "./dist/index.d.ts",
+            "import": "./dist/qfchart.min.es.js",
+            "require": "./dist/qfchart.min.browser.js",
+            "default": "./dist/qfchart.min.browser.js"
+        }
+    },
     "files": [
         "dist",
         "src",
@@ -56,6 +65,7 @@
         "@rollup/plugin-node-resolve": "^15.0.0",
         "@rollup/plugin-replace": "^6.0.3",
         "cross-env": "^7.0.3",
+        "echarts": "^6.0.0",
         "esbuild": "^0.19.0",
         "rollup": "^3.28.0",
         "rollup-plugin-dts": "^6.3.0",
@@ -65,7 +75,7 @@
         "tslib": "^2.6.0",
         "typescript": "^5.1.0"
     },
-    "dependencies": {
-        "echarts": "^6.0.0"
+    "peerDependencies": {
+        "echarts": "^5.0.0 || ^6.0.0"
     }
 }

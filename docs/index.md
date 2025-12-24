@@ -32,7 +32,8 @@ permalink: /
     <div id="main-chart"></div>
 </div>
 
-<!-- QFChart Library (Bundled with ECharts) -->
+<!-- QFChart Library and Dependencies -->
+<script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@qfo/qfchart/dist/qfchart.min.browser.js"></script>
 
 <!-- Dependencies for Data Loading -->
@@ -48,16 +49,20 @@ permalink: /
 
 ### Browser (UMD)
 
-Include the bundled script in your HTML file:
+Include the ECharts library and QFChart in your HTML file:
 
 ```html
+<!-- 1. Include ECharts (Required) -->
+<script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+
+<!-- 2. Include QFChart -->
 <script src="https://cdn.jsdelivr.net/npm/@qfo/qfchart/dist/qfchart.min.browser.js"></script>
 ```
 
 ### NPM
 
 ```bash
-npm install @qfo/qfchart
+npm install @qfo/qfchart echarts
 ```
 
 ## Quick Start
@@ -131,6 +136,12 @@ const plots = {
 // Add as overlay on main chart
 chart.addIndicator('SMA_14', plots, { isOverlay: true });
 ```
+
+#### Plotting System
+
+QFChart supports multiple plot styles for rendering technical indicators: `line`, `step`, `histogram`, `columns`, `circles`, `cross`, `background`, and `shape`. Each style offers different visualization options and per-point styling capabilities. The `shape` style is particularly powerful, with support for various shapes (arrows, triangles, labels), custom sizes, text labels, and flexible positioning modes.
+
+For detailed information about plot styles, options, and examples, see the [Plotting System Documentation](/plots).
 
 ### 5. Real-time Updates (Optional)
 

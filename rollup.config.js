@@ -18,15 +18,16 @@ const LicenseHeader = `
 import json from '@rollup/plugin-json';
 import esbuild from 'rollup-plugin-esbuild';
 import sourcemaps from 'rollup-plugin-sourcemaps';
-import { typescriptPaths } from 'rollup-plugin-typescript-paths';
+// import { typescriptPaths } from 'rollup-plugin-typescript-paths'; // Not strictly needed if using esbuild/dts usually, but keeping compatible
 import commonjs from '@rollup/plugin-commonjs';
 import resolve from '@rollup/plugin-node-resolve';
 import replace from '@rollup/plugin-replace';
 import dts from 'rollup-plugin-dts';
 
 const build = process.env.BUILD || 'dev';
+const isProd = build === 'prod';
 
-//rollup plugin to add the license header to the code
+// rollup plugin to add the license header to the code
 function addSPDXHeader() {
     return {
         name: 'add-license-header',
@@ -42,80 +43,60 @@ function addSPDXHeader() {
     };
 }
 
-const BrowserConfigDev = {
+const sharedPlugins = [
+    json(),
+    replace({
+        'process.env.NODE_ENV': JSON.stringify(isProd ? 'production' : 'development'),
+        preventAssignment: true,
+    }),
+    resolve({
+        preferBuiltins: false,
+        browser: true,
+        extensions: ['.js', '.ts', '.json'],
+    }),
+    commonjs(),
+    esbuild({
+        sourceMap: !isProd,
+        minify: isProd,
+        target: 'es2020',
+    }),
+    addSPDXHeader(),
+    !isProd ? sourcemaps() : null,
+].filter(Boolean);
+
+// 1. ESM Build (For Bundlers - Vite/Webpack)
+const ESMConfig = {
     input: './src/index.ts',
+    external: ['echarts'],
     output: {
-        file: './dist/qfchart.dev.browser.js',
+        file: isProd ? './dist/qfchart.min.es.js' : './dist/qfchart.dev.es.js',
+        format: 'es',
+        sourcemap: !isProd,
+    },
+    plugins: sharedPlugins,
+};
+
+// 2. UMD Build (For Script Tags)
+const BrowserConfig = {
+    input: './src/index.ts',
+    external: ['echarts'],
+    output: {
+        file: isProd ? './dist/qfchart.min.browser.js' : './dist/qfchart.dev.browser.js',
         format: 'umd',
         name: 'QFChart',
         exports: 'auto',
-        sourcemap: true,
+        sourcemap: !isProd,
+        globals: {
+            echarts: 'echarts',
+        },
     },
-    plugins: [
-        replace({
-            'process.env.NODE_ENV': JSON.stringify(build === 'dev' ? 'development' : 'production'),
-            preventAssignment: true,
-        }),
-        resolve({
-            preferBuiltins: true,
-            extensions: ['.js', '.ts', '.json'],
-            browser: true,
-        }),
-        commonjs(),
-        //typescriptPaths({
-        //    tsconfig: './tsconfig.json',
-        //    preserveExtensions: true,
-        //    nonRelative: false,
-        //}),
-        esbuild({
-            sourceMap: true,
-            minify: false,
-            treeShaking: false,
-            target: 'es2020',
-        }),
-        addSPDXHeader(),
-        sourcemaps(),
-    ],
+    plugins: sharedPlugins,
 };
 
-const BrowserConfigProd = {
-    input: './src/index.ts',
-    output: {
-        file: './dist/qfchart.min.browser.js',
-        format: 'umd',
-        name: 'QFChart',
-        exports: 'auto',
-        sourcemap: false,
-    },
-    plugins: [
-        replace({
-            'process.env.NODE_ENV': JSON.stringify(build === 'dev' ? 'development' : 'production'),
-            preventAssignment: true,
-        }),
-        resolve({
-            preferBuiltins: true,
-            extensions: ['.js', '.ts', '.json'],
-            browser: true,
-        }),
-        commonjs(),
-        //typescriptPaths({
-        //    tsconfig: './tsconfig.json',
-        //    preserveExtensions: true,
-        //    nonRelative: false,
-        //}),
-        esbuild({
-            sourceMap: false,
-            minify: true,
-            treeShaking: true,
-            target: 'es2020',
-        }),
-        addSPDXHeader(),
-    ],
-};
-
-// TypeScript declarations bundling configuration
+// 3. Types Build
 const DtsConfig = {
     input: './src/index.ts',
+    external: ['echarts'],
     output: {
         file: './dist/index.d.ts',
         format: 'es',
@@ -123,7 +104,4 @@ const DtsConfig = {
     plugins: [dts()],
 };
 
-// Export both the JavaScript bundle and the TypeScript declarations bundle
-let config = build === 'dev' ? [BrowserConfigDev, DtsConfig] : [BrowserConfigProd, DtsConfig];
-
-export default config;
+export default [ESMConfig, BrowserConfig, DtsConfig];

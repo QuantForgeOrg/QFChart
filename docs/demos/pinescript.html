@@ -3,7 +3,7 @@
     <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>QFChart - Demo</title>
+        <title>QFChart - PineScript Demo</title>
 
         <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
         <!-- QFChart Library -->
@@ -26,7 +26,7 @@
             </a>
         </nav>
         <div id="container">
-            <h1>Full featured Demo</h1>
+            <h1>PineScript Demo</h1>
             <p>
                 This demo uses the
                 <a href="https://github.com/QuantForgeOrg/PineTS" target="_blank">PineTS</a> library to load the market data and calculate multiple
@@ -36,9 +36,7 @@
             <div id="main-chart"><center>Loading...</center></div>
         </div>
 
-        <script src="../js/indicators/sqzmom.js"></script>
         <script src="../js/indicators/macd.js"></script>
-        <script src="../js/indicators/instit-bias.js"></script>
 
         <script>
             // Data Loading Helper (Simulating what was in chart.js)
@@ -49,17 +47,21 @@
                 return { result, plots, marketData };
             }
 
+            // Load Pine Script source code from file
+            async function loadPineScript(url) {
+                const response = await fetch(url);
+                return await response.text();
+            }
+
             // Initialize QFChart
             document.addEventListener('DOMContentLoaded', async () => {
-                const promises = [
-                    getIndicatorData(sqzmomIndicator, 'BTCUSDT', 'W', DATA_LENGTH),
-                    getIndicatorData(macdIndicator, 'BTCUSDT', 'W', DATA_LENGTH),
-                    getIndicatorData(institBiasIndicator, 'BTCUSDT', 'W', DATA_LENGTH),
-                ];
+                // Load the Pine Script source code
+                const crossSignalSource = await loadPineScript('../data/cross-signal.pine');
+
+                const promises = [getIndicatorData(crossSignalSource, 'BTCUSDT', 'W', DATA_LENGTH)];
                 const results = await Promise.all(promises);
-                const { marketData, plots: sqzmomPlots } = results[0];
-                const { plots: institBiasPlots } = results[2];
-                const { plots: macdPlots } = results[1];
+
+                const { marketData, plots: crossSignalPlots } = results[1];
 
                 // Map Market Data to QFChart OHLCV format
                 // marketData is array of objects: { openTime, open, high, low, close, volume }
@@ -78,7 +80,7 @@
                 const chartContainer = document.getElementById('main-chart');
                 window.chart = new QFChart.QFChart(chartContainer, {
                     title: 'BTC/USDT', // Custom title
-                    height: '800px',
+                    height: '700px',
                     padding: 0.2,
                     databox: {
                         position: isMobileDevice ? 'floating' : 'right',
@@ -104,24 +106,11 @@
                 // Set Market Data
                 chart.setMarketData(ohlcvData);
 
-                chart.addIndicator('Institutional Bias', institBiasPlots, {
+                // Set Indicators
+
+                chart.addIndicator('Cross Signal', crossSignalPlots, {
                     isOverlay: true,
                     titleColor: '#2962FF',
-                });
-
-                // Set Indicators
-                // Group plots into one indicator
-                chart.addIndicator('MACD', macdPlots, {
-                    isOverlay: false,
-                    height: 14,
-                    titleColor: '#ff9900',
-                    controls: { collapse: true, maximize: true },
-                });
-
-                chart.addIndicator('SQZMOM', sqzmomPlots, {
-                    isOverlay: false,
-                    height: 14,
-                    controls: { collapse: true, maximize: true },
                 });
 
                 // Register Measure Tool Plugin
@@ -135,23 +124,6 @@
                 // Register Fibonacci Tool Plugin
                 const fibTool = new QFChart.FibonacciTool();
                 chart.registerPlugin(fibTool);
-
-                // Logging Event Listeners for Drawing Tools
-                chart.events.on('drawing:hover', (payload) => console.log('Event: drawing:hover', payload));
-                chart.events.on('drawing:mouseout', (payload) => console.log('Event: drawing:mouseout', payload));
-                chart.events.on('drawing:mousedown', (payload) => console.log('Event: drawing:mousedown', payload));
-                chart.events.on('drawing:click', (payload) => console.log('Event: drawing:click', payload));
-                chart.events.on('drawing:point:hover', (payload) => console.log('Event: drawing:point:hover', payload));
-                chart.events.on('drawing:point:mouseout', (payload) => console.log('Event: drawing:point:mouseout', payload));
-                chart.events.on('drawing:point:mousedown', (payload) => console.log('Event: drawing:point:mousedown', payload));
-                chart.events.on('drawing:point:click', (payload) => console.log('Event: drawing:point:click', payload));
-                chart.events.on('drawing:selected', (payload) => console.log('Event: drawing:selected', payload));
-                chart.events.on('drawing:deselected', (payload) => console.log('Event: drawing:deselected', payload));
-                chart.events.on('drawing:deleted', (payload) => console.log('Event: drawing:deleted', payload));
-                // chart.events.on('mouse:down', (payload) => console.log('Event: mouse:down', payload));
-                // chart.events.on('mouse:move', (payload) => console.log('Event: mouse:move', payload));
-                // chart.events.on('mouse:up', (payload) => console.log('Event: mouse:up', payload));
-                // chart.events.on('mouse:click', (payload) => console.log('Event: mouse:click', payload));
             });
         </script>
     </body>
