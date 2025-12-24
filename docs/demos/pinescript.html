@@ -61,7 +61,7 @@
                 const promises = [getIndicatorData(crossSignalSource, 'BTCUSDT', 'W', DATA_LENGTH)];
                 const results = await Promise.all(promises);
 
-                const { marketData, plots: crossSignalPlots } = results[1];
+                const { marketData, plots: crossSignalPlots } = results[0];
 
                 // Map Market Data to QFChart OHLCV format
                 // marketData is array of objects: { openTime, open, high, low, close, volume }
