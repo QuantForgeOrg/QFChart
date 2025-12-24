@@ -18,7 +18,7 @@ export interface IndicatorPoint {
     };
 }
 
-export type IndicatorStyle = 'line' | 'step' | 'columns' | 'histogram' | 'circles' | 'cross' | 'background';
+export type IndicatorStyle = 'line' | 'step' | 'columns' | 'histogram' | 'circles' | 'cross' | 'background' | 'shape';
 
 export interface IndicatorOptions {
     style: IndicatorStyle;
@@ -26,6 +26,13 @@ export interface IndicatorOptions {
     offset?: number;
     linewidth?: number;
     smooth?: boolean;
+    shape?: string;
+    size?: string;
+    text?: string;
+    textcolor?: string;
+    location?: string;
+    width?: number;
+    height?: number;
 }
 
 export interface IndicatorPlot {

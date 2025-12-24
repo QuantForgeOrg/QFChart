@@ -1,7 +1,7 @@
 ---
 layout: default
 title: Demos
-nav_order: 5
+nav_order: 6
 permalink: /demos/
 has_children: false
 ---
