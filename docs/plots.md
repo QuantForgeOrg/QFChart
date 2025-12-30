@@ -76,6 +76,19 @@ chart.addIndicator('RSI_14', plots, { isOverlay: false, height: 15 });
 
 ## Plot Styles
 
+QFChart uses a unified plot structure where all plots have a `style` property. This differs from Pine Script, which uses separate functions (`plot()`, `plotshape()`, `plotchar()`, `plotcandle()`, `plotbar()`, `barcolor()`). In PineTS and QFChart:
+
+-   `plot()` maps to styles like `'line'`, `'histogram'`, `'columns'`, `'step'`, `'circles'`, `'cross'`, `'background'`
+-   `plotshape()` always creates plots with `style: 'shape'`
+-   `plotchar()` always creates plots with `style: 'char'`
+-   `plotcandle()` always creates plots with `style: 'candle'`
+-   `plotbar()` always creates plots with `style: 'bar'`
+-   `barcolor()` always creates plots with `style: 'barcolor'`
+
+This unified approach simplifies plot management and provides a consistent API across all visualization types.
+
+---
+
 ### 1. Line (`style: 'line'`)
 
 Renders data as a continuous line chart.
@@ -291,9 +304,265 @@ const trendPlot = {
 
 ---
 
-### 7. Shape (`style: 'shape'`)
+### 7. Char (`style: 'char'`)
+
+Displays data values only in the tooltip/sidebar without any visual representation on the chart. This is useful for displaying auxiliary calculations, debug values, or statistics that don't need visual representation but should be accessible when hovering over the chart.
+
+**Pine Script Equivalent:**
+
+-   This style is automatically used when calling `plotchar()` in Pine Script indicators
+-   When using PineTS, `plotchar()` will always force the plot style to `'char'`, regardless of other parameters
+-   In manual plot definitions, you can explicitly set `style: 'char'` to achieve the same behavior
+-   Note: Pine Script's `plot()` function does not accept `style="char"` - you must use the dedicated `plotchar()` function
+
+**Options:**
+
+-   `color`: Not used for rendering (invisible), but available for consistency
+-   `offset`: Horizontal offset in bars
+
+**Per-Point Options:**
+
+-   `color`: Not used for rendering
+
+**Example:**
+
+```javascript
+const volumeRatio = {
+    data: [
+        { time: 1620000000000, value: 1.25 },
+        { time: 1620086400000, value: 0.85 },
+        { time: 1620172800000, value: 1.42 },
+        { time: 1620259200000, value: 0.93 },
+    ],
+    options: {
+        style: 'char',
+        color: '#888888', // Not rendered, but required
+    },
+};
+```
+
+**Behavior:**
+
+-   No visual elements are rendered on the chart
+-   Values appear in the tooltip when hovering over the corresponding bar
+-   Useful for displaying calculations like volume ratios, percentages, or other derived metrics
+-   Does not affect chart scaling or layout
+-   Perfect for debugging or displaying reference data
+
+**Use Cases:**
+
+-   Volume ratio (current volume / average volume)
+-   Price change percentage
+-   Volatility metrics
+-   Custom calculations that complement visual indicators
+-   Debug values during indicator development
+
+---
+
+### 8. Bar (`style: 'bar'`)
+
+Renders OHLC (Open, High, Low, Close) data as traditional bar charts with horizontal ticks. Each bar consists of a vertical line from low to high, with a left tick for open and a right tick for close.
+
+**Pine Script Equivalent:**
+
+-   This style is automatically used when calling `plotbar()` in Pine Script indicators
+-   When using PineTS, `plotbar()` will always force the plot style to `'bar'`, regardless of other parameters
+-   In manual plot definitions, you can explicitly set `style: 'bar'` to achieve the same behavior
+-   Note: Pine Script's `plot()` function does not accept `style="bar"` - you must use the dedicated `plotbar()` function
+
+**Data Format:**
+
+For bar/candle styles, each data point's `value` must be an array of 4 numbers: `[open, high, low, close]`
+
+**Options:**
+
+-   `color`: Bar color (applied to the entire bar)
+-   `wickcolor`: Optional separate color for the vertical line (defaults to `color` if not specified)
+-   `offset`: Horizontal offset in bars
+
+**Per-Point Options:**
+
+-   `color`: Override bar color for a specific bar
+-   `wickcolor`: Override wick color for a specific bar
+
+**Example:**
+
+```javascript
+const heikinAshiBars = {
+    data: [
+        { time: 1620000000000, value: [50000, 51000, 49500, 50500] }, // [O, H, L, C]
+        { time: 1620086400000, value: [50500, 51500, 50000, 51000] },
+        { time: 1620172800000, value: [51000, 51200, 50200, 50300], options: { color: 'red' } },
+        { time: 1620259200000, value: [50300, 50800, 49800, 50600], options: { color: 'green' } },
+    ],
+    options: {
+        style: 'bar',
+        color: '#888888',
+        wickcolor: '#666666',
+    },
+};
+```
+
+**Behavior:**
+
+-   Each bar shows the full OHLC range for a time period
+-   Open tick extends to the left of the vertical line
+-   Close tick extends to the right of the vertical line
+-   Useful for Heikin Ashi, Renko, or other modified candlestick indicators
+
+---
+
+### 9. Candle (`style: 'candle'`)
+
+Renders OHLC data as traditional candlesticks with filled bodies and wicks. This is identical to the main chart's candlestick rendering but can be used for overlay indicators like Heikin Ashi candles.
+
+**Pine Script Equivalent:**
+
+-   This style is automatically used when calling `plotcandle()` in Pine Script indicators
+-   When using PineTS, `plotcandle()` will always force the plot style to `'candle'`, regardless of other parameters
+-   In manual plot definitions, you can explicitly set `style: 'candle'` to achieve the same behavior
+-   Note: Pine Script's `plot()` function does not accept `style="candle"` - you must use the dedicated `plotcandle()` function
+
+**Data Format:**
+
+For bar/candle styles, each data point's `value` must be an array of 4 numbers: `[open, high, low, close]`
+
+**Options:**
+
+-   `color`: Candle body fill color
+-   `wickcolor`: Optional separate color for the wicks (high/low lines). Defaults to `color` if not specified
+-   `bordercolor`: Optional separate color for the candle body border. Defaults to `wickcolor` if not specified
+-   `offset`: Horizontal offset in bars
+
+**Per-Point Options:**
+
+-   `color`: Override body fill color for a specific candle
+-   `wickcolor`: Override wick color for a specific candle
+-   `bordercolor`: Override body border color for a specific candle
+
+**Example:**
+
+```javascript
+const heikinAshiCandles = {
+    data: [
+        { time: 1620000000000, value: [50000, 51000, 49500, 50500] }, // [O, H, L, C]
+        {
+            time: 1620086400000,
+            value: [50500, 51500, 50000, 51000],
+            options: { color: 'green', wickcolor: 'darkgreen', bordercolor: 'lime' },
+        },
+        {
+            time: 1620172800000,
+            value: [51000, 51200, 50200, 50300],
+            options: { color: 'red', wickcolor: 'darkred', bordercolor: 'orange' },
+        },
+    ],
+    options: {
+        style: 'candle',
+        color: '#888888',
+        wickcolor: '#666666',
+        bordercolor: '#444444', // Optional: separate body border color
+    },
+};
+```
+
+**Behavior:**
+
+-   Each candle consists of a rectangular body (open to close) and wicks (high/low lines)
+-   Body is filled with the specified `color`
+-   Body border uses `bordercolor` if specified, otherwise falls back to `wickcolor` or `color`
+-   Wicks extend from the body to the high and low prices and use `wickcolor`
+-   If open equals close (doji), a thin line is drawn
+-   Perfect for displaying modified candlestick data like Heikin Ashi
+
+**Use Cases:**
+
+-   Heikin Ashi candles overlaid on regular candlesticks
+-   Renko charts
+-   Modified OHLC visualizations
+-   Custom smoothed candlestick indicators
+
+---
+
+### 10. BarColor (`style: 'barcolor'`)
+
+Applies colors to the main chart candlesticks without creating a visual series. This is a special plot type that modifies the appearance of existing candlesticks based on indicator conditions.
+
+**Pine Script Equivalent:**
+
+-   This style is automatically used when calling `barcolor()` in Pine Script indicators
+-   When using PineTS, `barcolor()` will always force the plot style to `'barcolor'`, regardless of other parameters
+-   In manual plot definitions, you can explicitly set `style: 'barcolor'` to achieve the same behavior
+-   Note: Pine Script's `plot()` function does not accept `style="barcolor"` - you must use the dedicated `barcolor()` function
+
+**Behavior:**
+
+-   Does not create a visual series on the chart
+-   Colors the main chart candlesticks (body, wicks, and borders)
+-   Works regardless of whether the indicator is an overlay (`isOverlay: true/false`)
+-   Honors the `offset` parameter to shift colors forward/backward in time
+-   Only applies color when the value is truthy (non-zero, not null/false)
+-   Color `'na'` or `null` means no color change for that bar
+
+**Options:**
+
+-   `color`: Color to apply to candlesticks
+-   `offset`: Horizontal offset in bars (positive = shift right, negative = shift left)
+
+**Per-Point Options:**
+
+-   `color`: Override color for a specific bar
+
+**Example:**
+
+```javascript
+const trendColor = {
+    data: [
+        { time: 1620000000000, value: 1, options: { color: 'green' } }, // Bullish - color candle green
+        { time: 1620086400000, value: 1, options: { color: 'green' } },
+        { time: 1620172800000, value: 0 }, // Neutral - no color change
+        { time: 1620259200000, value: 1, options: { color: 'red' } }, // Bearish - color candle red
+        { time: 1620345600000, value: 1, options: { color: 'red' } },
+    ],
+    options: {
+        style: 'barcolor',
+        color: '#888888', // Default color
+    },
+};
+
+chart.addIndicator(
+    'Trend Color',
+    { trendColor },
+    { isOverlay: false } // Works even when not overlay
+);
+```
+
+**Use Cases:**
+
+-   Color candles based on trend direction (bullish/bearish)
+-   Highlight specific market conditions (volume spikes, momentum shifts)
+-   Visualize custom indicators without cluttering the chart with additional plots
+-   Create color-coded trading signals directly on candles
+-   Combine with other indicators for multi-dimensional analysis
+
+**Technical Notes:**
+
+-   Multiple `barcolor` indicators can be used, but later ones will override earlier ones for the same bar
+-   The color is applied to all parts of the candlestick: body fill, body border, and wicks
+-   If no color is specified (value is falsy or color is `'na'`), the candle retains its default color
+
+---
+
+### 11. Shape (`style: 'shape'`)
 
 Renders custom shapes at data points with extensive customization options. This is the most flexible plot style, supporting various shapes, sizes, text labels, and positioning modes.
+
+**Pine Script Equivalent:**
+
+-   This style is automatically used when calling `plotshape()` in Pine Script indicators
+-   When using PineTS, `plotshape()` will always force the plot style to `'shape'`, regardless of other parameters
+-   In manual plot definitions, you can explicitly set `style: 'shape'` to achieve the same behavior
+-   Note: Pine Script's `plot()` function does not accept `style="shape"` - you must use the dedicated `plotshape()` function
 
 **Options:**
 

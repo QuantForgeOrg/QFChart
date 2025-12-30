@@ -139,7 +139,7 @@ chart.addIndicator('SMA_14', plots, { isOverlay: true });
 
 #### Plotting System
 
-QFChart supports multiple plot styles for rendering technical indicators: `line`, `step`, `histogram`, `columns`, `circles`, `cross`, `background`, and `shape`. Each style offers different visualization options and per-point styling capabilities. The `shape` style is particularly powerful, with support for various shapes (arrows, triangles, labels), custom sizes, text labels, and flexible positioning modes.
+QFChart supports multiple plot styles for rendering technical indicators: `line`, `step`, `histogram`, `columns`, `circles`, `cross`, `background`, `char`, `bar`, `candle`, `barcolor`, and `shape`. Each style offers different visualization options and per-point styling capabilities. The `char` style displays values only in tooltips without visual representation, perfect for auxiliary data (equivalent to Pine Script's `plotchar()`). The `bar` and `candle` styles render OHLC data for indicators like Heikin Ashi (equivalent to `plotbar()` and `plotcandle()`). The `barcolor` style colors the main chart candlesticks based on indicator conditions (equivalent to `barcolor()`). The `shape` style is particularly powerful, with support for various shapes (arrows, triangles, labels), custom sizes, text labels, and flexible positioning modes.
 
 For detailed information about plot styles, options, and examples, see the [Plotting System Documentation](/plots).
 

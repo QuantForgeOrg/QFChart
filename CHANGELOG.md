@@ -5,6 +5,37 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] - 2025-12-30
+
+### Added
+
+-   **New Plot Styles for Pine Script Compatibility**
+    -   `char` plot style - Displays data values only in tooltip/sidebar without visual representation (equivalent to Pine Script's `plotchar()`).
+    -   `bar` plot style - Renders OHLC data as traditional bar charts with horizontal ticks for open/close (equivalent to Pine Script's `plotbar()`).
+    -   `candle` plot style - Renders OHLC data as candlesticks with filled bodies and wicks (equivalent to Pine Script's `plotcandle()`).
+    -   `barcolor` plot style - Applies colors to main chart candlesticks based on indicator conditions (equivalent to Pine Script's `barcolor()`).
+    -   Support for `bordercolor` option in candle style for independent body border coloring.
+    -   Support for `wickcolor` option in bar/candle styles for separate wick coloring.
+    -   OHLC data format support: `[open, high, low, close]` for bar/candle styles.
+-   **Documentation**
+    -   Comprehensive documentation for all new plot styles in plotting system guide.
+    -   Pine Script equivalents clearly documented for each plot style.
+    -   Practical examples for Heikin Ashi candles, trend coloring, and auxiliary data display.
+    -   Explanation of unified plot structure vs. Pine Script separate functions.
+
+### Changed
+
+-   **Enhanced Type Definitions**
+    -   Updated `IndicatorStyle` type to include new plot styles: `char`, `bar`, `candle`, `barcolor`.
+    -   Extended `IndicatorPoint.value` to support arrays for OHLC data.
+    -   Added `wickcolor` and `bordercolor` to `IndicatorOptions` and per-point options.
+-   **SeriesBuilder Refactoring**
+    -   Now returns both series data and bar colors for `barcolor` functionality.
+    -   Enhanced color handling for candlestick customization.
+-   **Documentation Updates**
+    -   Updated plotting system overview to reflect 11 total plot styles.
+    -   Enhanced examples and use cases for all plot styles.
+
 ## [0.5.7] - 2025-12-24
 
 ### Added
