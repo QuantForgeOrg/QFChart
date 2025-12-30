@@ -61,7 +61,6 @@
                 const { plots: institBiasPlots } = results[2];
                 const { plots: macdPlots } = results[1];
 
-                console.log(institBiasPlots);
                 // Map Market Data to QFChart OHLCV format
                 // marketData is array of objects: { openTime, open, high, low, close, volume }
                 const ohlcvData = marketData.map((k) => ({
