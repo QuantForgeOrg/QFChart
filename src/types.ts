@@ -11,14 +11,28 @@ export interface OHLCV {
 
 export interface IndicatorPoint {
     time: number;
-    value: number | null;
+    value: number | number[] | null;
     options?: {
         color?: string;
         offset?: number;
+        wickcolor?: string;
+        bordercolor?: string;
     };
 }
 
-export type IndicatorStyle = 'line' | 'step' | 'columns' | 'histogram' | 'circles' | 'cross' | 'background' | 'shape';
+export type IndicatorStyle =
+    | 'line'
+    | 'step'
+    | 'columns'
+    | 'histogram'
+    | 'circles'
+    | 'cross'
+    | 'background'
+    | 'shape'
+    | 'char'
+    | 'bar'
+    | 'candle'
+    | 'barcolor';
 
 export interface IndicatorOptions {
     style: IndicatorStyle;
@@ -33,6 +47,8 @@ export interface IndicatorOptions {
     location?: string;
     width?: number;
     height?: number;
+    wickcolor?: string;
+    bordercolor?: string;
 }
 
 export interface IndicatorPlot {

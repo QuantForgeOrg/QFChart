@@ -13,11 +13,21 @@ const institBiasIndicator = (context) => {
         style: 'background',
     });
 
-    plot(bear_bias, 'Bear Bias', {
-        title: 'Bear Bias',
-        color: '#FF6D00',
-        style: 'background',
-    });
+    // plot(bear_bias, 'Bear Bias', {
+    //     title: 'Bear Bias',
+    //     color: '#FF6D00',
+    //     style: 'background',
+    // });
+    bgcolor(bear_bias ? '#FF6D00' : na, { title: 'Bear Bias' });
+
+    //barcolor(color.white);
+    //plotbar(open + 1000, high + 1000, low + 1000, close + 1000, { title: 'plotbar', color: open < close ? '#0000FF' : '#FFFF00' });
+    // plotcandle(open + 1000, high + 1000, low + 1000, close + 1000, {
+    //     title: 'plotcandle',
+    //     color: open < close ? '#0000FF' : '#FFFF00',
+    //     wickcolor: '#FFFFFF',
+    //     bordercolor: open < close ? 'red' : 'green',
+    // });
 
     //plot(val, 'Momentum', { color: bcolor, style: 'histogram', linewidth: 4 });
     //plot(0, 'Cross', { color: scolor, style: 'cross', linewidth: 2 });

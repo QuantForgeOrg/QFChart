@@ -7,7 +7,7 @@
 
         <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
         <!-- QFChart Library -->
-        <script src="../js/qfchart.min.browser.js"></script>
+        <script src="../js/qfchart.dev.browser.js"></script>
 
         <!-- Dependencies for Data Loading -->
         <script src="../js/pinets.dev.browser.js"></script>
@@ -61,6 +61,7 @@
                 const { plots: institBiasPlots } = results[2];
                 const { plots: macdPlots } = results[1];
 
+                console.log(institBiasPlots);
                 // Map Market Data to QFChart OHLCV format
                 // marketData is array of objects: { openTime, open, high, low, close, volume }
                 const ohlcvData = marketData.map((k) => ({

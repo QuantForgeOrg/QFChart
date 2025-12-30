@@ -649,7 +649,7 @@ export class QFChart implements ChartContext {
 
         const paddedOHLCVForShapes = [...Array(paddingPoints).fill(null), ...this.marketData, ...Array(paddingPoints).fill(null)];
 
-        const indicatorSeries = SeriesBuilder.buildIndicatorSeries(
+        const { series: indicatorSeries, barColors } = SeriesBuilder.buildIndicatorSeries(
             this.indicators,
             this.timeToIndex,
             layout.paneLayout,
@@ -658,6 +658,22 @@ export class QFChart implements ChartContext {
             paddedOHLCVForShapes // Pass padded OHLCV data
         );
 
+        // Apply barColors to candlestick data
+        const coloredCandlestickData = paddedCandlestickData.map((candle: any, i: number) => {
+            if (barColors[i]) {
+                return {
+                    value: candle.value || candle,
+                    itemStyle: {
+                        color: barColors[i],
+                        color0: barColors[i],
+                        borderColor: barColors[i],
+                        borderColor0: barColors[i],
+                    },
+                };
+            }
+            return candle;
+        });
+
         // Update only the data arrays in the option, not the full config
         const updateOption: any = {
             xAxis: currentOption.xAxis.map((axis: any, index: number) => ({
@@ -665,7 +681,7 @@ export class QFChart implements ChartContext {
             })),
             series: [
                 {
-                    data: paddedCandlestickData,
+                    data: coloredCandlestickData,
                 },
                 ...indicatorSeries.map((s) => ({
                     data: s.data,
@@ -860,7 +876,7 @@ export class QFChart implements ChartContext {
         // Build array of OHLCV aligned with indices for shape positioning
         const paddedOHLCVForShapes = [...Array(paddingPoints).fill(null), ...this.marketData, ...Array(paddingPoints).fill(null)];
 
-        const indicatorSeries = SeriesBuilder.buildIndicatorSeries(
+        const { series: indicatorSeries, barColors } = SeriesBuilder.buildIndicatorSeries(
             this.indicators,
             this.timeToIndex,
             layout.paneLayout,
@@ -868,6 +884,22 @@ export class QFChart implements ChartContext {
             paddingPoints,
             paddedOHLCVForShapes // Pass padded OHLCV
         );
+
+        // Apply barColors to candlestick data
+        candlestickSeries.data = candlestickSeries.data.map((candle: any, i: number) => {
+            if (barColors[i]) {
+                return {
+                    value: candle.value || candle,
+                    itemStyle: {
+                        color: barColors[i],
+                        color0: barColors[i],
+                        borderColor: barColors[i],
+                        borderColor0: barColors[i],
+                    },
+                };
+            }
+            return candle;
+        });
 
         // 3. Build Graphics
         const graphic = GraphicBuilder.build(layout, this.options, this.toggleIndicator.bind(this), this.isMainCollapsed, this.maximizedPaneId);
