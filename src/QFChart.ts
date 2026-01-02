@@ -20,6 +20,7 @@ export class QFChart implements ChartContext {
     public events: EventBus = new EventBus();
     private isMainCollapsed: boolean = false;
     private maximizedPaneId: string | null = null;
+    private countdownInterval: any = null;
 
     private selectedDrawingId: string | null = null; // Track selected drawing
 
@@ -622,9 +623,13 @@ export class QFChart implements ChartContext {
         const paddingPoints = this.dataIndexOffset;
 
         // Build candlestick data with padding
-        const candlestickData = this.marketData.map((d) => [d.open, d.close, d.low, d.high]);
+        const candlestickSeries = SeriesBuilder.buildCandlestickSeries(this.marketData, this.options);
         const emptyCandle = { value: [NaN, NaN, NaN, NaN], itemStyle: { opacity: 0 } };
-        const paddedCandlestickData = [...Array(paddingPoints).fill(emptyCandle), ...candlestickData, ...Array(paddingPoints).fill(emptyCandle)];
+        const paddedCandlestickData = [
+            ...Array(paddingPoints).fill(emptyCandle),
+            ...candlestickSeries.data,
+            ...Array(paddingPoints).fill(emptyCandle),
+        ];
 
         // Build category data with padding
         const categoryData = [
@@ -635,7 +640,14 @@ export class QFChart implements ChartContext {
 
         // Build indicator series data
         const currentOption = this.chart.getOption() as any;
-        const layout = LayoutManager.calculate(this.chart.getHeight(), this.indicators, this.options, this.isMainCollapsed, this.maximizedPaneId);
+        const layout = LayoutManager.calculate(
+            this.chart.getHeight(),
+            this.indicators,
+            this.options,
+            this.isMainCollapsed,
+            this.maximizedPaneId,
+            this.marketData
+        );
 
         // Pass full padded candlestick data for shape positioning
         // But SeriesBuilder expects 'OHLCV[]', while paddedCandlestickData is array of arrays [open,close,low,high]
@@ -655,7 +667,9 @@ export class QFChart implements ChartContext {
             layout.paneLayout,
             categoryData.length,
             paddingPoints,
-            paddedOHLCVForShapes // Pass padded OHLCV data
+            paddedOHLCVForShapes, // Pass padded OHLCV data
+            layout.overlayYAxisMap, // Pass overlay Y-axis mapping
+            layout.separatePaneYAxisOffset // Pass Y-axis offset for separate panes
         );
 
         // Apply barColors to candlestick data
@@ -682,15 +696,132 @@ export class QFChart implements ChartContext {
             series: [
                 {
                     data: coloredCandlestickData,
+                    markLine: candlestickSeries.markLine, // Ensure markLine is updated
                 },
-                ...indicatorSeries.map((s) => ({
-                    data: s.data,
-                })),
+                ...indicatorSeries.map((s) => {
+                    const update: any = { data: s.data };
+                    // If the series has a renderItem function (custom series like background),
+                    // we MUST update it because it likely closes over variables (colorArray)
+                    // from the SeriesBuilder scope which have been recreated.
+                    if (s.renderItem) {
+                        update.renderItem = s.renderItem;
+                    }
+                    return update;
+                }),
             ],
         };
 
         // Merge the update (don't replace entire config)
         this.chart.setOption(updateOption, { notMerge: false });
+
+        // Update countdown if needed
+        this.startCountdown();
+    }
+
+    private startCountdown() {
+        // Stop existing timer
+        this.stopCountdown();
+
+        if (!this.options.lastPriceLine?.showCountdown || !this.options.interval || this.marketData.length === 0) {
+            return;
+        }
+
+        const updateLabel = () => {
+            if (this.marketData.length === 0) return;
+            const lastBar = this.marketData[this.marketData.length - 1];
+            const nextCloseTime = lastBar.time + (this.options.interval || 0);
+            const now = Date.now();
+            const diff = nextCloseTime - now;
+
+            if (diff <= 0) {
+                // Timer expired (bar closed), maybe wait for next update
+                // Or show 00:00:00
+                return;
+            }
+
+            // Format time
+            const absDiff = Math.abs(diff);
+            const hours = Math.floor(absDiff / 3600000);
+            const minutes = Math.floor((absDiff % 3600000) / 60000);
+            const seconds = Math.floor((absDiff % 60000) / 1000);
+
+            const timeString = `${hours > 0 ? hours.toString().padStart(2, '0') + ':' : ''}${minutes.toString().padStart(2, '0')}:${seconds
+                .toString()
+                .padStart(2, '0')}`;
+
+            // Update markLine label
+            // We need to find the candlestick series index (usually 0)
+            // But we can update by name if unique, or by index. SeriesBuilder sets name to options.title or 'Market'
+            // Safest is to modify the option directly for series index 0 (if that's where candle is)
+            // Or better, check current option
+            const currentOption = this.chart.getOption() as any;
+            if (!currentOption || !currentOption.series) return;
+
+            // Find candlestick series (type 'candlestick')
+            const candleSeriesIndex = currentOption.series.findIndex((s: any) => s.type === 'candlestick');
+            if (candleSeriesIndex === -1) return;
+
+            const candleSeries = currentOption.series[candleSeriesIndex];
+            if (!candleSeries.markLine || !candleSeries.markLine.data || !candleSeries.markLine.data[0]) return;
+
+            const markLineData = candleSeries.markLine.data[0];
+            const currentFormatter = markLineData.label.formatter;
+
+            // We need to preserve the price formatting logic.
+            // But formatter is a function in the option we passed, but ECharts might have stored it?
+            // ECharts getOption() returns the merged option. Functions are preserved.
+            // We can wrap the formatter or just use the price value.
+            // markLineData.yAxis is the price.
+
+            const price = markLineData.yAxis;
+            let priceStr = '';
+
+            // Re-use formatting logic from options if possible, or simple fix
+            if (this.options.yAxisLabelFormatter) {
+                priceStr = this.options.yAxisLabelFormatter(price);
+            } else {
+                const decimals = this.options.yAxisDecimalPlaces !== undefined ? this.options.yAxisDecimalPlaces : 2;
+                priceStr = typeof price === 'number' ? price.toFixed(decimals) : price;
+            }
+
+            const labelText = `${priceStr}\n${timeString}`;
+
+            // Reconstruct the markLine data to preserve styles (lineStyle, symbol, etc.)
+            // We spread markLineData to keep everything (including lineStyle which defines color),
+            // then overwrite the label to update the formatter/text.
+
+            this.chart.setOption({
+                series: [
+                    {
+                        name: this.options.title || 'Market',
+                        markLine: {
+                            data: [
+                                {
+                                    ...markLineData, // Preserve lineStyle (color), symbol, yAxis, etc.
+                                    label: {
+                                        ...markLineData.label, // Preserve existing label styles including backgroundColor
+                                        formatter: labelText, // Update only the text
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                ],
+            });
+        };
+
+        // Run immediately
+        updateLabel();
+
+        // Start interval
+        this.countdownInterval = setInterval(updateLabel, 1000);
+    }
+
+    private stopCountdown() {
+        if (this.countdownInterval) {
+            clearInterval(this.countdownInterval);
+            this.countdownInterval = null;
+        }
     }
 
     public addIndicator(
@@ -780,6 +911,7 @@ export class QFChart implements ChartContext {
     }
 
     public destroy(): void {
+        this.stopCountdown();
         window.removeEventListener('resize', this.resize.bind(this));
         document.removeEventListener('fullscreenchange', this.onFullscreenChange);
         document.removeEventListener('keydown', this.onKeyDown);
@@ -851,9 +983,42 @@ export class QFChart implements ChartContext {
         ];
 
         // 1. Calculate Layout
-        const layout = LayoutManager.calculate(this.chart.getHeight(), this.indicators, this.options, this.isMainCollapsed, this.maximizedPaneId);
+        const layout = LayoutManager.calculate(
+            this.chart.getHeight(),
+            this.indicators,
+            this.options,
+            this.isMainCollapsed,
+            this.maximizedPaneId,
+            this.marketData
+        );
 
-        // Apply preserved zoom state if available
+        // Convert user-provided dataZoom start/end to account for padding
+        // User's start/end refer to real data (0% = start of real data, 100% = end of real data)
+        // We need to convert to padded data coordinates
+        if (!currentZoomState && layout.dataZoom && this.marketData.length > 0) {
+            const realDataLength = this.marketData.length;
+            const totalLength = categoryData.length; // includes padding on both sides
+            const paddingRatio = paddingPoints / totalLength;
+            const dataRatio = realDataLength / totalLength;
+
+            layout.dataZoom.forEach((dz) => {
+                // Convert user's start/end (0-100 referring to real data) to actual start/end (0-100 referring to padded data)
+                if (dz.start !== undefined) {
+                    // User's start% of real data -> actual position in padded data
+                    const userStartFraction = dz.start / 100;
+                    const actualStartFraction = paddingRatio + userStartFraction * dataRatio;
+                    dz.start = actualStartFraction * 100;
+                }
+                if (dz.end !== undefined) {
+                    // User's end% of real data -> actual position in padded data
+                    const userEndFraction = dz.end / 100;
+                    const actualEndFraction = paddingRatio + userEndFraction * dataRatio;
+                    dz.end = actualEndFraction * 100;
+                }
+            });
+        }
+
+        // Apply preserved zoom state if available (this overrides the conversion above)
         if (currentZoomState && layout.dataZoom) {
             layout.dataZoom.forEach((dz) => {
                 dz.start = currentZoomState!.start;
@@ -882,7 +1047,9 @@ export class QFChart implements ChartContext {
             layout.paneLayout,
             categoryData.length,
             paddingPoints,
-            paddedOHLCVForShapes // Pass padded OHLCV
+            paddedOHLCVForShapes, // Pass padded OHLCV
+            layout.overlayYAxisMap, // Pass overlay Y-axis mapping
+            layout.separatePaneYAxisOffset // Pass Y-axis offset for separate panes
         );
 
         // Apply barColors to candlestick data

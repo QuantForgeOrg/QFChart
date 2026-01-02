@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>QFChart - Live Squeeze Momentum Demo</title>
+
+        <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+        <!-- QFChart Library -->
+        <script src="../js/qfchart.dev.browser.js"></script>
+
+        <!-- Dependencies for Data Loading -->
+        <script src="../js/pinets.dev.browser.js"></script>
+        <link rel="stylesheet" href="styles.css" />
+    </head>
+
+    <body>
+        <nav>
+            <a href="https://github.com/QuantForgeOrg/QFChart" target="_blank">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
+                    />
+                </svg>
+                QFChart on GitHub
+            </a>
+        </nav>
+        <div id="container">
+            <h1>Live Squeeze Momentum Demo</h1>
+            <p>
+                This demo uses the
+                <a href="https://github.com/QuantForgeOrg/PineTS" target="_blank">PineTS</a> library to load the market data and calculate the
+                indicators, and <a href="https://github.com/QuantForgeOrg/QFChart" target="_blank">QFChart</a> library for visualizing the results.
+            </p>
+            <hr />
+            <div id="main-chart"><p class="loading">Loading Data ...</p></div>
+        </div>
+
+        <div id="info">
+            <h2>About Squeeze Momentum (SQZMOM) Indicator</h2>
+
+            <h3>What is Squeeze Momentum?</h3>
+            <p>
+                The <strong>Squeeze Momentum (SQZMOM)</strong> indicator, popularized by trader John Carter, is a powerful tool that combines
+                <strong>Bollinger Bands</strong> and <strong>Keltner Channels</strong> to identify periods of consolidation (the "squeeze") and
+                explosive breakout moves. When volatility contracts and price is coiling, the indicator signals a squeeze condition. When the squeeze
+                releases, the momentum histogram shows the direction and strength of the breakout. This makes SQZMOM invaluable for timing entries at
+                the start of new trends.
+            </p>
+
+            <h3>How Squeeze Momentum Works</h3>
+            <p>The SQZMOM indicator consists of two main components:</p>
+            <ul>
+                <li>
+                    <strong>Squeeze Detection</strong> - When Bollinger Bands contract inside Keltner Channels, a "squeeze" is active (shown as
+                    colored dots)
+                    <ul>
+                        <li><strong>Gray dots</strong> - Normal squeeze (volatility is low, consolidation)</li>
+                        <li><strong>Black dots</strong> - Extreme squeeze (very low volatility, major breakout likely)</li>
+                        <li><strong>No dots</strong> - No squeeze (Bollinger Bands expanded outside Keltner Channels)</li>
+                    </ul>
+                </li>
+                <li>
+                    <strong>Momentum Histogram</strong> - Shows the direction and strength of momentum as price moves
+                    <ul>
+                        <li><strong>Green bars (increasing)</strong> - Bullish momentum is growing</li>
+                        <li><strong>Light green bars (decreasing)</strong> - Bullish momentum is fading</li>
+                        <li><strong>Red bars (increasing)</strong> - Bearish momentum is growing</li>
+                        <li><strong>Light red bars (decreasing)</strong> - Bearish momentum is fading</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h3>Trading the Squeeze</h3>
+            <p>The classic Squeeze Momentum trading strategy follows these steps:</p>
+            <ol>
+                <li><strong>Identify the Squeeze</strong> - Wait for dots to appear, indicating low volatility consolidation</li>
+                <li><strong>Watch for the Release</strong> - When dots disappear, the squeeze is releasing (volatility expanding)</li>
+                <li><strong>Check Momentum Direction</strong> - Enter long if first histogram bar is green, short if red</li>
+                <li><strong>Ride the Trend</strong> - Stay in the trade as long as momentum continues in your direction</li>
+                <li><strong>Exit on Reversal</strong> - Exit when histogram changes color or momentum fades significantly</li>
+            </ol>
+
+            <h3>Advanced Squeeze Patterns</h3>
+            <ul>
+                <li><strong>Multi-Squeeze Setup</strong> - Multiple consecutive squeeze periods often lead to stronger breakouts</li>
+                <li><strong>Extreme Squeeze (Black Dots)</strong> - Very tight consolidation; expect explosive move when released</li>
+                <li><strong>False Squeeze Release</strong> - Dots disappear but momentum is weak; wait for confirmation</li>
+                <li><strong>Momentum Divergence</strong> - Price making new highs but momentum declining; potential reversal signal</li>
+                <li><strong>Squeeze on Multiple Timeframes</strong> - When multiple timeframes show squeezes, breakout potential is higher</li>
+            </ul>
+
+            <h3>Squeeze Momentum with QFChart & PineTS</h3>
+            <p>
+                This live demo demonstrates real-time squeeze detection and momentum analysis using <strong>QFChart</strong> and
+                <strong>PineTS</strong>. The indicator continuously calculates Bollinger Bands, Keltner Channels, and momentum values using PineTS's
+                Pine Script runtime, while QFChart renders the interactive histogram with color-coded bars and squeeze markers. The chart updates
+                every 3 seconds with live market data from Binance, allowing you to see squeeze conditions forming and releasing in real-time.
+            </p>
+
+            <h3>Technical Implementation</h3>
+            <p>This demo showcases several advanced technical features:</p>
+            <ul>
+                <li>
+                    <strong>Event-Driven Streaming</strong> - Uses <code>PineTS.stream()</code> with event handlers to receive live indicator updates
+                </li>
+                <li>
+                    <strong>Stateful Calculations</strong> - PineTS maintains internal state for Bollinger Bands, Keltner Channels, and Linear
+                    Regression
+                </li>
+                <li><strong>Separate Pane Rendering</strong> - QFChart displays SQZMOM in its own pane below the main chart (25% height)</li>
+                <li><strong>Multi-Plot Coordination</strong> - Histogram bars and squeeze dots are synchronized and updated together</li>
+                <li><strong>Live Price Tracking</strong> - Displays current price with countdown timer showing time to bar close</li>
+            </ul>
+
+            <h3>Interpreting the Colors</h3>
+            <table border="1" cellpadding="8" style="margin: 20px 0; border-collapse: collapse">
+                <thead>
+                    <tr style="background: #2c3e50; color: white">
+                        <th>Element</th>
+                        <th>Color</th>
+                        <th>Meaning</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Histogram</td>
+                        <td style="background: #26a69a; color: white">Dark Green</td>
+                        <td>Bullish momentum increasing</td>
+                    </tr>
+                    <tr>
+                        <td>Histogram</td>
+                        <td style="background: #b2dfdb">Light Green</td>
+                        <td>Bullish momentum decreasing</td>
+                    </tr>
+                    <tr>
+                        <td>Histogram</td>
+                        <td style="background: #ff5252; color: white">Dark Red</td>
+                        <td>Bearish momentum increasing</td>
+                    </tr>
+                    <tr>
+                        <td>Histogram</td>
+                        <td style="background: #ffcdd2">Light Red</td>
+                        <td>Bearish momentum decreasing</td>
+                    </tr>
+                    <tr>
+                        <td>Dots</td>
+                        <td style="background: #888; color: white">Gray</td>
+                        <td>Normal squeeze active</td>
+                    </tr>
+                    <tr>
+                        <td>Dots</td>
+                        <td style="background: #000; color: white">Black</td>
+                        <td>Extreme squeeze active</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Use Cases</h3>
+            <ul>
+                <li><strong>Breakout Trading</strong> - Catch explosive moves at the start of new trends</li>
+                <li><strong>Swing Trading</strong> - Enter on squeeze release, exit when momentum reverses</li>
+                <li><strong>Scalping</strong> - Trade momentum shifts on lower timeframes (1m, 5m)</li>
+                <li><strong>Trend Confirmation</strong> - Use alongside trend indicators to avoid false breakouts</li>
+                <li><strong>Range Trading</strong> - Avoid trading during squeeze periods (low volatility)</li>
+                <li><strong>Options Trading</strong> - Buy options before squeeze release (expecting volatility expansion)</li>
+            </ul>
+
+            <h3>Getting Started</h3>
+            <p>To implement Squeeze Momentum in your own application:</p>
+            <pre><code>// Create PineTS instance
+const pineTS = new PineTS(PineTS.Provider.Binance, 'BTCUSDC', '15m', 500);
+
+// Stream indicator data
+const stream = pineTS.stream(sqzmomIndicator, {
+    pageSize: 100,
+    live: true,
+    interval: 3000
+});
+
+// Handle live updates
+stream.on('data', (ctx) => {
+    if (!chart) {
+        // Initialize chart with historical data
+        chart = new QFChart.QFChart(container, { /* options */ });
+        chart.setMarketData(ctx.marketData);
+        indicator = chart.addIndicator('SQZMOM', ctx.plots, {
+            isOverlay: false,
+            height: 25
+        });
+    } else {
+        // Update with live data
+        indicator.updateData(ctx.plots);
+        chart.updateData([latestBar]);
+    }
+});
+</code></pre>
+
+            <h3>Learn More</h3>
+            <ul>
+                <li><a href="https://github.com/QuantForgeOrg/QFChart" target="_blank">QFChart Documentation</a></li>
+                <li><a href="https://github.com/QuantForgeOrg/PineTS" target="_blank">PineTS Documentation</a></li>
+                <li><a href="../index.html">More QFChart Demos</a></li>
+                <li>
+                    <a href="https://www.tradingview.com/script/nqQ1DT5a-Squeeze-Momentum-Indicator-LazyBear/" target="_blank"
+                        >Original Squeeze Momentum by LazyBear</a
+                    >
+                </li>
+            </ul>
+        </div>
+
+        <script src="../js/indicators/sqzmom.js"></script>
+
+        <script>
+            // Initialize QFChart
+            document.addEventListener('DOMContentLoaded', async () => {
+                const DATA_LENGTH = 1000;
+                const TIMEFRAME = '1';
+                const TICKER = 'BTCUSDC';
+
+                // Create PineTS instance
+                const sqzmomPineTS = new PineTS(PineTS.Provider.Binance, TICKER, TIMEFRAME, DATA_LENGTH);
+
+                // Storage for accumulated historical data
+                let historicalMarketData = null;
+                let historicalSqzmomPlots = null;
+
+                // Chart indicator references for live updates
+                let sqzmomChartIndicator = null;
+
+                // Chart instance
+                let chart = null;
+                let isChartInitialized = false;
+
+                // Initialize chart once we have initial historical data
+                function initializeChart() {
+                    if (isChartInitialized || !historicalMarketData || !historicalSqzmomPlots) {
+                        return;
+                    }
+
+                    const ohlcvData = historicalMarketData.map((k) => ({
+                        time: k.openTime,
+                        open: k.open,
+                        high: k.high,
+                        low: k.low,
+                        close: k.close,
+                        volume: k.volume,
+                    }));
+
+                    const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                    const chartContainer = document.getElementById('main-chart');
+
+                    chart = new QFChart.QFChart(chartContainer, {
+                        title: 'BTC/USDC - 1m - Live',
+                        height: '600px',
+                        padding: 0.2,
+                        databox: {
+                            position: isMobileDevice ? 'floating' : 'right',
+                        },
+                        dataZoom: {
+                            visible: true,
+                            position: 'top',
+                            height: 6,
+                            start: 90,
+                            end: 101,
+                        },
+                        layout: {
+                            mainPaneHeight: '60%',
+                            gap: 5,
+                        },
+                        controls: {
+                            collapse: true,
+                            maximize: true,
+                            fullscreen: true,
+                        },
+                        lastPriceLine: {
+                            visible: true,
+                            showCountdown: true,
+                        },
+                        interval: 60 * 1000, // 1 minute
+                    });
+
+                    chart.setMarketData(ohlcvData);
+
+                    // Add Squeeze Momentum indicator
+                    sqzmomChartIndicator = chart.addIndicator('SQZMOM', historicalSqzmomPlots, {
+                        isOverlay: false,
+                        height: 25,
+                        controls: { collapse: true, maximize: true },
+                    });
+
+                    // Register plugins
+                    chart.registerPlugin(new QFChart.MeasureTool());
+                    chart.registerPlugin(new QFChart.LineTool());
+                    chart.registerPlugin(new QFChart.FibonacciTool());
+
+                    isChartInitialized = true;
+                    console.log('✅ Chart initialized with', historicalMarketData.length, 'historical candles');
+                }
+
+                // Stream SQZMOM
+                const sqzmomStream = sqzmomPineTS.stream(sqzmomIndicator, {
+                    pageSize: 100,
+                    live: true,
+                    interval: 3000,
+                });
+
+                sqzmomStream.on('data', (ctx) => {
+                    if (!isChartInitialized) {
+                        // Store market data and plots from full context
+                        historicalMarketData = ctx.marketData;
+                        historicalSqzmomPlots = ctx.fullContext ? ctx.fullContext.plots : ctx.plots;
+                        initializeChart();
+                    } else {
+                        // Live update - update indicator first, then chart data
+                        if (sqzmomChartIndicator) {
+                            sqzmomChartIndicator.updateData(ctx.plots);
+                        }
+
+                        // Update chart with latest candle
+                        const lastBar = ctx.marketData[ctx.marketData.length - 1];
+                        const updateBar = {
+                            time: lastBar.openTime,
+                            open: lastBar.open,
+                            high: lastBar.high,
+                            low: lastBar.low,
+                            close: lastBar.close,
+                            volume: lastBar.volume,
+                        };
+
+                        chart.updateData([updateBar]);
+                    }
+                });
+
+                // Error handling
+                sqzmomStream.on('error', (err) => console.error('SQZMOM stream error:', err));
+            });
+        </script>
+    </body>
+</html>

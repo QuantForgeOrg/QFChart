@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>QFChart - Live Institutional Bias Demo</title>
+
+        <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+        <!-- QFChart Library -->
+        <script src="../js/qfchart.dev.browser.js"></script>
+
+        <!-- Dependencies for Data Loading -->
+        <script src="../js/pinets.dev.browser.js"></script>
+        <link rel="stylesheet" href="styles.css" />
+    </head>
+
+    <body>
+        <nav>
+            <a href="https://github.com/QuantForgeOrg/QFChart" target="_blank">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
+                    />
+                </svg>
+                QFChart on GitHub
+            </a>
+        </nav>
+        <div id="container">
+            <h1>Live Institutional Bias Demo</h1>
+            <p>
+                This demo uses the
+                <a href="https://github.com/QuantForgeOrg/PineTS" target="_blank">PineTS</a> library to load the market data and calculate the
+                indicators, and <a href="https://github.com/QuantForgeOrg/QFChart" target="_blank">QFChart</a> library for visualizing the results.
+            </p>
+            <hr />
+            <div id="main-chart"><p class="loading">Loading Data ...</p></div>
+        </div>
+
+        <div id="info">
+            <h2>About EMA Crossover with Background Color Zones</h2>
+
+            <h3>What This Indicator Does</h3>
+            <p>
+                This indicator implements a classic <strong>dual EMA crossover system</strong> with visual background color zones to make trend
+                identification effortless. It uses a 9-period EMA (fast) and an 18-period EMA (slow) plotted directly on the price chart. When the
+                fast EMA crosses above the slow EMA, a <strong>blue background zone</strong> appears, signaling bullish momentum. When the fast EMA
+                crosses below the slow EMA, an <strong>orange background zone</strong> appears, signaling bearish momentum.
+            </p>
+
+            <h3>How It Works</h3>
+            <p>The indicator consists of three simple components:</p>
+            <ul>
+                <li><strong>9-period EMA (Blue Line)</strong> - Fast-moving average that reacts quickly to price changes</li>
+                <li><strong>18-period EMA (Orange Line)</strong> - Slower-moving average that filters out noise</li>
+                <li>
+                    <strong>Background Colors</strong> - Visual zones that highlight the current trend direction:
+                    <ul>
+                        <li><strong>Blue background</strong> - Appears when EMA-9 is above EMA-18 (bullish bias)</li>
+                        <li><strong>Orange background</strong> - Appears when EMA-9 is below EMA-18 (bearish bias)</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h3>Trading the EMA Crossover</h3>
+            <p>Common trading strategies using this indicator:</p>
+            <ul>
+                <li><strong>Crossover Entry</strong> - Enter long when the blue line crosses above orange (background turns blue)</li>
+                <li><strong>Crossunder Entry</strong> - Enter short when the blue line crosses below orange (background turns orange)</li>
+                <li><strong>Trend Filter</strong> - Only take long trades during blue zones, only take short trades during orange zones</li>
+                <li>
+                    <strong>Exit Signal</strong> - Exit long positions when background turns orange; exit short positions when background turns blue
+                </li>
+                <li><strong>EMA as Support/Resistance</strong> - Price often bounces off the EMAs during trending markets</li>
+            </ul>
+
+            <h3>Why EMAs Work</h3>
+            <p>
+                Exponential Moving Averages give more weight to recent prices compared to Simple Moving Averages, making them more responsive to price
+                changes. The 9/18 EMA combination provides a good balance between responsiveness and noise filtering:
+            </p>
+            <ul>
+                <li><strong>EMA-9</strong> - Fast enough to catch trend changes early</li>
+                <li><strong>EMA-18</strong> - Slow enough to avoid false signals from minor price fluctuations</li>
+                <li><strong>Crossover Signal</strong> - When both agree on direction, it confirms a momentum shift</li>
+            </ul>
+
+            <h3>Background Color Visualization</h3>
+            <p>
+                The background colors are the key innovation in this implementation. Instead of manually watching for crossovers, the colored zones
+                make the current trend instantly visible at a glance. This is especially useful when monitoring multiple charts or making quick
+                trading decisions.
+            </p>
+
+            <h3>EMA Crossover with QFChart & PineTS</h3>
+            <p>
+                This live demo showcases <strong>QFChart's background rendering capability</strong> combined with
+                <strong>PineTS's real-time indicator calculations</strong>. The EMAs are continuously recalculated using PineTS's optimized
+                incremental state management, while QFChart renders the lines and background colors as overlay plots on the main chart. The chart
+                updates every 3 seconds with live market data from Binance, showing trend changes as they happen.
+            </p>
+
+            <h3>Technical Implementation</h3>
+            <p>This demo demonstrates several advanced QFChart features:</p>
+            <ul>
+                <li><strong>Real-time Streaming</strong> - Uses <code>PineTS.stream()</code> to continuously fetch and process live market data</li>
+                <li><strong>Incremental EMA Calculation</strong> - PineTS maintains EMA state between bars for O(1) calculation per bar</li>
+                <li><strong>Overlay Rendering</strong> - EMA lines are plotted directly on the price chart (not in a separate pane)</li>
+                <li>
+                    <strong>Background Color Plots</strong> - QFChart renders background zones as separate visual layers without affecting Y-axis
+                    scaling
+                </li>
+                <li><strong>Dynamic Updates</strong> - Both EMAs and background colors update automatically with each new candle</li>
+                <li><strong>Live Countdown</strong> - Displays time remaining until the current bar closes (1-minute timeframe in this demo)</li>
+            </ul>
+
+            <h3>Indicator Code</h3>
+            <p>Here's the actual implementation:</p>
+            <pre><code>const institBiasIndicator = (context) => {
+    const ema9 = ta.ema(close, 9);
+    const ema18 = ta.ema(close, 18);
+
+    const bull_bias = ema9 > ema18;
+    const bear_bias = ema9 < ema18;
+
+    plot(ema9, 'EMA 9', { title: 'EMA 9', color: '#2962FF', style: 'line' });
+    plot(ema18, 'EMA 18', { title: 'EMA 18', color: '#FF6D00', style: 'line' });
+    plot(bull_bias, 'Bull Bias', {
+        title: 'Bull Bias',
+        color: '#2962FF',
+        style: 'background',
+    });
+    bgcolor(bear_bias ? '#FF6D00' : na, { title: 'Bear Bias' });
+};
+</code></pre>
+
+            <h3>Use Cases</h3>
+            <ul>
+                <li><strong>Trend Following</strong> - Simple, visual trend identification for swing and position trading</li>
+                <li><strong>Entry Timing</strong> - Enter at the start of new trends when background color changes</li>
+                <li>
+                    <strong>Trend Confirmation</strong> - Use as a filter for other trading signals (e.g., only take RSI signals during blue zones)
+                </li>
+                <li><strong>Multi-Timeframe Analysis</strong> - Check EMA alignment across multiple timeframes for high-probability setups</li>
+                <li><strong>Beginner-Friendly</strong> - Easy to understand and implement for traders new to technical analysis</li>
+            </ul>
+
+            <h3>Customization Ideas</h3>
+            <p>You can easily modify this indicator:</p>
+            <ul>
+                <li>Change EMA periods (e.g., 8/21, 13/26, or 50/200 for longer-term trends)</li>
+                <li>Add a third EMA for additional trend confirmation</li>
+                <li>Change background colors to match your preference</li>
+                <li>Add alerts when crossovers occur</li>
+                <li>Combine with volume analysis for stronger signals</li>
+            </ul>
+
+            <h3>Getting Started</h3>
+            <p>To use this indicator in your own application:</p>
+            <pre><code>// Define the indicator
+const emaIndicator = (context) => {
+    const ema9 = ta.ema(close, 9);
+    const ema18 = ta.ema(close, 18);
+    const bull_bias = ema9 > ema18;
+    const bear_bias = ema9 < ema18;
+    
+    plot(ema9, 'EMA 9', { color: '#2962FF', style: 'line' });
+    plot(ema18, 'EMA 18', { color: '#FF6D00', style: 'line' });
+    plot(bull_bias, 'Bull Bias', { color: '#2962FF', style: 'background' });
+    bgcolor(bear_bias ? '#FF6D00' : na, { title: 'Bear Bias' });
+};
+
+// Create PineTS instance and stream data
+const pineTS = new PineTS(PineTS.Provider.Binance, 'BTCUSDC', '1h', 500);
+const stream = pineTS.stream(emaIndicator, {
+    pageSize: 100,
+    live: true,
+    interval: 3000
+});
+
+// Initialize QFChart
+const chart = new QFChart.QFChart(container, {
+    title: 'BTC/USDT',
+    lastPriceLine: { visible: true, showCountdown: true },
+    interval: 60 * 60 * 1000
+});
+
+// Handle data updates
+stream.on('data', (ctx) => {
+    if (!chart.initialized) {
+        chart.setMarketData(ctx.marketData);
+        indicator = chart.addIndicator('EMA Crossover', ctx.plots, {
+            isOverlay: true
+        });
+    } else {
+        indicator.updateData(ctx.plots);
+        chart.updateData([latestBar]);
+    }
+});
+</code></pre>
+
+            <h3>Learn More</h3>
+            <ul>
+                <li><a href="https://github.com/QuantForgeOrg/QFChart" target="_blank">QFChart Documentation</a></li>
+                <li><a href="https://github.com/QuantForgeOrg/PineTS" target="_blank">PineTS Documentation</a></li>
+                <li><a href="../index.html">More QFChart Demos</a></li>
+            </ul>
+        </div>
+
+        <script src="../js/indicators/instit-bias.js"></script>
+
+        <script>
+            // Initialize QFChart
+            document.addEventListener('DOMContentLoaded', async () => {
+                const DATA_LENGTH = 1000;
+                const TIMEFRAME = '1';
+                const TICKER = 'BTCUSDC';
+
+                // Create PineTS instance
+                const institBiasPineTS = new PineTS(PineTS.Provider.Binance, TICKER, TIMEFRAME, DATA_LENGTH);
+
+                // Storage for accumulated historical data
+                let historicalMarketData = null;
+                let historicalInstitBiasPlots = null;
+
+                // Chart indicator references for live updates
+                let institBiasChartIndicator = null;
+
+                // Chart instance
+                let chart = null;
+                let isChartInitialized = false;
+
+                // Initialize chart once we have initial historical data
+                function initializeChart() {
+                    if (isChartInitialized || !historicalMarketData || !historicalInstitBiasPlots) {
+                        return;
+                    }
+
+                    const ohlcvData = historicalMarketData.map((k) => ({
+                        time: k.openTime,
+                        open: k.open,
+                        high: k.high,
+                        low: k.low,
+                        close: k.close,
+                        volume: k.volume,
+                    }));
+
+                    const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                    const chartContainer = document.getElementById('main-chart');
+
+                    chart = new QFChart.QFChart(chartContainer, {
+                        title: 'BTC/USDC - 1m - Live',
+                        height: '400px',
+                        padding: 0.2,
+                        databox: {
+                            position: isMobileDevice ? 'floating' : 'right',
+                        },
+                        dataZoom: {
+                            visible: true,
+                            position: 'top',
+                            height: 6,
+                            start: 90,
+                            end: 101,
+                        },
+                        layout: {
+                            mainPaneHeight: '60%',
+                            gap: 5,
+                        },
+                        controls: {
+                            collapse: true,
+                            maximize: true,
+                            fullscreen: true,
+                        },
+                        lastPriceLine: {
+                            visible: true,
+                            showCountdown: true,
+                        },
+                        interval: 60 * 1000, // 1 minute
+                    });
+
+                    chart.setMarketData(ohlcvData);
+
+                    // Add Institutional Bias indicator as overlay
+                    institBiasChartIndicator = chart.addIndicator('Institutional Bias', historicalInstitBiasPlots, {
+                        isOverlay: true,
+                        titleColor: '#2962FF',
+                    });
+
+                    // Register plugins
+                    chart.registerPlugin(new QFChart.MeasureTool());
+                    chart.registerPlugin(new QFChart.LineTool());
+                    chart.registerPlugin(new QFChart.FibonacciTool());
+
+                    isChartInitialized = true;
+                    console.log('✅ Chart initialized with', historicalMarketData.length, 'historical candles');
+                }
+
+                // Stream Institutional Bias
+                const institBiasStream = institBiasPineTS.stream(institBiasIndicator, {
+                    pageSize: 100,
+                    live: true,
+                    interval: 3000,
+                });
+
+                institBiasStream.on('data', (ctx) => {
+                    if (!isChartInitialized) {
+                        // Store market data and plots from full context
+                        historicalMarketData = ctx.marketData;
+                        historicalInstitBiasPlots = ctx.fullContext ? ctx.fullContext.plots : ctx.plots;
+                        initializeChart();
+                    } else {
+                        // Live update - update indicator first, then chart data
+                        if (institBiasChartIndicator) {
+                            institBiasChartIndicator.updateData(ctx.plots);
+                        }
+
+                        // Update chart with latest candle
+                        const lastBar = ctx.marketData[ctx.marketData.length - 1];
+                        const updateBar = {
+                            time: lastBar.openTime,
+                            open: lastBar.open,
+                            high: lastBar.high,
+                            low: lastBar.low,
+                            close: lastBar.close,
+                            volume: lastBar.volume,
+                        };
+
+                        chart.updateData([updateBar]);
+                    }
+                });
+
+                // Error handling
+                institBiasStream.on('error', (err) => console.error('InstBias stream error:', err));
+            });
+        </script>
+    </body>
+</html>

@@ -26,14 +26,158 @@
             </a>
         </nav>
         <div id="container">
-            <h1>Full featured Demo</h1>
+            <h1>Full Featured Demo</h1>
             <p>
                 This demo uses the
-                <a href="https://github.com/QuantForgeOrg/PineTS" target="_blank">PineTS</a> library to load the market data and calculate multiple
-                indicators.
+                <a href="https://github.com/QuantForgeOrg/PineTS" target="_blank">PineTS</a> library to load the market data and calculate the
+                indicators, and <a href="https://github.com/QuantForgeOrg/QFChart" target="_blank">QFChart</a> library for visualizing the results.
             </p>
             <hr />
-            <div id="main-chart"><center>Loading...</center></div>
+            <div id="main-chart"><p class="loading">Loading Data ...</p></div>
+        </div>
+
+        <div id="info">
+            <h2>Full Featured QFChart Demo</h2>
+
+            <h3>What This Demo Showcases</h3>
+            <p>
+                This is the <strong>most comprehensive QFChart demo</strong>, demonstrating the library's full capabilities for building
+                professional-grade financial charting applications. It combines multiple technical indicators, interactive drawing tools, and advanced
+                chart controls in a single, production-ready interface. This demo serves as a reference implementation for developers building trading
+                platforms, portfolio management tools, or financial analysis applications.
+            </p>
+
+            <h3>Featured Indicators</h3>
+            <p>This demo calculates and displays three powerful technical indicators simultaneously:</p>
+            <ul>
+                <li>
+                    <strong>Institutional Bias (Overlay)</strong> - Shows institutional sentiment with colored background zones and multiple EMAs
+                    plotted directly on the price chart
+                </li>
+                <li>
+                    <strong>MACD (Separate Pane)</strong> - Displays the Moving Average Convergence Divergence indicator with MACD line, signal line,
+                    and histogram in its own dedicated pane
+                </li>
+                <li>
+                    <strong>Squeeze Momentum (Separate Pane)</strong> - Shows squeeze conditions and momentum direction with color-coded histogram
+                    bars and squeeze markers
+                </li>
+            </ul>
+
+            <h3>Interactive Features</h3>
+            <p>The demo includes all of QFChart's interactive capabilities:</p>
+            <ul>
+                <li><strong>Measure Tool</strong> - Click and drag to measure price and time distances between any two points</li>
+                <li><strong>Trend Line Tool</strong> - Draw custom trend lines with draggable endpoints for technical analysis</li>
+                <li><strong>Fibonacci Tool</strong> - Draw Fibonacci retracement levels to identify support and resistance zones</li>
+                <li><strong>Data Zoom</strong> - Scroll horizontally through historical data with the dataZoom slider</li>
+                <li><strong>Pane Controls</strong> - Collapse, maximize, or minimize individual indicator panes</li>
+                <li><strong>Fullscreen Mode</strong> - Expand the chart to fill the entire screen for better visibility</li>
+                <li><strong>Responsive Databox</strong> - View real-time values for price and all indicators (adapts to mobile)</li>
+            </ul>
+
+            <h3>Technical Architecture</h3>
+            <p>This demo demonstrates advanced integration patterns:</p>
+            <ul>
+                <li><strong>Parallel Data Loading</strong> - Uses <code>Promise.all()</code> to load multiple indicators simultaneously</li>
+                <li><strong>Single Market Data Source</strong> - All indicators share the same 500 weekly BTC/USDT candles from Binance</li>
+                <li><strong>Mixed Pane Layout</strong> - Combines overlay indicators (on price chart) with separate indicator panes below</li>
+                <li><strong>Flexible Height Management</strong> - Main chart occupies 60%, indicator panes share remaining 40%</li>
+                <li><strong>Plugin System</strong> - Drawing tools are registered as plugins, extending core functionality</li>
+                <li><strong>Event System</strong> - Comprehensive event listeners for tracking user interactions with drawings</li>
+            </ul>
+
+            <h3>Code Structure</h3>
+            <p>The demo follows best practices for organizing a multi-indicator chart application:</p>
+            <pre><code>// 1. Load all indicators in parallel
+const promises = [
+    getIndicatorData(sqzmomIndicator, 'BTCUSDT', 'W', 500),
+    getIndicatorData(macdIndicator, 'BTCUSDT', 'W', 500),
+    getIndicatorData(institBiasIndicator, 'BTCUSDT', 'W', 500),
+];
+const results = await Promise.all(promises);
+
+// 2. Extract market data and plots
+const { marketData, plots: sqzmomPlots } = results[0];
+const { plots: macdPlots } = results[1];
+const { plots: institBiasPlots } = results[2];
+
+// 3. Initialize chart
+const chart = new QFChart.QFChart(container, {
+    title: 'BTC/USDT',
+    height: '800px',
+    layout: { mainPaneHeight: '60%', gap: 5 },
+    controls: { collapse: true, maximize: true, fullscreen: true }
+});
+
+// 4. Set data and add indicators
+chart.setMarketData(ohlcvData);
+chart.addIndicator('Institutional Bias', institBiasPlots, { isOverlay: true });
+chart.addIndicator('MACD', macdPlots, { isOverlay: false, height: 14 });
+chart.addIndicator('SQZMOM', sqzmomPlots, { isOverlay: false, height: 14 });
+
+// 5. Register drawing tools
+chart.registerPlugin(new QFChart.MeasureTool());
+chart.registerPlugin(new QFChart.LineTool());
+chart.registerPlugin(new QFChart.FibonacciTool());
+</code></pre>
+
+            <h3>Customization Options</h3>
+            <p>This demo can be easily customized:</p>
+            <ul>
+                <li><strong>Timeframe</strong> - Change <code>'W'</code> to <code>'1d'</code>, <code>'4h'</code>, <code>'1h'</code>, etc.</li>
+                <li><strong>Symbol</strong> - Replace <code>'BTCUSDT'</code> with any Binance trading pair</li>
+                <li><strong>Data Length</strong> - Adjust <code>DATA_LENGTH</code> to load more or fewer candles</li>
+                <li><strong>Pane Heights</strong> - Modify <code>height: 14</code> to change indicator pane sizes (percentage)</li>
+                <li><strong>Colors</strong> - Set custom <code>titleColor</code> for each indicator</li>
+                <li><strong>Controls</strong> - Enable/disable specific controls per indicator pane</li>
+            </ul>
+
+            <h3>Event System</h3>
+            <p>
+                The demo includes comprehensive event logging for drawing tool interactions. Check the browser console to see events triggered by
+                hovering, clicking, selecting, moving, or deleting drawings. This event system allows you to build features like:
+            </p>
+            <ul>
+                <li>Persisting drawings to a database</li>
+                <li>Sharing drawings with other users</li>
+                <li>Undoing/redoing drawing actions</li>
+                <li>Showing drawing properties in a side panel</li>
+                <li>Implementing custom drawing tools</li>
+            </ul>
+
+            <h3>Performance Considerations</h3>
+            <p>This demo is optimized for production use:</p>
+            <ul>
+                <li><strong>Parallel Loading</strong> - All indicators load simultaneously, reducing initial load time</li>
+                <li><strong>Efficient Rendering</strong> - ECharts handles large datasets with GPU acceleration</li>
+                <li><strong>Lazy Plugin Loading</strong> - Drawing tools only activate when user selects them</li>
+                <li><strong>Responsive Design</strong> - Databox position adapts to screen size (right on desktop, floating on mobile)</li>
+            </ul>
+
+            <h3>Use Cases</h3>
+            <ul>
+                <li><strong>Trading Platforms</strong> - Full-featured chart with technical analysis tools for retail or institutional traders</li>
+                <li><strong>Portfolio Management</strong> - Track multiple assets with comprehensive indicator analysis</li>
+                <li><strong>Educational Platforms</strong> - Teach technical analysis with interactive, multi-indicator charts</li>
+                <li><strong>Research Tools</strong> - Analyze market behavior using multiple indicators simultaneously</li>
+                <li><strong>Trading Bots UI</strong> - Visualize bot signals and performance with custom indicators</li>
+            </ul>
+
+            <h3>Browser Compatibility</h3>
+            <p>
+                This demo works in all modern browsers (Chrome, Firefox, Safari, Edge) and adapts to different screen sizes. The mobile-optimized
+                databox automatically switches to floating mode on smaller screens, ensuring a great user experience across devices.
+            </p>
+
+            <h3>Learn More</h3>
+            <ul>
+                <li><a href="https://github.com/QuantForgeOrg/QFChart" target="_blank">QFChart GitHub Repository</a></li>
+                <li><a href="https://github.com/QuantForgeOrg/PineTS" target="_blank">PineTS GitHub Repository</a></li>
+                <li><a href="../api.html">QFChart API Documentation</a></li>
+                <li><a href="../layout-and-customization.html">Layout and Customization Guide</a></li>
+                <li><a href="../index.html">More QFChart Demos</a></li>
+            </ul>
         </div>
 
         <script src="../js/indicators/sqzmom.js"></script>
