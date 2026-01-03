@@ -35,7 +35,133 @@
                 The results are then used by QFChart to render the chart.
             </p>
             <hr />
-            <div id="main-chart"><center>Loading...</center></div>
+            <div id="main-chart"><p class="loading">Loading Data ...</p></div>
+        </div>
+
+        <div id="info">
+            <h2>About This Demo - Native Pine Script Execution</h2>
+            
+            <h3>What is Pine Script?</h3>
+            <p>
+                <strong>Pine Script</strong> is TradingView's proprietary scripting language designed for creating custom technical indicators 
+                and trading strategies. It provides a simple, intuitive syntax that allows traders to express complex mathematical calculations 
+                and conditional logic without needing extensive programming knowledge. Pine Script is widely used by millions of traders 
+                worldwide to build, test, and deploy custom trading tools.
+            </p>
+
+            <h3>PineTS: Pine Script Runtime for JavaScript</h3>
+            <p>
+                <strong>PineTS</strong> is a groundbreaking JavaScript/TypeScript library that brings Pine Script execution to the web. Unlike 
+                other solutions that require pre-compilation or conversion, PineTS is a <strong>runtime transpiler</strong> that executes 
+                Pine Script code directly in the browser or Node.js environment. This demo showcases PineTS's ability to:
+            </p>
+            <ul>
+                <li><strong>Load Native Pine Script</strong> - Read .pine files directly without modification</li>
+                <li><strong>Parse and Execute</strong> - Transpile Pine Script to executable JavaScript at runtime</li>
+                <li><strong>Generate Indicator Data</strong> - Calculate indicator values across historical market data</li>
+                <li><strong>Visualize with QFChart</strong> - Render the results in beautiful, interactive charts</li>
+            </ul>
+
+            <h3>The Cross Signal Indicator</h3>
+            <p>
+                This demo executes a <strong>Cross Signal</strong> indicator written in pure Pine Script. The indicator detects when 
+                a fast moving average crosses above or below a slow moving average, generating buy and sell signals. Key features:
+            </p>
+            <ul>
+                <li><strong>Configurable Parameters</strong> - Fast period (default: 9) and slow period (default: 21)</li>
+                <li><strong>Visual Signals</strong> - Green upward triangles for buy signals, red downward triangles for sell signals</li>
+                <li><strong>MA Plotting</strong> - Both moving averages are plotted on the chart for reference</li>
+                <li><strong>Alert Conditions</strong> - Defines conditions for triggering alerts on crossovers</li>
+            </ul>
+
+            <h3>How This Demo Works</h3>
+            <p>The execution flow demonstrates the full PineTS + QFChart integration:</p>
+            <ol>
+                <li><strong>Load Pine Script</strong> - Fetch the <code>cross-signal.pine</code> file via HTTP</li>
+                <li><strong>Initialize PineTS</strong> - Create a PineTS instance with market data provider (Binance)</li>
+                <li><strong>Execute Script</strong> - PineTS transpiles and runs the Pine Script on 500 weekly BTC/USDT candles</li>
+                <li><strong>Extract Results</strong> - Get calculated indicator values and plot data</li>
+                <li><strong>Initialize QFChart</strong> - Create a chart instance with the market data</li>
+                <li><strong>Render Indicator</strong> - Add the Cross Signal plots as an overlay on the price chart</li>
+            </ol>
+
+            <h3>Technical Implementation</h3>
+            <p>Behind the scenes, this demo showcases advanced capabilities:</p>
+            <ul>
+                <li><strong>Runtime Transpilation</strong> - PineTS parses Pine Script syntax into an Abstract Syntax Tree (AST), then transforms it into executable JavaScript</li>
+                <li><strong>Scope Management</strong> - Properly handles Pine Script's unique variable scoping and series types</li>
+                <li><strong>Built-in Functions</strong> - Implements Pine Script's <code>ta.*</code>, <code>math.*</code>, <code>plot()</code>, and other namespaces</li>
+                <li><strong>Series Processing</strong> - Processes time-series data with forward storage and reverse indexing (Pine Script convention)</li>
+                <li><strong>Plot Extraction</strong> - Converts Pine Script's plot calls into QFChart-compatible data structures</li>
+            </ul>
+
+            <h3>Benefits of Native Pine Script Execution</h3>
+            <ul>
+                <li><strong>Compatibility</strong> - Use existing Pine Script indicators without rewriting them in JavaScript</li>
+                <li><strong>Community Ecosystem</strong> - Access thousands of public Pine Script indicators from TradingView</li>
+                <li><strong>Rapid Prototyping</strong> - Write indicators in Pine Script's concise syntax, test instantly in the browser</li>
+                <li><strong>No Compilation</strong> - Changes to .pine files are reflected immediately (just reload the page)</li>
+                <li><strong>Cross-Platform</strong> - Run the same Pine Script code in browser, Node.js, or mobile apps</li>
+            </ul>
+
+            <h3>Sample Pine Script Code</h3>
+            <p>Here's a simplified version of what the Cross Signal indicator looks like:</p>
+            <pre><code>//@version=5
+indicator("Cross Signal", overlay=true)
+
+// Input parameters
+fastLength = input.int(9, "Fast MA Length")
+slowLength = input.int(21, "Slow MA Length")
+
+// Calculate moving averages
+fastMA = ta.sma(close, fastLength)
+slowMA = ta.sma(close, slowLength)
+
+// Detect crossovers
+bullCross = ta.crossover(fastMA, slowMA)
+bearCross = ta.crossunder(fastMA, slowMA)
+
+// Plot MAs
+plot(fastMA, "Fast MA", color.blue)
+plot(slowMA, "Slow MA", color.red)
+
+// Plot signals
+plotshape(bullCross, "Buy", shape.triangleup, location.belowbar, color.green, size=size.small)
+plotshape(bearCross, "Sell", shape.triangledown, location.abovebar, color.red, size=size.small)
+</code></pre>
+
+            <h3>Use Cases</h3>
+            <ul>
+                <li><strong>Indicator Development</strong> - Develop custom indicators in Pine Script, visualize with QFChart</li>
+                <li><strong>Strategy Backtesting</strong> - Load historical data and test Pine Script strategies programmatically</li>
+                <li><strong>Trading Platforms</strong> - Build web-based trading platforms with support for user-created Pine Script indicators</li>
+                <li><strong>Educational Tools</strong> - Create interactive tutorials that execute and explain Pine Script concepts</li>
+                <li><strong>Research & Analysis</strong> - Run Pine Script indicators on custom datasets or alternative data sources</li>
+            </ul>
+
+            <h3>Getting Started</h3>
+            <p>To execute your own Pine Script files:</p>
+            <pre><code>// Load Pine Script source
+const response = await fetch('your-indicator.pine');
+const pineScript = await response.text();
+
+// Execute with PineTS
+const pineTS = new PineTS(PineTS.Provider.Binance, 'BTCUSDT', '1d', 500);
+const { result, plots, marketData } = await pineTS.run(pineScript);
+
+// Visualize with QFChart
+const chart = new QFChart.QFChart(container, { title: 'My Indicator' });
+chart.setMarketData(marketData);
+chart.addIndicator('My Indicator', plots, { isOverlay: true });
+</code></pre>
+
+            <h3>Learn More</h3>
+            <ul>
+                <li><a href="https://github.com/QuantForgeOrg/PineTS" target="_blank">PineTS GitHub Repository</a></li>
+                <li><a href="https://github.com/QuantForgeOrg/QFChart" target="_blank">QFChart GitHub Repository</a></li>
+                <li><a href="https://www.tradingview.com/pine-script-docs/" target="_blank">Pine Script Official Documentation</a></li>
+                <li><a href="../index.html">More QFChart Demos</a></li>
+            </ul>
         </div>
 
         <script src="../js/indicators/macd.js"></script>
@@ -60,10 +186,9 @@
                 // Load the Pine Script source code
                 const crossSignalSource = await loadPineScript('../data/cross-signal.pine');
 
-                const promises = [getIndicatorData(crossSignalSource, 'BTCUSDT', 'W', DATA_LENGTH)];
-                const results = await Promise.all(promises);
+                const result = await getIndicatorData(crossSignalSource, 'BTCUSDT', 'W', DATA_LENGTH);
 
-                const { marketData, plots: crossSignalPlots } = results[0];
+                const { marketData, plots: crossSignalPlots } = result;
 
                 // Map Market Data to QFChart OHLCV format
                 // marketData is array of objects: { openTime, open, high, low, close, volume }

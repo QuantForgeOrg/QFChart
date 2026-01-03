@@ -15940,36 +15940,24 @@ ${code}
       const stateKey = _callId || "accdist";
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevCumulativeSum: 0,
-          // Tentative state
-          currentCumulativeSum: 0
+          cumulativeSum: 0
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevCumulativeSum = state.currentCumulativeSum;
-        }
-        state.lastIdx = context.idx;
-      }
       const close = context.get(context.data.close, 0);
       const high = context.get(context.data.high, 0);
       const low = context.get(context.data.low, 0);
       const volume = context.get(context.data.volume, 0);
       if (isNaN(close) || isNaN(high) || isNaN(low) || isNaN(volume)) {
-        state.currentCumulativeSum = state.prevCumulativeSum;
-        return context.precision(state.prevCumulativeSum);
+        return context.precision(state.cumulativeSum);
       }
       const range = high - low;
       let term = 0;
       if (range !== 0) {
         term = (close - low - (high - close)) / range * volume;
       }
-      const currentSum = state.prevCumulativeSum + term;
-      state.currentCumulativeSum = currentSum;
-      return context.precision(currentSum);
+      state.cumulativeSum += term;
+      return context.precision(state.cumulativeSum);
     };
   }
 
@@ -15994,35 +15982,22 @@ ${code}
           weights[i] /= weightSum;
         }
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevWindow: [],
-          // Tentative state (working window)
-          currentWindow: [],
+          window: [],
           weights
-          // weights are constant
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevWindow = [...state.currentWindow];
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0);
-      const window = [...state.prevWindow];
-      window.unshift(currentValue);
-      if (window.length > period) {
-        window.pop();
-      }
-      state.currentWindow = window;
-      if (window.length < period) {
+      state.window.unshift(currentValue);
+      if (state.window.length < period) {
         return NaN;
+      }
+      if (state.window.length > period) {
+        state.window.pop();
       }
       let alma2 = 0;
       for (let i = 0; i < period; i++) {
-        alma2 += state.weights[i] * window[period - 1 - i];
+        alma2 += state.weights[i] * state.window[period - 1 - i];
       }
       return context.precision(alma2);
     };
@@ -16035,64 +16010,40 @@ ${code}
       const stateKey = _callId || `atr_${period}`;
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
           prevAtr: null,
-          prevInitSum: 0,
-          prevInitCount: 0,
-          prevPrevClose: null,
-          // "Previous" of the previous close
-          // Tentative state
-          currentAtr: null,
-          currentInitSum: 0,
-          currentInitCount: 0,
-          currentPrevClose: null
+          initSum: 0,
+          initCount: 0,
+          prevClose: null
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevAtr = state.currentAtr;
-          state.prevInitSum = state.currentInitSum;
-          state.prevInitCount = state.currentInitCount;
-          state.prevPrevClose = state.currentPrevClose;
-        }
-        state.lastIdx = context.idx;
-      }
       const high = context.get(context.data.high, 0);
       const low = context.get(context.data.low, 0);
       const close = context.get(context.data.close, 0);
       if (isNaN(high) || isNaN(low) || isNaN(close)) {
         return NaN;
       }
-      const prevClose = state.prevPrevClose;
       let tr;
-      if (prevClose !== null) {
+      if (state.prevClose !== null) {
         const hl = high - low;
-        const hc = Math.abs(high - prevClose);
-        const lc = Math.abs(low - prevClose);
+        const hc = Math.abs(high - state.prevClose);
+        const lc = Math.abs(low - state.prevClose);
         tr = Math.max(hl, hc, lc);
       } else {
         tr = high - low;
       }
-      state.currentPrevClose = close;
-      let initCount = state.prevInitCount;
-      let initSum = state.prevInitSum;
-      let prevAtr = state.prevAtr;
-      if (initCount < period) {
-        initSum += tr;
-        initCount++;
-        state.currentInitSum = initSum;
-        state.currentInitCount = initCount;
-        if (initCount === period) {
-          const atr3 = initSum / period;
-          state.currentAtr = atr3;
-          return context.precision(atr3);
+      state.prevClose = close;
+      if (state.initCount < period) {
+        state.initSum += tr;
+        state.initCount++;
+        if (state.initCount === period) {
+          state.prevAtr = state.initSum / period;
+          return context.precision(state.prevAtr);
         }
         return NaN;
       }
-      const atr2 = (prevAtr * (period - 1) + tr) / period;
-      state.currentAtr = atr2;
+      const atr2 = (state.prevAtr * (period - 1) + tr) / period;
+      state.prevAtr = atr2;
       return context.precision(atr2);
     };
   }
@@ -16103,30 +16054,19 @@ ${code}
       const stateKey = _callId || "barssince";
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevLastTrueIndex: null,
-          // Tentative state
-          currentLastTrueIndex: null
+          lastTrueIndex: null
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevLastTrueIndex = state.currentLastTrueIndex;
-        }
-        state.lastIdx = context.idx;
-      }
       const cond = Series.from(condition).get(0);
-      let lastTrueIndex = state.prevLastTrueIndex;
       if (cond) {
-        lastTrueIndex = context.idx;
+        state.lastTrueIndex = context.idx;
+        return 0;
       }
-      state.currentLastTrueIndex = lastTrueIndex;
-      if (lastTrueIndex === null) {
+      if (state.lastTrueIndex === null) {
         return NaN;
       }
-      return context.idx - lastTrueIndex;
+      return context.idx - state.lastTrueIndex;
     };
   }
 
@@ -16138,46 +16078,28 @@ ${code}
       const stateKey = _callId || `bb_${length}_${mult}`;
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevWindow: [],
-          prevSum: 0,
-          // Tentative state
-          currentWindow: [],
-          currentSum: 0
+          window: [],
+          sum: 0
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevWindow = [...state.currentWindow];
-          state.prevSum = state.currentSum;
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0);
       if (isNaN(currentValue)) {
-        state.currentWindow = [...state.prevWindow];
-        state.currentSum = state.prevSum;
         return [[NaN, NaN, NaN]];
       }
-      const window = [...state.prevWindow];
-      let sum = state.prevSum;
-      window.unshift(currentValue);
-      sum += currentValue;
-      if (window.length > length) {
-        const oldValue = window.pop();
-        sum -= oldValue;
-      }
-      state.currentWindow = window;
-      state.currentSum = sum;
-      if (window.length < length) {
+      state.window.unshift(currentValue);
+      state.sum += currentValue;
+      if (state.window.length < length) {
         return [[NaN, NaN, NaN]];
       }
-      const middle = sum / length;
+      if (state.window.length > length) {
+        const oldValue = state.window.pop();
+        state.sum -= oldValue;
+      }
+      const middle = state.sum / length;
       let sumSquaredDiff = 0;
       for (let i = 0; i < length; i++) {
-        sumSquaredDiff += Math.pow(window[i] - middle, 2);
+        sumSquaredDiff += Math.pow(state.window[i] - middle, 2);
       }
       const stdev = Math.sqrt(sumSquaredDiff / length);
       const upper = middle + mult * stdev;
@@ -16194,46 +16116,28 @@ ${code}
       const stateKey = _callId || `bbw_${length}_${mult}`;
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevWindow: [],
-          prevSum: 0,
-          // Tentative state
-          currentWindow: [],
-          currentSum: 0
+          window: [],
+          sum: 0
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevWindow = [...state.currentWindow];
-          state.prevSum = state.currentSum;
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0);
       if (isNaN(currentValue)) {
-        state.currentWindow = [...state.prevWindow];
-        state.currentSum = state.prevSum;
         return NaN;
       }
-      const window = [...state.prevWindow];
-      let sum = state.prevSum;
-      window.unshift(currentValue);
-      sum += currentValue;
-      if (window.length > length) {
-        const removed = window.pop();
-        sum -= removed;
-      }
-      state.currentWindow = window;
-      state.currentSum = sum;
-      if (window.length < length) {
+      state.window.unshift(currentValue);
+      state.sum += currentValue;
+      if (state.window.length < length) {
         return NaN;
       }
-      const basis = sum / length;
+      if (state.window.length > length) {
+        const removed = state.window.pop();
+        state.sum -= removed;
+      }
+      const basis = state.sum / length;
       let sumSqDiff = 0;
       for (let i = 0; i < length; i++) {
-        const diff = window[i] - basis;
+        const diff = state.window[i] - basis;
         sumSqDiff += diff * diff;
       }
       const variance = sumSqDiff / length;
@@ -16254,46 +16158,28 @@ ${code}
       const stateKey = _callId || `cci_${length}`;
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevWindow: [],
-          prevSum: 0,
-          // Tentative state
-          currentWindow: [],
-          currentSum: 0
+          window: [],
+          sum: 0
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevWindow = [...state.currentWindow];
-          state.prevSum = state.currentSum;
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0);
       if (isNaN(currentValue)) {
         return NaN;
       }
-      const window = [...state.prevWindow];
-      let sum = state.prevSum;
-      window.unshift(currentValue);
-      sum += currentValue;
-      if (window.length < length) {
-        state.currentWindow = window;
-        state.currentSum = sum;
+      state.window.unshift(currentValue);
+      state.sum += currentValue;
+      if (state.window.length < length) {
         return NaN;
       }
-      if (window.length > length) {
-        const oldValue = window.pop();
-        sum -= oldValue;
+      if (state.window.length > length) {
+        const oldValue = state.window.pop();
+        state.sum -= oldValue;
       }
-      state.currentWindow = window;
-      state.currentSum = sum;
-      const sma = sum / length;
+      const sma = state.sum / length;
       let sumAbsoluteDeviations = 0;
       for (let i = 0; i < length; i++) {
-        sumAbsoluteDeviations += Math.abs(window[i] - sma);
+        sumAbsoluteDeviations += Math.abs(state.window[i] - sma);
       }
       const meanDeviation = sumAbsoluteDeviations / length;
       if (meanDeviation === 0) {
@@ -16314,33 +16200,18 @@ ${code}
       if (!context.taState) context.taState = {};
       const stateKey = _callId || `change_${length}`;
       if (!context.taState[stateKey]) {
-        context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevWindow: [],
-          // Tentative state
-          currentWindow: []
-        };
+        context.taState[stateKey] = { window: [] };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevWindow = [...state.currentWindow];
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0);
-      const window = [...state.prevWindow];
-      window.unshift(currentValue);
-      if (window.length <= length) {
-        state.currentWindow = window;
+      state.window.unshift(currentValue);
+      if (state.window.length <= length) {
         return NaN;
       }
-      if (window.length > length + 1) {
-        window.pop();
+      if (state.window.length > length + 1) {
+        state.window.pop();
       }
-      state.currentWindow = window;
-      const change2 = currentValue - window[length];
+      const change2 = currentValue - state.window[length];
       return context.precision(change2);
     };
   }
@@ -16352,29 +16223,13 @@ ${code}
       const stateKey = _callId || `cmo_${length}`;
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevGainsWindow: [],
-          prevLossesWindow: [],
-          prevGainsSum: 0,
-          prevLossesSum: 0,
-          // Tentative state
-          currentGainsWindow: [],
-          currentLossesWindow: [],
-          currentGainsSum: 0,
-          currentLossesSum: 0
+          gainsWindow: [],
+          lossesWindow: [],
+          gainsSum: 0,
+          lossesSum: 0
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevGainsWindow = [...state.currentGainsWindow];
-          state.prevLossesWindow = [...state.currentLossesWindow];
-          state.prevGainsSum = state.currentGainsSum;
-          state.prevLossesSum = state.currentLossesSum;
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0);
       const previousValue = Series.from(source).get(1);
       if (isNaN(currentValue) || isNaN(previousValue)) {
@@ -16383,36 +16238,24 @@ ${code}
       const mom = currentValue - previousValue;
       const gain = mom >= 0 ? mom : 0;
       const loss = mom >= 0 ? 0 : -mom;
-      const gainsWindow = [...state.prevGainsWindow];
-      const lossesWindow = [...state.prevLossesWindow];
-      let gainsSum = state.prevGainsSum;
-      let lossesSum = state.prevLossesSum;
-      gainsWindow.unshift(gain);
-      lossesWindow.unshift(loss);
-      gainsSum += gain;
-      lossesSum += loss;
-      if (gainsWindow.length < length) {
-        state.currentGainsWindow = gainsWindow;
-        state.currentLossesWindow = lossesWindow;
-        state.currentGainsSum = gainsSum;
-        state.currentLossesSum = lossesSum;
+      state.gainsWindow.unshift(gain);
+      state.lossesWindow.unshift(loss);
+      state.gainsSum += gain;
+      state.lossesSum += loss;
+      if (state.gainsWindow.length < length) {
         return NaN;
       }
-      if (gainsWindow.length > length) {
-        const oldGain = gainsWindow.pop();
-        const oldLoss = lossesWindow.pop();
-        gainsSum -= oldGain;
-        lossesSum -= oldLoss;
+      if (state.gainsWindow.length > length) {
+        const oldGain = state.gainsWindow.pop();
+        const oldLoss = state.lossesWindow.pop();
+        state.gainsSum -= oldGain;
+        state.lossesSum -= oldLoss;
       }
-      state.currentGainsWindow = gainsWindow;
-      state.currentLossesWindow = lossesWindow;
-      state.currentGainsSum = gainsSum;
-      state.currentLossesSum = lossesSum;
-      const denominator = gainsSum + lossesSum;
+      const denominator = state.gainsSum + state.lossesSum;
       if (denominator === 0) {
         return context.precision(0);
       }
-      const cmo2 = 100 * (gainsSum - lossesSum) / denominator;
+      const cmo2 = 100 * (state.gainsSum - state.lossesSum) / denominator;
       return context.precision(cmo2);
     };
   }
@@ -16529,28 +16372,16 @@ ${code}
       const stateKey = _callId || "cum";
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevCumulativeSum: 0,
-          // Tentative state
-          currentCumulativeSum: 0
+          cumulativeSum: 0
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevCumulativeSum = state.currentCumulativeSum;
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0);
       if (isNaN(currentValue)) {
-        state.currentCumulativeSum = state.prevCumulativeSum;
-        return context.precision(state.prevCumulativeSum);
+        return context.precision(state.cumulativeSum);
       }
-      const currentSum = state.prevCumulativeSum + currentValue;
-      state.currentCumulativeSum = currentSum;
-      return context.precision(currentSum);
+      state.cumulativeSum += currentValue;
+      return context.precision(state.cumulativeSum);
     };
   }
 
@@ -16560,42 +16391,23 @@ ${code}
       if (!context.taState) context.taState = {};
       const stateKey = _callId || `dev_${length}`;
       if (!context.taState[stateKey]) {
-        context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevWindow: [],
-          prevSum: 0,
-          // Tentative state
-          currentWindow: [],
-          currentSum: 0
-        };
+        context.taState[stateKey] = { window: [], sum: 0 };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevWindow = [...state.currentWindow];
-          state.prevSum = state.currentSum;
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0) || 0;
-      const window = [...state.prevWindow];
-      let sum = state.prevSum;
-      window.unshift(currentValue);
-      sum += currentValue;
-      if (window.length > length) {
-        const oldValue = window.pop();
-        sum -= oldValue;
-      }
-      state.currentWindow = window;
-      state.currentSum = sum;
-      if (window.length < length) {
+      state.window.unshift(currentValue);
+      state.sum += currentValue;
+      if (state.window.length < length) {
         return NaN;
       }
-      const mean = sum / length;
+      if (state.window.length > length) {
+        const oldValue = state.window.pop();
+        state.sum -= oldValue;
+      }
+      const mean = state.sum / length;
       let sumDeviation = 0;
       for (let i = 0; i < length; i++) {
-        sumDeviation += Math.abs(window[i] - mean);
+        sumDeviation += Math.abs(state.window[i] - mean);
       }
       const dev2 = sumDeviation / length;
       return context.precision(dev2);
@@ -16610,68 +16422,37 @@ ${code}
       const stateKey = _callId || `dmi_${diLength}_${adxSmoothing}`;
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
+          // Previous bar values
           prevHigh: NaN,
           prevLow: NaN,
           prevClose: NaN,
-          // RMA states for TR, +DM, -DM
-          prevTrInitSum: 0,
-          prevPlusInitSum: 0,
-          prevMinusInitSum: 0,
-          prevInitCount: 0,
+          // RMA states for TR, +DM, -DM (using diLength)
+          // We track initSum and initCount for the SMA initialization phase
+          trInitSum: 0,
+          plusInitSum: 0,
+          minusInitSum: 0,
+          initCount: 0,
+          // Counts valid bars for DI initialization
           prevSmoothedTR: NaN,
           prevSmoothedPlus: NaN,
           prevSmoothedMinus: NaN,
-          // RMA state for ADX
-          prevDxInitSum: 0,
-          prevAdxInitCount: 0,
-          prevADX: NaN,
-          // Tentative state (current)
-          currentHigh: NaN,
-          currentLow: NaN,
-          currentClose: NaN,
-          currentTrInitSum: 0,
-          currentPlusInitSum: 0,
-          currentMinusInitSum: 0,
-          currentInitCount: 0,
-          currentSmoothedTR: NaN,
-          currentSmoothedPlus: NaN,
-          currentSmoothedMinus: NaN,
-          currentDxInitSum: 0,
-          currentAdxInitCount: 0,
-          currentADX: NaN
+          // RMA state for ADX (using adxSmoothing)
+          dxInitSum: 0,
+          adxInitCount: 0,
+          prevADX: NaN
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevHigh = state.currentHigh;
-          state.prevLow = state.currentLow;
-          state.prevClose = state.currentClose;
-          state.prevTrInitSum = state.currentTrInitSum;
-          state.prevPlusInitSum = state.currentPlusInitSum;
-          state.prevMinusInitSum = state.currentMinusInitSum;
-          state.prevInitCount = state.currentInitCount;
-          state.prevSmoothedTR = state.currentSmoothedTR;
-          state.prevSmoothedPlus = state.currentSmoothedPlus;
-          state.prevSmoothedMinus = state.currentSmoothedMinus;
-          state.prevDxInitSum = state.currentDxInitSum;
-          state.prevAdxInitCount = state.currentAdxInitCount;
-          state.prevADX = state.currentADX;
-        }
-        state.lastIdx = context.idx;
-      }
       const high = context.get(context.data.high, 0);
       const low = context.get(context.data.low, 0);
       const close = context.get(context.data.close, 0);
       if (isNaN(high) || isNaN(low) || isNaN(close)) {
         return [[NaN, NaN, NaN]];
       }
-      state.currentHigh = high;
-      state.currentLow = low;
-      state.currentClose = close;
       if (isNaN(state.prevHigh)) {
+        state.prevHigh = high;
+        state.prevLow = low;
+        state.prevClose = close;
         return [[NaN, NaN, NaN]];
       }
       const tr = Math.max(high - low, Math.abs(high - state.prevClose), Math.abs(low - state.prevClose));
@@ -16679,62 +16460,49 @@ ${code}
       const down = state.prevLow - low;
       const plusDM = up > down && up > 0 ? up : 0;
       const minusDM = down > up && down > 0 ? down : 0;
-      let initCount = state.prevInitCount;
-      let trInitSum = state.prevTrInitSum;
-      let plusInitSum = state.prevPlusInitSum;
-      let minusInitSum = state.prevMinusInitSum;
-      let smoothedTR = state.prevSmoothedTR;
-      let smoothedPlus = state.prevSmoothedPlus;
-      let smoothedMinus = state.prevSmoothedMinus;
-      initCount++;
-      if (initCount <= diLength) {
-        trInitSum += tr;
-        plusInitSum += plusDM;
-        minusInitSum += minusDM;
-        if (initCount === diLength) {
-          smoothedTR = trInitSum / diLength;
-          smoothedPlus = plusInitSum / diLength;
-          smoothedMinus = minusInitSum / diLength;
+      state.prevHigh = high;
+      state.prevLow = low;
+      state.prevClose = close;
+      let smoothedTR, smoothedPlus, smoothedMinus;
+      state.initCount++;
+      if (state.initCount <= diLength) {
+        state.trInitSum += tr;
+        state.plusInitSum += plusDM;
+        state.minusInitSum += minusDM;
+        if (state.initCount === diLength) {
+          state.prevSmoothedTR = state.trInitSum / diLength;
+          state.prevSmoothedPlus = state.plusInitSum / diLength;
+          state.prevSmoothedMinus = state.minusInitSum / diLength;
         }
       } else {
         const alpha = 1 / diLength;
-        smoothedTR = alpha * tr + (1 - alpha) * smoothedTR;
-        smoothedPlus = alpha * plusDM + (1 - alpha) * smoothedPlus;
-        smoothedMinus = alpha * minusDM + (1 - alpha) * smoothedMinus;
+        state.prevSmoothedTR = alpha * tr + (1 - alpha) * state.prevSmoothedTR;
+        state.prevSmoothedPlus = alpha * plusDM + (1 - alpha) * state.prevSmoothedPlus;
+        state.prevSmoothedMinus = alpha * minusDM + (1 - alpha) * state.prevSmoothedMinus;
       }
-      state.currentInitCount = initCount;
-      state.currentTrInitSum = trInitSum;
-      state.currentPlusInitSum = plusInitSum;
-      state.currentMinusInitSum = minusInitSum;
-      state.currentSmoothedTR = smoothedTR;
-      state.currentSmoothedPlus = smoothedPlus;
-      state.currentSmoothedMinus = smoothedMinus;
-      if (initCount < diLength) {
+      smoothedTR = state.prevSmoothedTR;
+      smoothedPlus = state.prevSmoothedPlus;
+      smoothedMinus = state.prevSmoothedMinus;
+      if (state.initCount < diLength) {
         return [[NaN, NaN, NaN]];
       }
       const plusDI = smoothedTR === 0 ? 0 : 100 * smoothedPlus / smoothedTR;
       const minusDI = smoothedTR === 0 ? 0 : 100 * smoothedMinus / smoothedTR;
       const sumDI = plusDI + minusDI;
       const dx = sumDI === 0 ? 0 : 100 * Math.abs(plusDI - minusDI) / sumDI;
-      let adxInitCount = state.prevAdxInitCount;
-      let dxInitSum = state.prevDxInitSum;
-      let prevADX = state.prevADX;
       let adx = NaN;
-      adxInitCount++;
-      if (adxInitCount <= adxSmoothing) {
-        dxInitSum += dx;
-        if (adxInitCount === adxSmoothing) {
-          prevADX = dxInitSum / adxSmoothing;
-          adx = prevADX;
+      state.adxInitCount++;
+      if (state.adxInitCount <= adxSmoothing) {
+        state.dxInitSum += dx;
+        if (state.adxInitCount === adxSmoothing) {
+          state.prevADX = state.dxInitSum / adxSmoothing;
+          adx = state.prevADX;
         }
       } else {
         const alphaAdx = 1 / adxSmoothing;
-        prevADX = alphaAdx * dx + (1 - alphaAdx) * prevADX;
-        adx = prevADX;
+        state.prevADX = alphaAdx * dx + (1 - alphaAdx) * state.prevADX;
+        adx = state.prevADX;
       }
-      state.currentAdxInitCount = adxInitCount;
-      state.currentDxInitSum = dxInitSum;
-      state.currentADX = prevADX;
       return [[context.precision(plusDI), context.precision(minusDI), context.precision(adx)]];
     };
   }
@@ -16816,37 +16584,18 @@ ${code}
       if (!context.taState) context.taState = {};
       const stateKey = _callId || `highest_${length}`;
       if (!context.taState[stateKey]) {
-        context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevWindow: [],
-          // Tentative state
-          currentWindow: []
-        };
+        context.taState[stateKey] = { window: [] };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevWindow = [...state.currentWindow];
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0);
-      const window = [...state.prevWindow];
-      window.unshift(currentValue);
-      if (window.length < length) {
-        state.currentWindow = window;
+      state.window.unshift(currentValue);
+      if (state.window.length < length) {
         return NaN;
       }
-      if (window.length > length) {
-        window.pop();
+      if (state.window.length > length) {
+        state.window.pop();
       }
-      state.currentWindow = window;
-      const validValues = window.filter((v) => !isNaN(v) && v !== void 0);
-      if (validValues.length === 0) {
-        return NaN;
-      }
-      const max = Math.max(...validValues);
+      const max = Math.max(...state.window.filter((v) => !isNaN(v)));
       return context.precision(max);
     };
   }
@@ -16886,58 +16635,27 @@ ${code}
       if (!context.taState) context.taState = {};
       const stateKey = _callId || `hma_raw_${period}`;
       if (!context.taState[stateKey]) {
-        context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevValues: [],
-          // Tentative state
-          currentValues: []
-        };
-      }
-      const rawState = context.taState[stateKey];
-      if (context.idx > rawState.lastIdx) {
-        if (rawState.lastIdx >= 0) {
-          rawState.prevValues = [...rawState.currentValues];
-        }
-        rawState.lastIdx = context.idx;
+        context.taState[stateKey] = [];
       }
       const rawHma = 2 * wma1 - wma2;
-      const values = [...rawState.prevValues];
-      values.unshift(rawHma);
-      if (values.length > sqrtPeriod + 1) values.pop();
-      rawState.currentValues = values;
+      context.taState[stateKey].unshift(rawHma);
       const hmaStateKey = _callId ? `${_callId}_hma_final` : `hma_final_${period}`;
       if (!context.taState[hmaStateKey]) {
-        context.taState[hmaStateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevWindow: [],
-          // Tentative state
-          currentWindow: []
-        };
+        context.taState[hmaStateKey] = { window: [] };
       }
       const state = context.taState[hmaStateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevWindow = [...state.currentWindow];
-        }
-        state.lastIdx = context.idx;
-      }
-      const window = [...state.prevWindow];
-      window.unshift(rawHma);
-      if (window.length < sqrtPeriod) {
-        state.currentWindow = window;
+      state.window.unshift(rawHma);
+      if (state.window.length < sqrtPeriod) {
         return NaN;
       }
-      if (window.length > sqrtPeriod) {
-        window.pop();
+      if (state.window.length > sqrtPeriod) {
+        state.window.pop();
       }
-      state.currentWindow = window;
       let numerator = 0;
       let denominator = 0;
       for (let i = 0; i < sqrtPeriod; i++) {
         const weight = sqrtPeriod - i;
-        numerator += window[i] * weight;
+        numerator += state.window[i] * weight;
         denominator += weight;
       }
       const hma2 = numerator / denominator;
@@ -16992,53 +16710,28 @@ ${code}
       const stateKey = _callId || `kc_${length}_${mult}_${useTrueRange}`;
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
           basisState: { prevEma: null, initSum: 0, initCount: 0 },
-          rangeState: { prevEma: null, initSum: 0, initCount: 0 },
-          // Tentative state
-          currentBasisState: { prevEma: null, initSum: 0, initCount: 0 },
-          currentRangeState: { prevEma: null, initSum: 0, initCount: 0 }
+          rangeState: { prevEma: null, initSum: 0, initCount: 0 }
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.basisState = { ...state.currentBasisState };
-          state.rangeState = { ...state.currentRangeState };
-        }
-        state.lastIdx = context.idx;
-      }
-      const updateEma = (committedState, tentativeState, value, period) => {
-        if (isNaN(value)) {
-          Object.assign(tentativeState, committedState);
-          return tentativeState.prevEma !== null ? tentativeState.prevEma : NaN;
-        }
-        let initCount = committedState.initCount;
-        let initSum = committedState.initSum;
-        let prevEma = committedState.prevEma;
-        if (initCount < period) {
-          initSum += value;
-          initCount++;
-          tentativeState.initSum = initSum;
-          tentativeState.initCount = initCount;
-          tentativeState.prevEma = prevEma;
-          if (initCount === period) {
-            const ema2 = initSum / period;
-            tentativeState.prevEma = ema2;
-            return ema2;
+      const updateEma = (emaState, value, period) => {
+        if (isNaN(value)) return NaN;
+        if (emaState.initCount < period) {
+          emaState.initSum += value;
+          emaState.initCount++;
+          if (emaState.initCount === period) {
+            emaState.prevEma = emaState.initSum / period;
+            return emaState.prevEma;
           }
           return NaN;
         }
         const alpha = 2 / (period + 1);
-        const ema = value * alpha + prevEma * (1 - alpha);
-        tentativeState.prevEma = ema;
-        tentativeState.initSum = initSum;
-        tentativeState.initCount = initCount;
-        return ema;
+        emaState.prevEma = value * alpha + emaState.prevEma * (1 - alpha);
+        return emaState.prevEma;
       };
-      const basis = updateEma(state.basisState, state.currentBasisState, currentValue, length);
-      const rangeEma = updateEma(state.rangeState, state.currentRangeState, span, length);
+      const basis = updateEma(state.basisState, currentValue, length);
+      const rangeEma = updateEma(state.rangeState, span, length);
       if (isNaN(basis) || isNaN(rangeEma)) {
         return [[NaN, NaN, NaN]];
       }
@@ -17062,50 +16755,25 @@ ${code}
       const stateKey = _callId || `kcw_${length}_${mult}_${useTrueRange}`;
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
           basisState: { prevEma: null, initSum: 0, initCount: 0 },
-          rangeState: { prevEma: null, initSum: 0, initCount: 0 },
-          // Tentative state
-          currentBasisState: { prevEma: null, initSum: 0, initCount: 0 },
-          currentRangeState: { prevEma: null, initSum: 0, initCount: 0 }
+          rangeState: { prevEma: null, initSum: 0, initCount: 0 }
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.basisState = { ...state.currentBasisState };
-          state.rangeState = { ...state.currentRangeState };
-        }
-        state.lastIdx = context.idx;
-      }
-      const updateEma = (committedState, tentativeState, value, period) => {
-        if (isNaN(value)) {
-          Object.assign(tentativeState, committedState);
-          return tentativeState.prevEma !== null ? tentativeState.prevEma : NaN;
-        }
-        let initCount = committedState.initCount;
-        let initSum = committedState.initSum;
-        let prevEma = committedState.prevEma;
-        if (initCount < period) {
-          initSum += value;
-          initCount++;
-          tentativeState.initSum = initSum;
-          tentativeState.initCount = initCount;
-          tentativeState.prevEma = prevEma;
-          if (initCount === period) {
-            const ema2 = initSum / period;
-            tentativeState.prevEma = ema2;
-            return ema2;
+      const updateEma = (emaState, value, period) => {
+        if (isNaN(value)) return NaN;
+        if (emaState.initCount < period) {
+          emaState.initSum += value;
+          emaState.initCount++;
+          if (emaState.initCount === period) {
+            emaState.prevEma = emaState.initSum / period;
+            return emaState.prevEma;
           }
           return NaN;
         }
         const alpha = 2 / (period + 1);
-        const ema = value * alpha + prevEma * (1 - alpha);
-        tentativeState.prevEma = ema;
-        tentativeState.initSum = initSum;
-        tentativeState.initCount = initCount;
-        return ema;
+        emaState.prevEma = value * alpha + emaState.prevEma * (1 - alpha);
+        return emaState.prevEma;
       };
       let span;
       const high = context.get(context.data.high, 0);
@@ -17121,8 +16789,8 @@ ${code}
         span = high - low;
       }
       const currentValue = Series.from(source).get(0);
-      const basis = updateEma(state.basisState, state.currentBasisState, currentValue, length);
-      const rangeEma = updateEma(state.rangeState, state.currentRangeState, span, length);
+      const basis = updateEma(state.basisState, currentValue, length);
+      const rangeEma = updateEma(state.rangeState, span, length);
       if (isNaN(basis) || isNaN(rangeEma)) {
         return NaN;
       }
@@ -17141,30 +16809,16 @@ ${code}
       if (!context.taState) context.taState = {};
       const stateKey = _callId || `linreg_${length}_${offset}`;
       if (!context.taState[stateKey]) {
-        context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevWindow: [],
-          // Tentative state
-          currentWindow: []
-        };
+        context.taState[stateKey] = { window: [] };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevWindow = [...state.currentWindow];
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0);
-      const window = [...state.prevWindow];
-      window.unshift(currentValue);
-      if (window.length > length) {
-        window.pop();
-      }
-      state.currentWindow = window;
-      if (window.length < length) {
+      state.window.unshift(currentValue);
+      if (state.window.length < length) {
         return NaN;
+      }
+      if (state.window.length > length) {
+        state.window.pop();
       }
       let sumX = 0;
       let sumY = 0;
@@ -17173,7 +16827,7 @@ ${code}
       const n = length;
       for (let j = 0; j < length; j++) {
         const x = length - 1 - j;
-        const y = window[j];
+        const y = state.window[j];
         sumX += x;
         sumY += y;
         sumXY += x * y;
@@ -17196,33 +16850,18 @@ ${code}
       if (!context.taState) context.taState = {};
       const stateKey = _callId || `lowest_${length}`;
       if (!context.taState[stateKey]) {
-        context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevWindow: [],
-          // Tentative state
-          currentWindow: []
-        };
+        context.taState[stateKey] = { window: [] };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevWindow = [...state.currentWindow];
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0);
-      const window = [...state.prevWindow];
-      window.unshift(currentValue);
-      if (window.length < length) {
-        state.currentWindow = window;
+      state.window.unshift(currentValue);
+      if (state.window.length < length) {
         return NaN;
       }
-      if (window.length > length) {
-        window.pop();
+      if (state.window.length > length) {
+        state.window.pop();
       }
-      state.currentWindow = window;
-      const validValues = window.filter((v) => !isNaN(v) && v !== void 0);
+      const validValues = state.window.filter((v) => !isNaN(v) && v !== void 0);
       const min = validValues.length > 0 ? Math.min(...validValues) : NaN;
       return context.precision(min);
     };
@@ -17282,32 +16921,18 @@ ${code}
       if (!context.taState) context.taState = {};
       const stateKey = _callId || `median_${length}`;
       if (!context.taState[stateKey]) {
-        context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevWindow: [],
-          // Tentative state
-          currentWindow: []
-        };
+        context.taState[stateKey] = { window: [] };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevWindow = [...state.currentWindow];
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0);
-      const window = [...state.prevWindow];
-      window.unshift(currentValue);
-      if (window.length > length) {
-        window.pop();
-      }
-      state.currentWindow = window;
-      if (window.length < length) {
+      state.window.unshift(currentValue);
+      if (state.window.length < length) {
         return NaN;
       }
-      const sorted = window.slice().sort((a, b) => a - b);
+      if (state.window.length > length) {
+        state.window.pop();
+      }
+      const sorted = state.window.slice().sort((a, b) => a - b);
       const mid = Math.floor(length / 2);
       const median2 = length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
       return context.precision(median2);
@@ -17321,29 +16946,13 @@ ${code}
       const stateKey = _callId || `mfi_${length}`;
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevUpperWindow: [],
-          prevLowerWindow: [],
-          prevUpperSum: 0,
-          prevLowerSum: 0,
-          // Tentative state
-          currentUpperWindow: [],
-          currentLowerWindow: [],
-          currentUpperSum: 0,
-          currentLowerSum: 0
+          upperWindow: [],
+          lowerWindow: [],
+          upperSum: 0,
+          lowerSum: 0
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevUpperWindow = [...state.currentUpperWindow];
-          state.prevLowerWindow = [...state.currentLowerWindow];
-          state.prevUpperSum = state.currentUpperSum;
-          state.prevLowerSum = state.currentLowerSum;
-        }
-        state.lastIdx = context.idx;
-      }
       const currentSrc = Series.from(source).get(0);
       const previousSrc = Series.from(source).get(1);
       const volume = context.get(context.data.volume, 0);
@@ -17351,43 +16960,33 @@ ${code}
         return NaN;
       }
       const change = isNaN(previousSrc) ? NaN : currentSrc - previousSrc;
-      const upperComponent = volume * (change <= 0 ? 0 : currentSrc);
-      const lowerComponent = volume * (change >= 0 ? 0 : currentSrc);
-      const upperWindow = [...state.prevUpperWindow];
-      const lowerWindow = [...state.prevLowerWindow];
-      let upperSum = state.prevUpperSum;
-      let lowerSum = state.prevLowerSum;
-      upperWindow.unshift(upperComponent);
-      lowerWindow.unshift(lowerComponent);
-      upperSum += upperComponent;
-      lowerSum += lowerComponent;
-      if (upperWindow.length < length) {
-        state.currentUpperWindow = upperWindow;
-        state.currentLowerWindow = lowerWindow;
-        state.currentUpperSum = upperSum;
-        state.currentLowerSum = lowerSum;
+      let upperComponent = 0;
+      let lowerComponent = 0;
+      upperComponent = volume * (change <= 0 ? 0 : currentSrc);
+      lowerComponent = volume * (change >= 0 ? 0 : currentSrc);
+      state.upperWindow.unshift(upperComponent);
+      state.lowerWindow.unshift(lowerComponent);
+      state.upperSum += upperComponent;
+      state.lowerSum += lowerComponent;
+      if (state.upperWindow.length < length) {
         return NaN;
       }
-      if (upperWindow.length > length) {
-        const oldUpper = upperWindow.pop();
-        const oldLower = lowerWindow.pop();
-        upperSum -= oldUpper;
-        lowerSum -= oldLower;
+      if (state.upperWindow.length > length) {
+        const oldUpper = state.upperWindow.pop();
+        const oldLower = state.lowerWindow.pop();
+        state.upperSum -= oldUpper;
+        state.lowerSum -= oldLower;
       }
-      state.currentUpperWindow = upperWindow;
-      state.currentLowerWindow = lowerWindow;
-      state.currentUpperSum = upperSum;
-      state.currentLowerSum = lowerSum;
-      if (lowerSum === 0) {
-        if (upperSum === 0) {
+      if (state.lowerSum === 0) {
+        if (state.upperSum === 0) {
           return context.precision(100);
         }
         return context.precision(100);
       }
-      if (upperSum === 0) {
+      if (state.upperSum === 0) {
         return context.precision(0);
       }
-      const mfi2 = 100 - 100 / (1 + upperSum / lowerSum);
+      const mfi2 = 100 - 100 / (1 + state.upperSum / state.lowerSum);
       return context.precision(mfi2);
     };
   }
@@ -17425,7 +17024,7 @@ ${code}
   function mom(context) {
     return (source, _length, _callId) => {
       const length = Series.from(_length).get(0);
-      return context.ta.change(source, length, _callId);
+      return context.ta.change(source, length);
     };
   }
 
@@ -17435,20 +17034,10 @@ ${code}
       const stateKey = _callId || "nvi";
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed NVI
-          committedNVI: 1,
-          // Tentative NVI
-          tentativeNVI: 1
+          nvi: 1
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.committedNVI = state.tentativeNVI;
-        }
-        state.lastIdx = context.idx;
-      }
       const close = context.get(context.data.close, 0);
       const prevClose = context.get(context.data.close, 1);
       const volume = context.get(context.data.volume, 0);
@@ -17457,15 +17046,13 @@ ${code}
       const c1 = isNaN(prevClose) ? 0 : prevClose;
       const v0 = isNaN(volume) ? 0 : volume;
       const v1 = isNaN(prevVolume) ? 0 : prevVolume;
-      let currentNVI = state.committedNVI;
       if (c0 === 0 || c1 === 0) ; else {
         if (v0 < v1) {
           const change = (c0 - c1) / c1;
-          currentNVI = currentNVI + change * currentNVI;
+          state.nvi = state.nvi + change * state.nvi;
         }
       }
-      state.tentativeNVI = currentNVI;
-      return context.precision(currentNVI);
+      return context.precision(state.nvi);
     };
   }
 
@@ -17475,34 +17062,26 @@ ${code}
       const stateKey = "obv";
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed OBV (value at end of lastIdx)
-          committedOBV: 0,
-          // Tentative OBV (current value)
-          tentativeOBV: 0
+          prevOBV: 0
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.committedOBV = state.tentativeOBV;
-        }
-        state.lastIdx = context.idx;
-      }
       const close0 = context.get(context.data.close, 0);
       const volume0 = context.get(context.data.volume, 0);
       const close1 = context.get(context.data.close, 1);
       if (isNaN(close1)) {
-        state.tentativeOBV = 0;
+        state.prevOBV = 0;
         return context.precision(0);
       }
-      let currentOBV = state.committedOBV;
+      let currentOBV;
       if (close0 > close1) {
-        currentOBV += volume0;
+        currentOBV = state.prevOBV + volume0;
       } else if (close0 < close1) {
-        currentOBV -= volume0;
-      } else ;
-      state.tentativeOBV = currentOBV;
+        currentOBV = state.prevOBV - volume0;
+      } else {
+        currentOBV = state.prevOBV;
+      }
+      state.prevOBV = currentOBV;
       return context.precision(currentOBV);
     };
   }
@@ -17696,20 +17275,10 @@ ${code}
       const stateKey = _callId || "pvi";
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed PVI
-          committedPVI: 1,
-          // Tentative PVI
-          tentativePVI: 1
+          pvi: 1
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.committedPVI = state.tentativePVI;
-        }
-        state.lastIdx = context.idx;
-      }
       const close = context.get(context.data.close, 0);
       const prevClose = context.get(context.data.close, 1);
       const volume = context.get(context.data.volume, 0);
@@ -17718,15 +17287,13 @@ ${code}
       const c1 = isNaN(prevClose) ? 0 : prevClose;
       const v0 = isNaN(volume) ? 0 : volume;
       const v1 = isNaN(prevVolume) ? 0 : prevVolume;
-      let currentPVI = state.committedPVI;
       if (c0 === 0 || c1 === 0) ; else {
         if (v0 > v1) {
           const change = (c0 - c1) / c1;
-          currentPVI = currentPVI + change * currentPVI;
+          state.pvi = state.pvi + change * state.pvi;
         }
       }
-      state.tentativePVI = currentPVI;
-      return context.precision(currentPVI);
+      return context.precision(state.pvi);
     };
   }
 
@@ -17736,30 +17303,18 @@ ${code}
       const stateKey = _callId || "pvt";
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevCumulativeSum: 0,
-          // Tentative state
-          currentCumulativeSum: 0
+          cumulativeSum: 0
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevCumulativeSum = state.currentCumulativeSum;
-        }
-        state.lastIdx = context.idx;
-      }
       const close = context.get(context.data.close, 0);
       const prevClose = context.get(context.data.close, 1);
       const volume = context.get(context.data.volume, 0);
-      let currentSum = state.prevCumulativeSum;
       if (!isNaN(close) && !isNaN(prevClose) && !isNaN(volume) && prevClose !== 0) {
         const term = (close - prevClose) / prevClose * volume;
-        currentSum += term;
+        state.cumulativeSum += term;
       }
-      state.currentCumulativeSum = currentSum;
-      return context.precision(currentSum);
+      return context.precision(state.cumulativeSum);
     };
   }
 
@@ -17798,46 +17353,22 @@ ${code}
       if (!context.taState) context.taState = {};
       const stateKey = _callId || `rma_${period}`;
       if (!context.taState[stateKey]) {
-        context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevRma: null,
-          prevInitSum: 0,
-          prevInitCount: 0,
-          // Tentative state
-          currentRma: null,
-          currentInitSum: 0,
-          currentInitCount: 0
-        };
+        context.taState[stateKey] = { prevRma: null, initSum: 0, initCount: 0 };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevRma = state.currentRma;
-          state.prevInitSum = state.currentInitSum;
-          state.prevInitCount = state.currentInitCount;
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0) || 0;
-      let initCount = state.prevInitCount;
-      let initSum = state.prevInitSum;
-      let prevRma = state.prevRma;
-      if (initCount < period) {
-        initSum += currentValue;
-        initCount++;
-        state.currentInitSum = initSum;
-        state.currentInitCount = initCount;
-        if (initCount === period) {
-          const rma3 = initSum / period;
-          state.currentRma = rma3;
-          return context.precision(rma3);
+      if (state.initCount < period) {
+        state.initSum += currentValue;
+        state.initCount++;
+        if (state.initCount === period) {
+          state.prevRma = state.initSum / period;
+          return context.precision(state.prevRma);
         }
         return NaN;
       }
       const alpha = 1 / period;
-      const rma2 = currentValue * alpha + prevRma * (1 - alpha);
-      state.currentRma = rma2;
+      const rma2 = currentValue * alpha + state.prevRma * (1 - alpha);
+      state.prevRma = rma2;
       return context.precision(rma2);
     };
   }
@@ -17848,33 +17379,18 @@ ${code}
       if (!context.taState) context.taState = {};
       const stateKey = _callId || `roc_${length}`;
       if (!context.taState[stateKey]) {
-        context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevWindow: [],
-          // Tentative state
-          currentWindow: []
-        };
+        context.taState[stateKey] = { window: [] };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevWindow = [...state.currentWindow];
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0);
-      const window = [...state.prevWindow];
-      window.unshift(currentValue);
-      if (window.length <= length) {
-        state.currentWindow = window;
+      state.window.unshift(currentValue);
+      if (state.window.length <= length) {
         return NaN;
       }
-      if (window.length > length + 1) {
-        window.pop();
+      if (state.window.length > length + 1) {
+        state.window.pop();
       }
-      state.currentWindow = window;
-      const prevValue = window[length];
+      const prevValue = state.window[length];
       const roc2 = (currentValue - prevValue) / prevValue * 100;
       return context.precision(roc2);
     };
@@ -17887,69 +17403,39 @@ ${code}
       const stateKey = _callId || `rsi_${period}`;
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevPrevValue: null,
-          prevAvgGain: 0,
-          prevAvgLoss: 0,
-          prevInitGains: [],
-          prevInitLosses: [],
-          // Tentative state
-          currentPrevValue: null,
-          currentAvgGain: 0,
-          currentAvgLoss: 0,
-          currentInitGains: [],
-          currentInitLosses: []
+          prevValue: null,
+          avgGain: 0,
+          avgLoss: 0,
+          initGains: [],
+          initLosses: []
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevPrevValue = state.currentPrevValue;
-          state.prevAvgGain = state.currentAvgGain;
-          state.prevAvgLoss = state.currentAvgLoss;
-          state.prevInitGains = [...state.currentInitGains];
-          state.prevInitLosses = [...state.currentInitLosses];
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0);
-      const prevValue = state.prevPrevValue;
-      let avgGain = state.prevAvgGain;
-      let avgLoss = state.prevAvgLoss;
-      const initGains = [...state.prevInitGains];
-      const initLosses = [...state.prevInitLosses];
-      if (prevValue !== null) {
-        const diff = currentValue - prevValue;
+      if (state.prevValue !== null) {
+        const diff = currentValue - state.prevValue;
         const gain = diff > 0 ? diff : 0;
         const loss = diff < 0 ? -diff : 0;
-        if (initGains.length < period) {
-          initGains.push(gain);
-          initLosses.push(loss);
-          state.currentInitGains = initGains;
-          state.currentInitLosses = initLosses;
-          state.currentPrevValue = currentValue;
-          if (initGains.length === period) {
-            avgGain = initGains.reduce((a, b) => a + b, 0) / period;
-            avgLoss = initLosses.reduce((a, b) => a + b, 0) / period;
-            state.currentAvgGain = avgGain;
-            state.currentAvgLoss = avgLoss;
-            const rsi3 = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+        if (state.initGains.length < period) {
+          state.initGains.push(gain);
+          state.initLosses.push(loss);
+          if (state.initGains.length === period) {
+            state.avgGain = state.initGains.reduce((a, b) => a + b, 0) / period;
+            state.avgLoss = state.initLosses.reduce((a, b) => a + b, 0) / period;
+            state.prevValue = currentValue;
+            const rsi3 = state.avgLoss === 0 ? 100 : 100 - 100 / (1 + state.avgGain / state.avgLoss);
             return context.precision(rsi3);
           }
+          state.prevValue = currentValue;
           return NaN;
         }
-        avgGain = (avgGain * (period - 1) + gain) / period;
-        avgLoss = (avgLoss * (period - 1) + loss) / period;
-        state.currentAvgGain = avgGain;
-        state.currentAvgLoss = avgLoss;
-        state.currentPrevValue = currentValue;
-        const rsi2 = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss);
+        state.avgGain = (state.avgGain * (period - 1) + gain) / period;
+        state.avgLoss = (state.avgLoss * (period - 1) + loss) / period;
+        const rsi2 = state.avgLoss === 0 ? 100 : 100 - 100 / (1 + state.avgGain / state.avgLoss);
+        state.prevValue = currentValue;
         return context.precision(rsi2);
       }
-      state.currentPrevValue = currentValue;
-      state.currentInitGains = [];
-      state.currentInitLosses = [];
+      state.prevValue = currentValue;
       return NaN;
     };
   }
@@ -17963,37 +17449,15 @@ ${code}
       const stateKey = _callId || `sar_${start}_${inc}_${max}`;
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevResult: NaN,
-          prevMaxMin: NaN,
-          prevAcceleration: NaN,
-          prevIsBelow: false,
-          prevBarIndex: 0,
-          // Tentative state
-          currentResult: NaN,
-          currentMaxMin: NaN,
-          currentAcceleration: NaN,
-          currentIsBelow: false,
-          currentBarIndex: 0
+          result: NaN,
+          maxMin: NaN,
+          acceleration: NaN,
+          isBelow: false,
+          barIndex: 0
+          // Internal bar counter to match Pine's bar_index
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevResult = state.currentResult;
-          state.prevMaxMin = state.currentMaxMin;
-          state.prevAcceleration = state.currentAcceleration;
-          state.prevIsBelow = state.currentIsBelow;
-          state.prevBarIndex = state.currentBarIndex;
-        }
-        state.lastIdx = context.idx;
-      }
-      let result = state.prevResult;
-      let maxMin = state.prevMaxMin;
-      let acceleration = state.prevAcceleration;
-      let isBelow = state.prevIsBelow;
-      let barIndex = state.prevBarIndex;
       const high = context.get(context.data.high, 0);
       const low = context.get(context.data.low, 0);
       const close = context.get(context.data.close, 0);
@@ -18003,81 +17467,71 @@ ${code}
       const prevHigh2 = context.get(context.data.high, 2);
       const prevLow2 = context.get(context.data.low, 2);
       if (isNaN(high) || isNaN(low) || isNaN(close)) {
-        state.currentResult = result;
-        state.currentMaxMin = maxMin;
-        state.currentAcceleration = acceleration;
-        state.currentIsBelow = isBelow;
-        state.currentBarIndex = barIndex;
         return NaN;
       }
       let isFirstTrendBar = false;
-      if (barIndex === 1) {
+      if (state.barIndex === 1) {
         if (close > prevClose) {
-          isBelow = true;
-          maxMin = high;
-          result = prevLow;
+          state.isBelow = true;
+          state.maxMin = high;
+          state.result = prevLow;
         } else {
-          isBelow = false;
-          maxMin = low;
-          result = prevHigh;
+          state.isBelow = false;
+          state.maxMin = low;
+          state.result = prevHigh;
         }
         isFirstTrendBar = true;
-        acceleration = start;
+        state.acceleration = start;
       }
-      if (barIndex >= 1) {
-        result = result + acceleration * (maxMin - result);
-        if (isBelow) {
-          if (result > low) {
+      if (state.barIndex >= 1) {
+        state.result = state.result + state.acceleration * (state.maxMin - state.result);
+        if (state.isBelow) {
+          if (state.result > low) {
             isFirstTrendBar = true;
-            isBelow = false;
-            result = Math.max(high, maxMin);
-            maxMin = low;
-            acceleration = start;
+            state.isBelow = false;
+            state.result = Math.max(high, state.maxMin);
+            state.maxMin = low;
+            state.acceleration = start;
           }
         } else {
-          if (result < high) {
+          if (state.result < high) {
             isFirstTrendBar = true;
-            isBelow = true;
-            result = Math.min(low, maxMin);
-            maxMin = high;
-            acceleration = start;
+            state.isBelow = true;
+            state.result = Math.min(low, state.maxMin);
+            state.maxMin = high;
+            state.acceleration = start;
           }
         }
         if (!isFirstTrendBar) {
-          if (isBelow) {
-            if (high > maxMin) {
-              maxMin = high;
-              acceleration = Math.min(acceleration + inc, max);
+          if (state.isBelow) {
+            if (high > state.maxMin) {
+              state.maxMin = high;
+              state.acceleration = Math.min(state.acceleration + inc, max);
             }
           } else {
-            if (low < maxMin) {
-              maxMin = low;
-              acceleration = Math.min(acceleration + inc, max);
+            if (low < state.maxMin) {
+              state.maxMin = low;
+              state.acceleration = Math.min(state.acceleration + inc, max);
             }
           }
         }
-        if (isBelow) {
-          result = Math.min(result, prevLow);
-          if (barIndex > 1) {
-            result = Math.min(result, prevLow2);
+        if (state.isBelow) {
+          state.result = Math.min(state.result, prevLow);
+          if (state.barIndex > 1) {
+            state.result = Math.min(state.result, prevLow2);
           }
         } else {
-          result = Math.max(result, prevHigh);
-          if (barIndex > 1) {
-            result = Math.max(result, prevHigh2);
+          state.result = Math.max(state.result, prevHigh);
+          if (state.barIndex > 1) {
+            state.result = Math.max(state.result, prevHigh2);
           }
         }
       }
-      barIndex++;
-      state.currentResult = result;
-      state.currentMaxMin = maxMin;
-      state.currentAcceleration = acceleration;
-      state.currentIsBelow = isBelow;
-      state.currentBarIndex = barIndex;
-      if (barIndex <= 1) {
+      state.barIndex++;
+      if (state.barIndex <= 1) {
         return NaN;
       }
-      return context.precision(result);
+      return context.precision(state.result);
     };
   }
 
@@ -18087,41 +17541,20 @@ ${code}
       if (!context.taState) context.taState = {};
       const stateKey = _callId || `sma_${period}`;
       if (!context.taState[stateKey]) {
-        context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevWindow: [],
-          prevSum: 0,
-          // Tentative state
-          currentWindow: [],
-          currentSum: 0
-        };
+        context.taState[stateKey] = { window: [], sum: 0 };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevWindow = [...state.currentWindow];
-          state.prevSum = state.currentSum;
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0) || 0;
-      const window = [...state.prevWindow];
-      let sum = state.prevSum;
-      window.unshift(currentValue);
-      sum += currentValue;
-      if (window.length < period) {
-        state.currentWindow = window;
-        state.currentSum = sum;
+      state.window.unshift(currentValue);
+      state.sum += currentValue;
+      if (state.window.length < period) {
         return NaN;
       }
-      if (window.length > period) {
-        const oldValue = window.pop();
-        sum -= oldValue;
+      if (state.window.length > period) {
+        const oldValue = state.window.pop();
+        state.sum -= oldValue;
       }
-      state.currentWindow = window;
-      state.currentSum = sum;
-      const sma2 = sum / period;
+      const sma2 = state.sum / period;
       return context.precision(sma2);
     };
   }
@@ -18133,47 +17566,26 @@ ${code}
       if (!context.taState) context.taState = {};
       const stateKey = _callId || `stdev_${length}_${bias}`;
       if (!context.taState[stateKey]) {
-        context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevWindow: [],
-          prevSum: 0,
-          // Tentative state
-          currentWindow: [],
-          currentSum: 0
-        };
+        context.taState[stateKey] = { window: [], sum: 0 };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevWindow = [...state.currentWindow];
-          state.prevSum = state.currentSum;
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0);
       if (currentValue === null || currentValue === void 0 || isNaN(currentValue)) {
         return NaN;
       }
-      const window = [...state.prevWindow];
-      let sum = state.prevSum;
-      window.unshift(currentValue);
-      sum += currentValue;
-      if (window.length < length) {
-        state.currentWindow = window;
-        state.currentSum = sum;
+      state.window.unshift(currentValue);
+      state.sum += currentValue;
+      if (state.window.length < length) {
         return NaN;
       }
-      if (window.length > length) {
-        const oldValue = window.pop();
-        sum -= oldValue;
+      if (state.window.length > length) {
+        const oldValue = state.window.pop();
+        state.sum -= oldValue;
       }
-      state.currentWindow = window;
-      state.currentSum = sum;
-      const mean = sum / length;
+      const mean = state.sum / length;
       let sumSquaredDiff = 0;
       for (let i = 0; i < length; i++) {
-        sumSquaredDiff += Math.pow(window[i] - mean, 2);
+        sumSquaredDiff += Math.pow(state.window[i] - mean, 2);
       }
       const divisor = bias ? length : length - 1;
       const stdev2 = Math.sqrt(sumSquaredDiff / divisor);
@@ -18188,52 +17600,34 @@ ${code}
       const stateKey = _callId || `stoch_${length}`;
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevHighWindow: [],
-          prevLowWindow: [],
-          // Tentative state
-          currentHighWindow: [],
-          currentLowWindow: []
+          highWindow: [],
+          lowWindow: []
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevHighWindow = [...state.currentHighWindow];
-          state.prevLowWindow = [...state.currentLowWindow];
-        }
-        state.lastIdx = context.idx;
-      }
       const currentSource = Series.from(source).get(0);
       const currentHigh = Series.from(high).get(0);
       const currentLow = Series.from(low).get(0);
       if (isNaN(currentSource) || isNaN(currentHigh) || isNaN(currentLow)) {
-        state.currentHighWindow = [...state.prevHighWindow];
-        state.currentLowWindow = [...state.prevLowWindow];
         return NaN;
       }
-      const highWindow = [...state.prevHighWindow];
-      const lowWindow = [...state.prevLowWindow];
-      highWindow.unshift(currentHigh);
-      lowWindow.unshift(currentLow);
-      if (highWindow.length > length) {
-        highWindow.pop();
-        lowWindow.pop();
-      }
-      state.currentHighWindow = highWindow;
-      state.currentLowWindow = lowWindow;
-      if (highWindow.length < length) {
+      state.highWindow.unshift(currentHigh);
+      state.lowWindow.unshift(currentLow);
+      if (state.highWindow.length < length) {
         return NaN;
       }
-      let highest = highWindow[0];
-      let lowest = lowWindow[0];
+      if (state.highWindow.length > length) {
+        state.highWindow.pop();
+        state.lowWindow.pop();
+      }
+      let highest = state.highWindow[0];
+      let lowest = state.lowWindow[0];
       for (let i = 1; i < length; i++) {
-        if (highWindow[i] > highest) {
-          highest = highWindow[i];
+        if (state.highWindow[i] > highest) {
+          highest = state.highWindow[i];
         }
-        if (lowWindow[i] < lowest) {
-          lowest = lowWindow[i];
+        if (state.lowWindow[i] < lowest) {
+          lowest = state.lowWindow[i];
         }
       }
       const range = highest - lowest;
@@ -18253,41 +17647,20 @@ ${code}
       const stateKey = _callId || `supertrend_${factor}_${atrPeriod}`;
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevTrSum: 0,
-          prevAtrValue: NaN,
-          prevAtrCount: 0,
+          // For ATR calculation (using RMA)
+          trWindow: [],
+          trSum: 0,
+          atrValue: NaN,
+          atrCount: 0,
+          // For SuperTrend
           prevLowerBand: NaN,
           prevUpperBand: NaN,
           prevSuperTrend: NaN,
           prevDirection: NaN,
-          prevClose: NaN,
-          // Tentative state
-          currentTrSum: 0,
-          currentAtrValue: NaN,
-          currentAtrCount: 0,
-          currentLowerBand: NaN,
-          currentUpperBand: NaN,
-          currentSuperTrend: NaN,
-          currentDirection: NaN,
-          currentClose: NaN
+          prevClose: NaN
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevTrSum = state.currentTrSum;
-          state.prevAtrValue = state.currentAtrValue;
-          state.prevAtrCount = state.currentAtrCount;
-          state.prevLowerBand = state.currentLowerBand;
-          state.prevUpperBand = state.currentUpperBand;
-          state.prevSuperTrend = state.currentSuperTrend;
-          state.prevDirection = state.currentDirection;
-          state.prevClose = state.currentClose;
-        }
-        state.lastIdx = context.idx;
-      }
       const high = context.get(context.data.high, 0);
       const low = context.get(context.data.low, 0);
       const close = context.get(context.data.close, 0);
@@ -18295,30 +17668,25 @@ ${code}
         return [[NaN, NaN]];
       }
       const hl2 = (high + low) / 2;
-      const prevClose = state.prevClose;
       let tr;
-      if (isNaN(prevClose)) {
+      if (isNaN(state.prevClose)) {
         tr = high - low;
       } else {
-        tr = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
+        tr = Math.max(high - low, Math.abs(high - state.prevClose), Math.abs(low - state.prevClose));
       }
-      let atrCount = state.prevAtrCount;
-      let trSum = state.prevTrSum;
-      let atrValue = state.prevAtrValue;
-      atrCount++;
-      if (atrCount <= atrPeriod) {
-        trSum += tr;
-        if (atrCount === atrPeriod) {
-          atrValue = trSum / atrPeriod;
+      state.atrCount++;
+      if (state.atrCount <= atrPeriod) {
+        state.trWindow.push(tr);
+        state.trSum += tr;
+        if (state.atrCount === atrPeriod) {
+          state.atrValue = state.trSum / atrPeriod;
         }
       } else {
-        atrValue = (atrValue * (atrPeriod - 1) + tr) / atrPeriod;
+        state.atrValue = (state.atrValue * (atrPeriod - 1) + tr) / atrPeriod;
       }
-      const atr = atrValue;
-      state.currentAtrCount = atrCount;
-      state.currentTrSum = trSum;
-      state.currentAtrValue = atrValue;
-      state.currentClose = close;
+      const atr = state.atrValue;
+      const prevClose = state.prevClose;
+      state.prevClose = close;
       if (isNaN(atr)) {
         return [[NaN, NaN]];
       }
@@ -18339,7 +17707,7 @@ ${code}
       let direction;
       let superTrend;
       const prevSuperTrend = state.prevSuperTrend;
-      if (atrCount === atrPeriod) {
+      if (state.atrCount === atrPeriod) {
         direction = 1;
       } else if (prevSuperTrend === state.prevUpperBand) {
         direction = close > upperBand ? -1 : 1;
@@ -18347,10 +17715,10 @@ ${code}
         direction = close < lowerBand ? 1 : -1;
       }
       superTrend = direction === -1 ? lowerBand : upperBand;
-      state.currentLowerBand = lowerBand;
-      state.currentUpperBand = upperBand;
-      state.currentSuperTrend = superTrend;
-      state.currentDirection = direction;
+      state.prevLowerBand = lowerBand;
+      state.prevUpperBand = upperBand;
+      state.prevSuperTrend = superTrend;
+      state.prevDirection = direction;
       return [[context.precision(superTrend), direction]];
     };
   }
@@ -18364,34 +17732,21 @@ ${code}
       const stateKey = _callId || `swma`;
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevWindow: [],
-          // Tentative state
-          currentWindow: []
+          window: []
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevWindow = [...state.currentWindow];
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0);
-      const window = [...state.prevWindow];
-      window.unshift(currentValue);
-      if (window.length < period) {
-        state.currentWindow = window;
+      state.window.unshift(currentValue);
+      if (state.window.length < period) {
         return NaN;
       }
-      if (window.length > period) {
-        window.pop();
+      if (state.window.length > period) {
+        state.window.pop();
       }
-      state.currentWindow = window;
       let swma2 = 0;
       for (let i = 0; i < period; i++) {
-        swma2 += weights[i] * window[period - 1 - i];
+        swma2 += weights[i] * state.window[period - 1 - i];
       }
       swma2 /= weightSum;
       return context.precision(swma2);
@@ -18423,146 +17778,87 @@ ${code}
       const stateKey = _callId || `tsi_${shortLength}_${longLength}`;
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
+          // For price change (pc)
           prevSource: NaN,
-          prevEma1PcValue: NaN,
-          prevEma1PcCount: 0,
-          prevEma1PcSum: 0,
-          prevEma2PcValue: NaN,
-          prevEma2PcCount: 0,
-          prevEma2PcSum: 0,
-          prevEma1AbsValue: NaN,
-          prevEma1AbsCount: 0,
-          prevEma1AbsSum: 0,
-          prevEma2AbsValue: NaN,
-          prevEma2AbsCount: 0,
-          prevEma2AbsSum: 0,
-          // Tentative state
-          currentSource: NaN,
-          currentEma1PcValue: NaN,
-          currentEma1PcCount: 0,
-          currentEma1PcSum: 0,
-          currentEma2PcValue: NaN,
-          currentEma2PcCount: 0,
-          currentEma2PcSum: 0,
-          currentEma1AbsValue: NaN,
-          currentEma1AbsCount: 0,
-          currentEma1AbsSum: 0,
-          currentEma2AbsValue: NaN,
-          currentEma2AbsCount: 0,
-          currentEma2AbsSum: 0
+          // For first EMA of pc (long)
+          ema1_pc_multiplier: 2 / (longLength + 1),
+          ema1_pc_value: NaN,
+          ema1_pc_count: 0,
+          ema1_pc_sum: 0,
+          // For second EMA of pc (short) - double smoothed
+          ema2_pc_multiplier: 2 / (shortLength + 1),
+          ema2_pc_value: NaN,
+          ema2_pc_count: 0,
+          ema2_pc_sum: 0,
+          // For first EMA of abs(pc) (long)
+          ema1_abs_multiplier: 2 / (longLength + 1),
+          ema1_abs_value: NaN,
+          ema1_abs_count: 0,
+          ema1_abs_sum: 0,
+          // For second EMA of abs(pc) (short) - double smoothed
+          ema2_abs_multiplier: 2 / (shortLength + 1),
+          ema2_abs_value: NaN,
+          ema2_abs_count: 0,
+          ema2_abs_sum: 0
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevSource = state.currentSource;
-          state.prevEma1PcValue = state.currentEma1PcValue;
-          state.prevEma1PcCount = state.currentEma1PcCount;
-          state.prevEma1PcSum = state.currentEma1PcSum;
-          state.prevEma2PcValue = state.currentEma2PcValue;
-          state.prevEma2PcCount = state.currentEma2PcCount;
-          state.prevEma2PcSum = state.currentEma2PcSum;
-          state.prevEma1AbsValue = state.currentEma1AbsValue;
-          state.prevEma1AbsCount = state.currentEma1AbsCount;
-          state.prevEma1AbsSum = state.currentEma1AbsSum;
-          state.prevEma2AbsValue = state.currentEma2AbsValue;
-          state.prevEma2AbsCount = state.currentEma2AbsCount;
-          state.prevEma2AbsSum = state.currentEma2AbsSum;
-        }
-        state.lastIdx = context.idx;
-      }
       const currentSource = Series.from(source).get(0);
       if (isNaN(currentSource)) {
         return NaN;
       }
       const pc = isNaN(state.prevSource) ? NaN : currentSource - state.prevSource;
-      state.currentSource = currentSource;
+      state.prevSource = currentSource;
       if (isNaN(pc)) {
         return NaN;
       }
       const absPC = Math.abs(pc);
-      const ema1PcMultiplier = 2 / (longLength + 1);
-      const ema2PcMultiplier = 2 / (shortLength + 1);
-      const ema1AbsMultiplier = 2 / (longLength + 1);
-      const ema2AbsMultiplier = 2 / (shortLength + 1);
-      let ema1PcCount = state.prevEma1PcCount;
-      let ema1PcSum = state.prevEma1PcSum;
-      let ema1PcValue = state.prevEma1PcValue;
-      ema1PcCount++;
-      if (ema1PcCount <= longLength) {
-        ema1PcSum += pc;
-        if (ema1PcCount === longLength) {
-          ema1PcValue = ema1PcSum / longLength;
+      state.ema1_pc_count++;
+      if (state.ema1_pc_count <= longLength) {
+        state.ema1_pc_sum += pc;
+        if (state.ema1_pc_count === longLength) {
+          state.ema1_pc_value = state.ema1_pc_sum / longLength;
         }
       } else {
-        ema1PcValue = pc * ema1PcMultiplier + ema1PcValue * (1 - ema1PcMultiplier);
+        state.ema1_pc_value = pc * state.ema1_pc_multiplier + state.ema1_pc_value * (1 - state.ema1_pc_multiplier);
       }
-      let ema1AbsCount = state.prevEma1AbsCount;
-      let ema1AbsSum = state.prevEma1AbsSum;
-      let ema1AbsValue = state.prevEma1AbsValue;
-      ema1AbsCount++;
-      if (ema1AbsCount <= longLength) {
-        ema1AbsSum += absPC;
-        if (ema1AbsCount === longLength) {
-          ema1AbsValue = ema1AbsSum / longLength;
+      state.ema1_abs_count++;
+      if (state.ema1_abs_count <= longLength) {
+        state.ema1_abs_sum += absPC;
+        if (state.ema1_abs_count === longLength) {
+          state.ema1_abs_value = state.ema1_abs_sum / longLength;
         }
       } else {
-        ema1AbsValue = absPC * ema1AbsMultiplier + ema1AbsValue * (1 - ema1AbsMultiplier);
+        state.ema1_abs_value = absPC * state.ema1_abs_multiplier + state.ema1_abs_value * (1 - state.ema1_abs_multiplier);
       }
-      if (isNaN(ema1PcValue) || isNaN(ema1AbsValue)) {
-        state.currentEma1PcCount = ema1PcCount;
-        state.currentEma1PcSum = ema1PcSum;
-        state.currentEma1PcValue = ema1PcValue;
-        state.currentEma1AbsCount = ema1AbsCount;
-        state.currentEma1AbsSum = ema1AbsSum;
-        state.currentEma1AbsValue = ema1AbsValue;
+      if (isNaN(state.ema1_pc_value) || isNaN(state.ema1_abs_value)) {
         return NaN;
       }
-      let ema2PcCount = state.prevEma2PcCount;
-      let ema2PcSum = state.prevEma2PcSum;
-      let ema2PcValue = state.prevEma2PcValue;
-      ema2PcCount++;
-      if (ema2PcCount <= shortLength) {
-        ema2PcSum += ema1PcValue;
-        if (ema2PcCount === shortLength) {
-          ema2PcValue = ema2PcSum / shortLength;
+      state.ema2_pc_count++;
+      if (state.ema2_pc_count <= shortLength) {
+        state.ema2_pc_sum += state.ema1_pc_value;
+        if (state.ema2_pc_count === shortLength) {
+          state.ema2_pc_value = state.ema2_pc_sum / shortLength;
         }
       } else {
-        ema2PcValue = ema1PcValue * ema2PcMultiplier + ema2PcValue * (1 - ema2PcMultiplier);
+        state.ema2_pc_value = state.ema1_pc_value * state.ema2_pc_multiplier + state.ema2_pc_value * (1 - state.ema2_pc_multiplier);
       }
-      let ema2AbsCount = state.prevEma2AbsCount;
-      let ema2AbsSum = state.prevEma2AbsSum;
-      let ema2AbsValue = state.prevEma2AbsValue;
-      ema2AbsCount++;
-      if (ema2AbsCount <= shortLength) {
-        ema2AbsSum += ema1AbsValue;
-        if (ema2AbsCount === shortLength) {
-          ema2AbsValue = ema2AbsSum / shortLength;
+      state.ema2_abs_count++;
+      if (state.ema2_abs_count <= shortLength) {
+        state.ema2_abs_sum += state.ema1_abs_value;
+        if (state.ema2_abs_count === shortLength) {
+          state.ema2_abs_value = state.ema2_abs_sum / shortLength;
         }
       } else {
-        ema2AbsValue = ema1AbsValue * ema2AbsMultiplier + ema2AbsValue * (1 - ema2AbsMultiplier);
+        state.ema2_abs_value = state.ema1_abs_value * state.ema2_abs_multiplier + state.ema2_abs_value * (1 - state.ema2_abs_multiplier);
       }
-      state.currentEma1PcCount = ema1PcCount;
-      state.currentEma1PcSum = ema1PcSum;
-      state.currentEma1PcValue = ema1PcValue;
-      state.currentEma1AbsCount = ema1AbsCount;
-      state.currentEma1AbsSum = ema1AbsSum;
-      state.currentEma1AbsValue = ema1AbsValue;
-      state.currentEma2PcCount = ema2PcCount;
-      state.currentEma2PcSum = ema2PcSum;
-      state.currentEma2PcValue = ema2PcValue;
-      state.currentEma2AbsCount = ema2AbsCount;
-      state.currentEma2AbsSum = ema2AbsSum;
-      state.currentEma2AbsValue = ema2AbsValue;
-      if (isNaN(ema2PcValue) || isNaN(ema2AbsValue)) {
+      if (isNaN(state.ema2_pc_value) || isNaN(state.ema2_abs_value)) {
         return NaN;
       }
-      if (ema2AbsValue === 0) {
+      if (state.ema2_abs_value === 0) {
         return context.precision(0);
       }
-      const tsi2 = ema2PcValue / ema2AbsValue;
+      const tsi2 = state.ema2_pc_value / state.ema2_abs_value;
       return context.precision(tsi2);
     };
   }
@@ -18573,36 +17869,24 @@ ${code}
       const stateKey = _callId || "valuewhen";
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevValues: [],
-          // Tentative state
-          currentValues: []
+          values: []
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevValues = [...state.currentValues];
-        }
-        state.lastIdx = context.idx;
-      }
       const cond = Series.from(condition).get(0);
       const val = Series.from(source).get(0);
       const occurrence = Series.from(_occurrence).get(0);
-      const values = [...state.prevValues];
       if (cond) {
-        values.push(val);
+        state.values.push(val);
       }
-      state.currentValues = values;
       if (isNaN(occurrence) || occurrence < 0) {
         return NaN;
       }
-      const index = values.length - 1 - occurrence;
+      const index = state.values.length - 1 - occurrence;
       if (index < 0) {
         return NaN;
       }
-      const result = values[index];
+      const result = state.values[index];
       if (typeof result === "number") {
         return context.precision(result);
       }
@@ -18616,36 +17900,22 @@ ${code}
       if (!context.taState) context.taState = {};
       const stateKey = _callId || `variance_${length}`;
       if (!context.taState[stateKey]) {
-        context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevWindow: [],
-          // Tentative state
-          currentWindow: []
-        };
+        context.taState[stateKey] = { window: [] };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevWindow = [...state.currentWindow];
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0);
-      const window = [...state.prevWindow];
-      window.unshift(currentValue);
-      if (window.length > length) {
-        window.pop();
-      }
-      state.currentWindow = window;
-      if (window.length < length) {
+      state.window.unshift(currentValue);
+      if (state.window.length < length) {
         return NaN;
+      }
+      if (state.window.length > length) {
+        state.window.pop();
       }
       let sum = 0;
       let sumSquares = 0;
       for (let i = 0; i < length; i++) {
-        sum += window[i];
-        sumSquares += window[i] * window[i];
+        sum += state.window[i];
+        sumSquares += state.window[i] * state.window[i];
       }
       const mean = sum / length;
       const variance2 = sumSquares / length - mean * mean;
@@ -18659,51 +17929,31 @@ ${code}
       const stateKey = _callId || `vwap`;
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevCumulativePV: 0,
+          cumulativePV: 0,
           // Cumulative price * volume
-          prevCumulativeVolume: 0,
+          cumulativeVolume: 0,
           // Cumulative volume
-          prevLastSessionDate: null,
+          lastSessionDate: null
           // Track last session date
-          // Tentative state
-          currentCumulativePV: 0,
-          currentCumulativeVolume: 0,
-          currentLastSessionDate: null
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevCumulativePV = state.currentCumulativePV;
-          state.prevCumulativeVolume = state.currentCumulativeVolume;
-          state.prevLastSessionDate = state.currentLastSessionDate;
-        }
-        state.lastIdx = context.idx;
-      }
       const currentPrice = Series.from(source).get(0);
       const currentVolume = Series.from(context.data.volume).get(0);
       const currentOpenTime = Series.from(context.data.openTime).get(0);
       const currentDate = new Date(currentOpenTime);
       const currentSessionDate = currentDate.toISOString().slice(0, 10);
-      let cumulativePV = state.prevCumulativePV;
-      let cumulativeVolume = state.prevCumulativeVolume;
-      let lastSessionDate = state.prevLastSessionDate;
-      if (lastSessionDate !== currentSessionDate) {
-        cumulativePV = 0;
-        cumulativeVolume = 0;
-        lastSessionDate = currentSessionDate;
+      if (state.lastSessionDate !== currentSessionDate) {
+        state.cumulativePV = 0;
+        state.cumulativeVolume = 0;
+        state.lastSessionDate = currentSessionDate;
       }
-      cumulativePV += currentPrice * currentVolume;
-      cumulativeVolume += currentVolume;
-      state.currentCumulativePV = cumulativePV;
-      state.currentCumulativeVolume = cumulativeVolume;
-      state.currentLastSessionDate = lastSessionDate;
-      if (cumulativeVolume === 0) {
+      state.cumulativePV += currentPrice * currentVolume;
+      state.cumulativeVolume += currentVolume;
+      if (state.cumulativeVolume === 0) {
         return NaN;
       }
-      const vwap2 = cumulativePV / cumulativeVolume;
+      const vwap2 = state.cumulativePV / state.cumulativeVolume;
       return context.precision(vwap2);
     };
   }
@@ -18714,44 +17964,25 @@ ${code}
       if (!context.taState) context.taState = {};
       const stateKey = _callId || `vwma_${period}`;
       if (!context.taState[stateKey]) {
-        context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevWindow: [],
-          prevVolumeWindow: [],
-          // Tentative state
-          currentWindow: [],
-          currentVolumeWindow: []
-        };
+        context.taState[stateKey] = { window: [], volumeWindow: [] };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevWindow = [...state.currentWindow];
-          state.prevVolumeWindow = [...state.currentVolumeWindow];
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0);
       const currentVolume = context.get(context.data.volume, 0);
-      const window = [...state.prevWindow];
-      const volumeWindow = [...state.prevVolumeWindow];
-      window.unshift(currentValue);
-      volumeWindow.unshift(currentVolume);
-      if (window.length > period) {
-        window.pop();
-        volumeWindow.pop();
-      }
-      state.currentWindow = window;
-      state.currentVolumeWindow = volumeWindow;
-      if (window.length < period) {
+      state.window.unshift(currentValue);
+      state.volumeWindow.unshift(currentVolume);
+      if (state.window.length < period) {
         return NaN;
+      }
+      if (state.window.length > period) {
+        state.window.pop();
+        state.volumeWindow.pop();
       }
       let sumVolPrice = 0;
       let sumVol = 0;
       for (let i = 0; i < period; i++) {
-        sumVolPrice += window[i] * volumeWindow[i];
-        sumVol += volumeWindow[i];
+        sumVolPrice += state.window[i] * state.volumeWindow[i];
+        sumVol += state.volumeWindow[i];
       }
       const vwma2 = sumVolPrice / sumVol;
       return context.precision(vwma2);
@@ -18764,27 +17995,16 @@ ${code}
       const stateKey = _callId || "wad";
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevCumulativeSum: 0,
-          // Tentative state
-          currentCumulativeSum: 0
+          cumulativeSum: 0
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevCumulativeSum = state.currentCumulativeSum;
-        }
-        state.lastIdx = context.idx;
-      }
       const close = context.get(context.data.close, 0);
       const high = context.get(context.data.high, 0);
       const low = context.get(context.data.low, 0);
       const prevClose = context.get(context.data.close, 1);
       if (isNaN(close) || isNaN(high) || isNaN(low)) {
-        state.currentCumulativeSum = state.prevCumulativeSum;
-        return context.precision(state.prevCumulativeSum);
+        return context.precision(state.cumulativeSum);
       }
       let gain = 0;
       if (!isNaN(prevClose)) {
@@ -18797,9 +18017,8 @@ ${code}
           gain = close - trueHigh;
         }
       }
-      const currentSum = state.prevCumulativeSum + gain;
-      state.currentCumulativeSum = currentSum;
-      return context.precision(currentSum);
+      state.cumulativeSum += gain;
+      return context.precision(state.cumulativeSum);
     };
   }
 
@@ -18809,37 +18028,22 @@ ${code}
       if (!context.taState) context.taState = {};
       const stateKey = _callId || `wma_${period}`;
       if (!context.taState[stateKey]) {
-        context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevWindow: [],
-          // Tentative state
-          currentWindow: []
-        };
+        context.taState[stateKey] = { window: [] };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevWindow = [...state.currentWindow];
-        }
-        state.lastIdx = context.idx;
-      }
       const currentValue = Series.from(source).get(0);
-      const window = [...state.prevWindow];
-      window.unshift(currentValue);
-      if (window.length < period) {
-        state.currentWindow = window;
+      state.window.unshift(currentValue);
+      if (state.window.length < period) {
         return NaN;
       }
-      if (window.length > period) {
-        window.pop();
+      if (state.window.length > period) {
+        state.window.pop();
       }
-      state.currentWindow = window;
       let numerator = 0;
       let denominator = 0;
       for (let i = 0; i < period; i++) {
         const weight = period - i;
-        numerator += window[i] * weight;
+        numerator += state.window[i] * weight;
         denominator += weight;
       }
       const wma2 = numerator / denominator;
@@ -18854,52 +18058,34 @@ ${code}
       const stateKey = _callId || `wpr_${length}`;
       if (!context.taState[stateKey]) {
         context.taState[stateKey] = {
-          lastIdx: -1,
-          // Committed state
-          prevHighWindow: [],
-          prevLowWindow: [],
-          // Tentative state
-          currentHighWindow: [],
-          currentLowWindow: []
+          highWindow: [],
+          lowWindow: []
         };
       }
       const state = context.taState[stateKey];
-      if (context.idx > state.lastIdx) {
-        if (state.lastIdx >= 0) {
-          state.prevHighWindow = [...state.currentHighWindow];
-          state.prevLowWindow = [...state.currentLowWindow];
-        }
-        state.lastIdx = context.idx;
-      }
       const high = context.get(context.data.high, 0);
       const low = context.get(context.data.low, 0);
       const close = context.get(context.data.close, 0);
       if (isNaN(high) || isNaN(low) || isNaN(close)) {
-        state.currentHighWindow = [...state.prevHighWindow];
-        state.currentLowWindow = [...state.prevLowWindow];
         return NaN;
       }
-      const highWindow = [...state.prevHighWindow];
-      const lowWindow = [...state.prevLowWindow];
-      highWindow.unshift(high);
-      lowWindow.unshift(low);
-      if (highWindow.length > length) {
-        highWindow.pop();
-        lowWindow.pop();
-      }
-      state.currentHighWindow = highWindow;
-      state.currentLowWindow = lowWindow;
-      if (highWindow.length < length) {
+      state.highWindow.unshift(high);
+      state.lowWindow.unshift(low);
+      if (state.highWindow.length < length) {
         return NaN;
       }
-      let highestHigh = highWindow[0];
-      let lowestLow = lowWindow[0];
+      if (state.highWindow.length > length) {
+        state.highWindow.pop();
+        state.lowWindow.pop();
+      }
+      let highestHigh = state.highWindow[0];
+      let lowestLow = state.lowWindow[0];
       for (let i = 1; i < length; i++) {
-        if (highWindow[i] > highestHigh) {
-          highestHigh = highWindow[i];
+        if (state.highWindow[i] > highestHigh) {
+          highestHigh = state.highWindow[i];
         }
-        if (lowWindow[i] < lowestLow) {
-          lowestLow = lowWindow[i];
+        if (state.lowWindow[i] < lowestLow) {
+          lowestLow = state.lowWindow[i];
         }
       }
       const range = highestHigh - lowestLow;

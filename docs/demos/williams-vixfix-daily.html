@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>QFChart - Williams VIX Fix Daily Demo</title>
+
+        <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+        <!-- QFChart Library -->
+        <script src="../js/qfchart.dev.browser.js"></script>
+
+        <!-- Dependencies for Data Loading -->
+        <script src="../js/pinets.dev.browser.js"></script>
+
+        <link rel="stylesheet" href="styles.css" />
+    </head>
+
+    <body>
+        <nav>
+            <a href="https://github.com/QuantForgeOrg/QFChart" target="_blank">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
+                    />
+                </svg>
+                QFChart on GitHub
+            </a>
+        </nav>
+        <div id="container">
+            <h1>Williams VIX Fix - Daily Chart</h1>
+            <p>
+                This demo uses the
+                <a href="https://github.com/QuantForgeOrg/PineTS" target="_blank">PineTS</a> library to load the market data and calculate the
+                Williams VIX Fix indicator, and <a href="https://github.com/QuantForgeOrg/QFChart" target="_blank">QFChart</a> library for visualizing
+                the results.
+            </p>
+            <hr />
+            <div id="main-chart"><p class="loading">Loading Data ...</p></div>
+        </div>
+
+        <div id="info">
+            <h2>About Williams VIX Fix Indicator</h2>
+
+            <h3>What is the Williams VIX Fix?</h3>
+            <p>
+                The <strong>Williams VIX Fix (WVF)</strong> is a volatility indicator created by renowned trader Larry Williams to replicate the
+                behavior of the CBOE VIX (Volatility Index) for any market or asset. While the VIX measures implied volatility of S&P 500 options, the
+                Williams VIX Fix uses price action alone to identify <strong>fear and panic selling</strong>, making it applicable to stocks, forex,
+                cryptocurrencies, and commodities. High WVF values indicate extreme selling pressure and potential market bottoms, while low values
+                suggest complacency and stability.
+            </p>
+
+            <h3>How the Williams VIX Fix Works</h3>
+            <p>The indicator measures the distance between the current low and the highest close over a lookback period:</p>
+            <pre><code>WVF = ((Highest Close over Period - Current Low) / Highest Close) × 100</code></pre>
+
+            <p>
+                The calculation captures the key insight: <strong>when prices fall sharply from recent highs, fear increases</strong>. The indicator
+                includes several components:
+            </p>
+            <ul>
+                <li>
+                    <strong>WVF Histogram (Colored Bars)</strong> - The main volatility reading:
+                    <ul>
+                        <li><strong>Lime (bright green)</strong> - High volatility / panic selling (potential reversal zone)</li>
+                        <li><strong>Gray</strong> - Normal volatility / stable market conditions</li>
+                    </ul>
+                </li>
+                <li><strong>Range High (Lime Line)</strong> - Upper threshold based on 85th percentile of historical WVF values</li>
+                <li><strong>Range Low (Orange Line)</strong> - Lower threshold for filtering noise</li>
+                <li><strong>Upper Bollinger Band (Aqua Line)</strong> - Statistical upper bound (Mean + 2 Std Dev)</li>
+            </ul>
+
+            <h3>Trading Signals</h3>
+            <p>The Williams VIX Fix generates signals when extreme fear presents buying opportunities:</p>
+            <ul>
+                <li>
+                    <strong>Buy Signal (Lime Histogram)</strong> - WVF crosses above the Upper Band or Range High
+                    <ul>
+                        <li>Indicates panic selling and potential capitulation</li>
+                        <li>Often marks short-term bottoms in downtrends</li>
+                        <li>Best used as a counter-trend entry signal</li>
+                    </ul>
+                </li>
+                <li>
+                    <strong>No Signal (Gray Histogram)</strong> - WVF below thresholds
+                    <ul>
+                        <li>Normal market conditions, no extreme fear</li>
+                        <li>Uptrends typically show mostly gray bars</li>
+                        <li>Wait for lime bars to appear before considering entries</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h3>Key Parameters (Customizable)</h3>
+            <p>This implementation includes adjustable parameters for different trading styles:</p>
+            <ul>
+                <li><strong>Lookback Period (pd = 22)</strong> - Period for finding the highest close</li>
+                <li><strong>Bollinger Band Length (bbl = 20)</strong> - Period for calculating the mean and standard deviation</li>
+                <li><strong>Standard Deviation Multiplier (mult = 2.0)</strong> - Controls the upper band sensitivity</li>
+                <li><strong>Percentile Lookback (lb = 50)</strong> - Period for percentile calculations</li>
+                <li><strong>High Percentile (ph = 0.85)</strong> - Threshold for extreme readings (85% = top 15% of values)</li>
+                <li><strong>Low Percentile (pl = 1.01)</strong> - Lower bound filter (99% of values)</li>
+            </ul>
+
+            <h3>Trading Strategies</h3>
+            <ul>
+                <li>
+                    <strong>Bottom Picking</strong> - Buy when WVF spikes to lime (high fear), exit when returning to gray
+                    <ul>
+                        <li>Works best in ranging or correcting markets</li>
+                        <li>Combine with support levels for confirmation</li>
+                    </ul>
+                </li>
+                <li>
+                    <strong>Divergence Trading</strong> - Look for bullish divergence
+                    <ul>
+                        <li>Price makes lower lows, but WVF makes higher lows</li>
+                        <li>Suggests selling pressure is weakening</li>
+                    </ul>
+                </li>
+                <li>
+                    <strong>Volatility Filter</strong> - Use WVF to time entries for other strategies
+                    <ul>
+                        <li>Avoid buying when WVF is low (complacency)</li>
+                        <li>Wait for fear spikes (lime bars) before deploying capital</li>
+                    </ul>
+                </li>
+                <li>
+                    <strong>Risk Management</strong> - Exit long positions when WVF remains low for extended periods
+                    <ul>
+                        <li>Prolonged gray readings near market tops suggest distribution</li>
+                        <li>Lack of pullbacks can indicate an overheated market</li>
+                    </ul>
+                </li>
+            </ul>
+
+            <h3>Why the Williams VIX Fix Works</h3>
+            <p>The indicator capitalizes on market psychology:</p>
+            <ul>
+                <li><strong>Fear Measurement</strong> - Sharp drops from recent highs trigger panic selling</li>
+                <li><strong>Mean Reversion</strong> - Extreme fear is often followed by relief rallies</li>
+                <li><strong>Capitulation Detection</strong> - Lime spikes mark when weak hands exit positions</li>
+                <li><strong>Universal Application</strong> - Works on any asset without needing options data</li>
+            </ul>
+
+            <h3>Williams VIX Fix with QFChart & PineTS</h3>
+            <p>
+                This demo showcases the full calculation and visualization of the Williams VIX Fix using <strong>PineTS</strong> and
+                <strong>QFChart</strong>. PineTS computes the indicator across 500 daily BTC/USDT candles from Binance, calculating highest closes,
+                standard deviations, percentiles, and dynamic thresholds. QFChart renders the histogram with color-coded bars and threshold lines in a
+                separate pane below the price chart.
+            </p>
+
+            <h3>Technical Implementation</h3>
+            <p>The indicator demonstrates several advanced features:</p>
+            <ul>
+                <li><strong>Complex Calculations</strong> - Combines lookback highs, Bollinger Bands, and percentile analysis</li>
+                <li>
+                    <strong>Configurable Inputs</strong> - Uses <code>input.int()</code>, <code>input.float()</code>, and
+                    <code>input.bool()</code> for customization
+                </li>
+                <li><strong>Conditional Coloring</strong> - Histogram color changes based on threshold logic</li>
+                <li><strong>Multi-Line Plot</strong> - Displays range high, range low, upper band, and histogram simultaneously</li>
+                <li><strong>Daily Timeframe</strong> - Optimized for daily charts (500 days = ~1.5 years of data)</li>
+            </ul>
+
+            <h3>Indicator Code</h3>
+            <p>Here's the core calculation logic:</p>
+            <pre><code>const WillVixFix = (context) => {
+    const pd = input.int(22, 'LookBack Period Standard Deviation High');
+    const bbl = input.int(20, 'Bolinger Band Length');
+    const mult = input.float(2.0, 'Bollinger Band Standard Devaition Up');
+    const lb = input.int(50, 'Look Back Period Percentile High');
+    const ph = input.float(0.85, 'Highest Percentile - 0.85=85%');
+
+    // Main WVF calculation
+    const wvf = ((ta.highest(close, pd) - low) / ta.highest(close, pd)) * 100;
+
+    // Bollinger Bands
+    const sDev = mult * ta.stdev(wvf, bbl);
+    const midLine = ta.sma(wvf, bbl);
+    const upperBand = midLine + sDev;
+
+    // Percentile thresholds
+    const rangeHigh = ta.highest(wvf, lb) * ph;
+
+    // Color logic: lime if extreme fear, gray otherwise
+    const col = wvf >= upperBand || wvf >= rangeHigh ? color.lime : color.gray;
+
+    plot(rangeHigh, 'RangeHigh', { color: 'lime' });
+    plot(upperBand, 'UpperBand', { color: 'aqua' });
+    plot(wvf, 'WilliamsVixFix', { style: 'histogram', color: col });
+};
+</code></pre>
+
+            <h3>Use Cases</h3>
+            <ul>
+                <li><strong>Swing Trading</strong> - Enter on fear spikes (lime bars), exit when volatility normalizes</li>
+                <li><strong>Counter-Trend Trading</strong> - Catch bounces during downtrends when panic peaks</li>
+                <li><strong>Portfolio Timing</strong> - Deploy capital during high-fear periods (buy the dip strategy)</li>
+                <li><strong>Risk Management</strong> - Reduce exposure when VIX Fix stays low for too long (complacency warning)</li>
+                <li><strong>Options Trading</strong> - Buy options when implied volatility (and WVF) spikes</li>
+            </ul>
+
+            <h3>Best Practices</h3>
+            <ul>
+                <li><strong>Combine with Support/Resistance</strong> - Lime spikes near key support levels are strongest signals</li>
+                <li><strong>Look for Clusters</strong> - Multiple lime bars close together suggest strong capitulation</li>
+                <li><strong>Use Higher Timeframes</strong> - Daily and weekly charts provide more reliable signals than intraday</li>
+                <li><strong>Avoid in Strong Downtrends</strong> - WVF can stay elevated during crashes; wait for stabilization</li>
+                <li><strong>Adjust Parameters</strong> - Tune lookback periods and percentiles for specific assets</li>
+            </ul>
+
+            <h3>Comparison: WVF vs VIX</h3>
+            <table border="1" cellpadding="8" style="margin: 20px 0; border-collapse: collapse">
+                <thead>
+                    <tr style="background: #2c3e50; color: white">
+                        <th>Feature</th>
+                        <th>CBOE VIX</th>
+                        <th>Williams VIX Fix</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Data Source</td>
+                        <td>S&P 500 options implied volatility</td>
+                        <td>Price action (high/low/close)</td>
+                    </tr>
+                    <tr>
+                        <td>Assets</td>
+                        <td>S&P 500 only</td>
+                        <td>Any asset (stocks, crypto, forex, commodities)</td>
+                    </tr>
+                    <tr>
+                        <td>Availability</td>
+                        <td>Real-time data requires subscription</td>
+                        <td>Calculated from free price data</td>
+                    </tr>
+                    <tr>
+                        <td>Interpretation</td>
+                        <td>High VIX = fear, Low VIX = complacency</td>
+                        <td>Lime = fear, Gray = normal</td>
+                    </tr>
+                    <tr>
+                        <td>Calculation</td>
+                        <td>Complex options pricing model</td>
+                        <td>Simple highest/lowest formula</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Getting Started</h3>
+            <p>To use the Williams VIX Fix in your own application:</p>
+            <pre><code>// Load market data and calculate indicator
+const pineTS = new PineTS(PineTS.Provider.Binance, 'BTCUSDT', 'D', 500);
+const { plots, marketData } = await pineTS.run(WillVixFix);
+
+// Initialize chart
+const chart = new QFChart.QFChart(container, {
+    title: 'BTC/USDT - Daily',
+    height: '800px',
+    layout: { mainPaneHeight: '60%', gap: 5 }
+});
+
+// Set data and add indicator
+chart.setMarketData(marketData);
+chart.addIndicator('Williams VIX Fix', plots, {
+    isOverlay: false,
+    height: 25
+});
+</code></pre>
+
+            <h3>Learn More</h3>
+            <ul>
+                <li><a href="https://github.com/QuantForgeOrg/QFChart" target="_blank">QFChart Documentation</a></li>
+                <li><a href="https://github.com/QuantForgeOrg/PineTS" target="_blank">PineTS Documentation</a></li>
+                <li><a href="../index.html">More QFChart Demos</a></li>
+                <li><a href="https://www.investopedia.com/terms/v/vix.asp" target="_blank">Understanding VIX (Investopedia)</a></li>
+            </ul>
+        </div>
+
+        <script src="../js/indicators/WillVixFix.js"></script>
+
+        <script>
+            // Data Loading Helper (Simulating what was in chart.js)
+            const DATA_LENGTH = 500;
+            async function getIndicatorData(inficatorCode, tickerId, timeframe = '1w', periods = 500, stime, etime) {
+                const pineTS = new PineTS(PineTS.Provider.Binance, tickerId, timeframe, periods, stime, etime);
+                const { result, plots, marketData } = await pineTS.run(inficatorCode);
+                return { result, plots, marketData };
+            }
+
+            // Initialize QFChart
+            document.addEventListener('DOMContentLoaded', async () => {
+                const promises = [getIndicatorData(WillVixFix, 'BTCUSDT', 'D', DATA_LENGTH)];
+                const results = await Promise.all(promises);
+                const { marketData, plots: willVixFixPlots } = results[0];
+
+                // Map Market Data to QFChart OHLCV format
+                // marketData is array of objects: { openTime, open, high, low, close, volume }
+                const ohlcvData = marketData.map((k) => ({
+                    time: k.openTime,
+                    open: k.open,
+                    high: k.high,
+                    low: k.low,
+                    close: k.close,
+                    volume: k.volume,
+                }));
+
+                const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+                // Initialize Chart
+                const chartContainer = document.getElementById('main-chart');
+                window.chart = new QFChart.QFChart(chartContainer, {
+                    title: 'BTC/USDT - Daily', // Custom title
+                    height: '800px',
+                    padding: 0.2,
+                    databox: {
+                        position: isMobileDevice ? 'floating' : 'right',
+                    },
+                    dataZoom: {
+                        visible: true,
+                        position: 'top',
+                        height: 6,
+                        start: 50,
+                        end: 100,
+                    },
+                    layout: {
+                        mainPaneHeight: '60%',
+                        gap: 5,
+                    },
+                    controls: {
+                        collapse: true,
+                        maximize: true,
+                        fullscreen: true,
+                    },
+                });
+
+                // Set Market Data
+                chart.setMarketData(ohlcvData);
+
+                chart.addIndicator('Williams VIX Fix', willVixFixPlots, {
+                    isOverlay: false,
+                    height: 25,
+                    controls: { collapse: true, maximize: true },
+                });
+
+                // Register Measure Tool Plugin
+                const measureTool = new QFChart.MeasureTool();
+                chart.registerPlugin(measureTool);
+
+                // Register Line Tool Plugin
+                const lineTool = new QFChart.LineTool();
+                chart.registerPlugin(lineTool);
+
+                // Register Fibonacci Tool Plugin
+                const fibTool = new QFChart.FibonacciTool();
+                chart.registerPlugin(fibTool);
+            });
+        </script>
+    </body>
+</html>

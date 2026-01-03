@@ -28,7 +28,159 @@
         </nav>
         <div id="container">
             <h1>Basic Demo</h1>
-            <div id="main-chart"></div>
+            <div id="main-chart"><p class="loading">Loading Data ...</p></div>
+        </div>
+
+        <div id="info">
+            <h2>Basic QFChart Demo</h2>
+
+            <h3>What This Demo Shows</h3>
+            <p>
+                This is the <strong>simplest possible QFChart implementation</strong>, demonstrating how quickly you can get a professional financial
+                chart up and running. With just a few lines of code, you can display candlestick market data and a custom indicator. This demo is
+                perfect for developers who want to understand the minimal setup required to integrate QFChart into their application.
+            </p>
+
+            <h3>Minimal Code Example</h3>
+            <p>
+                The entire chart is created with less than 20 lines of JavaScript. No complex configuration, no external data loading, just pure
+                QFChart functionality:
+            </p>
+            <pre><code>// 1. Parse pre-loaded data (in production, fetch from API)
+const indicatorData = JSON.parse(/* MACD data */);
+const ohlcvData = JSON.parse(/* BTC/USDT market data */);
+
+// 2. Initialize chart with default options
+const chart = new QFChart.QFChart(container, {
+    title: 'BTC/USDT'
+});
+
+// 3. Set market data (candlesticks)
+chart.setMarketData(ohlcvData);
+
+// 4. Add indicator to separate pane
+chart.addIndicator('Indicator', indicatorData, {
+    isOverlay: false,
+    height: 20,
+    titleColor: '#ffffff'
+});
+</code></pre>
+
+            <h3>What's Included</h3>
+            <p>Even in this minimal demo, QFChart provides essential features out of the box:</p>
+            <ul>
+                <li><strong>Candlestick Chart</strong> - Professional OHLCV visualization with green/red candles</li>
+                <li><strong>Indicator Pane</strong> - MACD indicator displayed in a separate pane below the main chart</li>
+                <li><strong>Interactive Zooming</strong> - Scroll to zoom in/out, drag to pan left/right</li>
+                <li><strong>Hover Tooltips</strong> - View exact values when hovering over candles or indicator bars</li>
+                <li><strong>Responsive Layout</strong> - Chart automatically resizes to fit its container</li>
+            </ul>
+
+            <h3>Data Format</h3>
+            <p>QFChart expects data in a simple, intuitive format:</p>
+
+            <h4>Market Data (OHLCV)</h4>
+            <pre><code>[
+    {
+        time: 1748217600000,  // Unix timestamp in milliseconds
+        open: 109004.2,       // Opening price
+        high: 110718,         // Highest price
+        low: 103068.55,       // Lowest price
+        close: 105642.93,     // Closing price
+        volume: 116099.819    // Trading volume
+    },
+    // ... more candles
+]
+</code></pre>
+
+            <h4>Indicator Data</h4>
+            <pre><code>{
+    "Histogram": {
+        "data": [
+            {
+                "time": 1748217600000,
+                "value": 513.11,
+                "options": { "color": "#26A69A" }
+            },
+            // ... more data points
+        ],
+        "options": {
+            "title": "Histogram",
+            "style": "histogram",
+            "color": "#FF5252"
+        }
+    },
+    "MACD": {
+        "data": [ /* ... */ ],
+        "options": { "title": "MACD", "color": "#2962FF" }
+    }
+}
+</code></pre>
+
+            <h3>Default Behavior</h3>
+            <p>When you don't specify options, QFChart uses sensible defaults:</p>
+            <ul>
+                <li><strong>Height</strong> - 600px (can be customized via CSS or options)</li>
+                <li><strong>Main Pane</strong> - 70% of chart height</li>
+                <li><strong>Indicator Panes</strong> - Remaining 30% (split if multiple indicators)</li>
+                <li><strong>Colors</strong> - Green for bullish candles, red for bearish</li>
+                <li><strong>Padding</strong> - 20% empty space on right side for better readability</li>
+            </ul>
+
+            <h3>Next Steps</h3>
+            <p>Once you've mastered this basic setup, explore more advanced features:</p>
+            <ul>
+                <li><strong>Add PineTS Integration</strong> - Calculate indicators from live market data instead of using pre-computed values</li>
+                <li><strong>Enable Drawing Tools</strong> - Register measure, line, and Fibonacci plugins</li>
+                <li><strong>Customize Layout</strong> - Adjust pane heights, gaps, and control visibility</li>
+                <li><strong>Add More Indicators</strong> - Display multiple indicators in separate panes or as overlays</li>
+                <li><strong>Style Customization</strong> - Change colors, fonts, and visual appearance</li>
+            </ul>
+
+            <h3>Common Use Cases</h3>
+            <ul>
+                <li><strong>Quick Prototyping</strong> - Test chart integration in minutes without complex setup</li>
+                <li><strong>Simple Dashboards</strong> - Display basic price + indicator charts in admin panels</li>
+                <li><strong>Learning QFChart</strong> - Understand core concepts before adding advanced features</li>
+                <li><strong>Embedded Charts</strong> - Minimal footprint for embedding in blogs, documentation, or reports</li>
+            </ul>
+
+            <h3>Performance</h3>
+            <p>
+                This demo loads 30 weekly BTC/USDT candles with MACD indicator (histogram, MACD line, and signal line). The chart renders instantly
+                and handles user interactions smoothly. QFChart is built on Apache ECharts, one of the most performant charting libraries available,
+                capable of rendering thousands of data points without lag.
+            </p>
+
+            <h3>Data Source</h3>
+            <p>
+                In this demo, market data and indicator values are embedded directly in the HTML for simplicity. In a production application, you
+                would typically:
+            </p>
+            <ol>
+                <li>Fetch market data from an API (e.g., Binance, Coinbase, Yahoo Finance)</li>
+                <li>Use PineTS to calculate indicator values from the market data</li>
+                <li>Pass the results to QFChart for visualization</li>
+            </ol>
+            <p>See the <a href="full.html">Full Featured Demo</a> for an example of this workflow.</p>
+
+            <h3>Browser Support</h3>
+            <p>QFChart works in all modern browsers:</p>
+            <ul>
+                <li>Chrome/Edge 80+</li>
+                <li>Firefox 75+</li>
+                <li>Safari 13+</li>
+                <li>Mobile browsers (iOS Safari, Chrome Mobile)</li>
+            </ul>
+
+            <h3>Learn More</h3>
+            <ul>
+                <li><a href="https://github.com/QuantForgeOrg/QFChart" target="_blank">QFChart GitHub Repository</a></li>
+                <li><a href="../getting-started.html">Getting Started Guide</a></li>
+                <li><a href="../api.html">API Documentation</a></li>
+                <li><a href="full.html">Full Featured Demo</a></li>
+                <li><a href="../index.html">More QFChart Demos</a></li>
+            </ul>
         </div>
 
         <script>

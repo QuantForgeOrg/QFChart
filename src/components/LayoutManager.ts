@@ -30,13 +30,34 @@ export class LayoutManager {
         indicators: Map<string, IndicatorType>,
         options: QFChartOptions,
         isMainCollapsed: boolean = false,
-        maximizedPaneId: string | null = null
-    ): LayoutResult {
+        maximizedPaneId: string | null = null,
+        marketData?: import('../types').OHLCV[]
+    ): LayoutResult & { overlayYAxisMap: Map<string, number>; separatePaneYAxisOffset: number } {
         // Calculate pixelToPercent early for maximized logic
         let pixelToPercent = 0;
         if (containerHeight > 0) {
             pixelToPercent = (1 / containerHeight) * 100;
         }
+
+        // Get Y-axis padding percentage (default 5%)
+        const yAxisPaddingPercent = options.yAxisPadding !== undefined ? options.yAxisPadding : 5;
+
+        // Create min/max functions that apply padding
+        const createMinFunction = (paddingPercent: number) => {
+            return (value: any) => {
+                const range = value.max - value.min;
+                const padding = range * (paddingPercent / 100);
+                return value.min - padding;
+            };
+        };
+
+        const createMaxFunction = (paddingPercent: number) => {
+            return (value: any) => {
+                const range = value.max - value.min;
+                const padding = range * (paddingPercent / 100);
+                return value.max + padding;
+            };
+        };
 
         // Identify unique separate panes (indices > 0) and sort them
         const separatePaneIndices = Array.from(indicators.values())
@@ -92,7 +113,11 @@ export class LayoutManager {
             const dzStart = options.dataZoom?.start ?? 50;
             const dzEnd = options.dataZoom?.end ?? 100;
 
-            dataZoom.push({ type: 'inside', xAxisIndex: 'all', start: dzStart, end: dzEnd });
+            // Add 'inside' zoom only if zoomOnTouch is enabled (default true)
+            const zoomOnTouch = options.dataZoom?.zoomOnTouch ?? true;
+            if (zoomOnTouch) {
+                dataZoom.push({ type: 'inside', xAxisIndex: 'all', start: dzStart, end: dzEnd });
+            }
 
             // Need to know total panes to iterate
             const maxPaneIndex = hasSeparatePane ? Math.max(...separatePaneIndices) : 0;
@@ -132,15 +157,41 @@ export class LayoutManager {
                 });
 
                 // Y-Axis
+                // For maximized pane 0 (main), respect custom min/max if provided
+                let yMin: any;
+                let yMax: any;
+
+                if (i === 0 && maximizeTargetIndex === 0) {
+                    // Main pane is maximized, use custom values if provided
+                    yMin = options.yAxisMin !== undefined && options.yAxisMin !== 'auto' ? options.yAxisMin : createMinFunction(yAxisPaddingPercent);
+                    yMax = options.yAxisMax !== undefined && options.yAxisMax !== 'auto' ? options.yAxisMax : createMaxFunction(yAxisPaddingPercent);
+                } else {
+                    // Separate panes always use dynamic scaling
+                    yMin = createMinFunction(yAxisPaddingPercent);
+                    yMax = createMaxFunction(yAxisPaddingPercent);
+                }
+
                 yAxis.push({
                     position: 'right',
                     gridIndex: i,
                     show: isTarget,
                     scale: true,
+                    min: yMin,
+                    max: yMax,
                     axisLabel: {
                         show: isTarget,
                         color: '#94a3b8',
                         fontFamily: options.fontFamily,
+                        formatter: (value: number) => {
+                            if (options.yAxisLabelFormatter) {
+                                return options.yAxisLabelFormatter(value);
+                            }
+                            const decimals = options.yAxisDecimalPlaces !== undefined ? options.yAxisDecimalPlaces : 2;
+                            if (typeof value === 'number') {
+                                return value.toFixed(decimals);
+                            }
+                            return String(value);
+                        },
                     },
                     splitLine: {
                         show: isTarget,
@@ -176,6 +227,8 @@ export class LayoutManager {
                 mainPaneHeight: maximizeTargetIndex === 0 ? 90 : 0,
                 mainPaneTop: maximizeTargetIndex === 0 ? 5 : 0,
                 pixelToPercent,
+                overlayYAxisMap: new Map(), // No overlays in maximized view
+                separatePaneYAxisOffset: 1, // In maximized view, no overlays, so separate panes start at 1
             };
         }
 
@@ -320,6 +373,16 @@ export class LayoutManager {
                 show: !isMainCollapsed,
                 color: '#94a3b8',
                 fontFamily: options.fontFamily || 'sans-serif',
+                formatter: (value: number) => {
+                    if (options.yAxisLabelFormatter) {
+                        return options.yAxisLabelFormatter(value);
+                    }
+                    const decimals = options.yAxisDecimalPlaces !== undefined ? options.yAxisDecimalPlaces : 2;
+                    if (typeof value === 'number') {
+                        return value.toFixed(decimals);
+                    }
+                    return String(value);
+                },
             },
             axisTick: { show: !isMainCollapsed },
             axisPointer: {
@@ -354,10 +417,29 @@ export class LayoutManager {
 
         // --- Generate Y-Axes ---
         const yAxis: any[] = [];
-        // Main Y-Axis
+
+        // Determine min/max for main Y-axis (respect custom values if provided)
+        let mainYAxisMin: any;
+        let mainYAxisMax: any;
+
+        if (options.yAxisMin !== undefined && options.yAxisMin !== 'auto') {
+            mainYAxisMin = options.yAxisMin;
+        } else {
+            mainYAxisMin = createMinFunction(yAxisPaddingPercent);
+        }
+
+        if (options.yAxisMax !== undefined && options.yAxisMax !== 'auto') {
+            mainYAxisMax = options.yAxisMax;
+        } else {
+            mainYAxisMax = createMaxFunction(yAxisPaddingPercent);
+        }
+
+        // Main Y-Axis (for candlesticks)
         yAxis.push({
             position: 'right',
             scale: true,
+            min: mainYAxisMin,
+            max: mainYAxisMax,
             gridIndex: 0,
             splitLine: {
                 show: !isMainCollapsed,
@@ -368,14 +450,115 @@ export class LayoutManager {
                 show: !isMainCollapsed,
                 color: '#94a3b8',
                 fontFamily: options.fontFamily || 'sans-serif',
+                formatter: (value: number) => {
+                    if (options.yAxisLabelFormatter) {
+                        return options.yAxisLabelFormatter(value);
+                    }
+                    const decimals = options.yAxisDecimalPlaces !== undefined ? options.yAxisDecimalPlaces : 2;
+                    if (typeof value === 'number') {
+                        return value.toFixed(decimals);
+                    }
+                    return String(value);
+                },
             },
         });
 
-        // Separate Panes Y-Axes
+        // Create separate Y-axes for overlay plots that are incompatible with price range
+        // Analyze each PLOT separately, not entire indicators
+        let nextYAxisIndex = 1;
+
+        // Calculate price range if market data is available
+        let priceMin = -Infinity;
+        let priceMax = Infinity;
+        if (marketData && marketData.length > 0) {
+            priceMin = Math.min(...marketData.map((d) => d.low));
+            priceMax = Math.max(...marketData.map((d) => d.high));
+        }
+
+        // Map to store plot-specific Y-axis assignments (key: "indicatorId::plotName")
+        const overlayYAxisMap: Map<string, number> = new Map();
+
+        indicators.forEach((indicator, id) => {
+            if (indicator.paneIndex === 0 && !indicator.collapsed) {
+                // This is an overlay on the main pane
+                // Analyze EACH PLOT separately
+
+                if (marketData && marketData.length > 0) {
+                    Object.entries(indicator.plots).forEach(([plotName, plot]) => {
+                        const plotKey = `${id}::${plotName}`;
+
+                        // Skip visual-only plot types that should never affect Y-axis scaling
+                        const visualOnlyStyles = ['background', 'barcolor', 'shape', 'char'];
+                        if (visualOnlyStyles.includes(plot.options.style)) {
+                            // Assign these to a separate Y-axis so they don't affect price scale
+                            if (!overlayYAxisMap.has(plotKey)) {
+                                overlayYAxisMap.set(plotKey, nextYAxisIndex);
+                                nextYAxisIndex++;
+                            }
+                            return; // Skip further processing for this plot
+                        }
+
+                        const values: number[] = [];
+
+                        // Extract values for this specific plot
+                        Object.values(plot.data).forEach((value) => {
+                            if (typeof value === 'number' && !isNaN(value) && isFinite(value)) {
+                                values.push(value);
+                            }
+                        });
+
+                        if (values.length > 0) {
+                            const plotMin = Math.min(...values);
+                            const plotMax = Math.max(...values);
+                            const plotRange = plotMax - plotMin;
+                            const priceRange = priceMax - priceMin;
+
+                            // Check if this plot's range is compatible with price range
+                            // Compatible = within price bounds with similar magnitude
+                            const isWithinBounds = plotMin >= priceMin * 0.5 && plotMax <= priceMax * 1.5;
+                            const hasSimilarMagnitude = plotRange > priceRange * 0.01; // At least 1% of price range
+
+                            const isCompatible = isWithinBounds && hasSimilarMagnitude;
+
+                            if (!isCompatible) {
+                                // This plot needs its own Y-axis - check if we already assigned one
+                                if (!overlayYAxisMap.has(plotKey)) {
+                                    overlayYAxisMap.set(plotKey, nextYAxisIndex);
+                                    nextYAxisIndex++;
+                                }
+                            }
+                            // Compatible plots stay on yAxisIndex: 0 (not added to map)
+                        }
+                    });
+                }
+            }
+        });
+
+        // Create Y-axes for incompatible plots
+        // nextYAxisIndex already incremented in the loop above, so we know how many axes we need
+        const numOverlayAxes = overlayYAxisMap.size > 0 ? nextYAxisIndex - 1 : 0;
+        for (let i = 0; i < numOverlayAxes; i++) {
+            yAxis.push({
+                position: 'left',
+                scale: true,
+                min: createMinFunction(yAxisPaddingPercent),
+                max: createMaxFunction(yAxisPaddingPercent),
+                gridIndex: 0,
+                show: false, // Hide the axis visual elements
+                splitLine: { show: false },
+                axisLine: { show: false },
+                axisLabel: { show: false },
+            });
+        }
+
+        // Separate Panes Y-Axes (start after overlay axes)
+        const separatePaneYAxisOffset = nextYAxisIndex;
         paneConfigs.forEach((pane, i) => {
             yAxis.push({
                 position: 'right',
                 scale: true,
+                min: createMinFunction(yAxisPaddingPercent),
+                max: createMaxFunction(yAxisPaddingPercent),
                 gridIndex: i + 1,
                 splitLine: {
                     show: !pane.isCollapsed,
@@ -386,6 +569,16 @@ export class LayoutManager {
                     color: '#94a3b8',
                     fontFamily: options.fontFamily || 'sans-serif',
                     fontSize: 10,
+                    formatter: (value: number) => {
+                        if (options.yAxisLabelFormatter) {
+                            return options.yAxisLabelFormatter(value);
+                        }
+                        const decimals = options.yAxisDecimalPlaces !== undefined ? options.yAxisDecimalPlaces : 2;
+                        if (typeof value === 'number') {
+                            return value.toFixed(decimals);
+                        }
+                        return String(value);
+                    },
                 },
                 axisLine: { show: !pane.isCollapsed, lineStyle: { color: '#334155' } },
             });
@@ -394,12 +587,16 @@ export class LayoutManager {
         // --- Generate DataZoom ---
         const dataZoom: any[] = [];
         if (dzVisible) {
-            dataZoom.push({
-                type: 'inside',
-                xAxisIndex: allXAxisIndices,
-                start: dzStart,
-                end: dzEnd,
-            });
+            // Add 'inside' zoom (pan/drag) only if zoomOnTouch is enabled (default true)
+            const zoomOnTouch = options.dataZoom?.zoomOnTouch ?? true;
+            if (zoomOnTouch) {
+                dataZoom.push({
+                    type: 'inside',
+                    xAxisIndex: allXAxisIndices,
+                    start: dzStart,
+                    end: dzEnd,
+                });
+            }
 
             if (dzPosition === 'top') {
                 dataZoom.push({
@@ -437,6 +634,8 @@ export class LayoutManager {
             mainPaneHeight: mainHeightVal,
             mainPaneTop,
             pixelToPercent,
+            overlayYAxisMap,
+            separatePaneYAxisOffset,
         };
     }
 

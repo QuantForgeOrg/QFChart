@@ -17,6 +17,52 @@ export class SeriesBuilder {
             }
         }
 
+        // Build markLine for last price if enabled
+        let markLine = undefined;
+        if (options.lastPriceLine?.visible !== false && marketData.length > 0) {
+            const lastBar = marketData[marketData.length - 1];
+            const lastClose = lastBar.close;
+            const isUp = lastBar.close >= lastBar.open;
+            // Use configured color, or dynamic color based on candle direction
+            const lineColor = options.lastPriceLine?.color || (isUp ? upColor : downColor);
+            const lineStyleType = options.lastPriceLine?.lineStyle || 'dashed';
+
+            markLine = {
+                symbol: ['none', 'none'],
+                data: [
+                    {
+                        yAxis: lastClose,
+                        label: {
+                            show: true,
+                            position: 'end', // Right side
+                            formatter: (params: any) => {
+                                // Respect Y-axis formatting options
+                                if (options.yAxisLabelFormatter) {
+                                    return options.yAxisLabelFormatter(params.value);
+                                }
+                                const decimals = options.yAxisDecimalPlaces !== undefined ? options.yAxisDecimalPlaces : 2;
+                                return typeof params.value === 'number' ? params.value.toFixed(decimals) : params.value;
+                            },
+                            color: '#fff',
+                            backgroundColor: lineColor,
+                            padding: [2, 4],
+                            borderRadius: 2,
+                            fontSize: 11,
+                            fontWeight: 'bold',
+                        },
+                        lineStyle: {
+                            color: lineColor,
+                            type: lineStyleType,
+                            width: 1,
+                            opacity: 0.8,
+                        },
+                    },
+                ],
+                animation: false,
+                silent: true, // Disable interaction
+            };
+        }
+
         return {
             type: 'candlestick',
             name: options.title || 'Market',
@@ -27,6 +73,7 @@ export class SeriesBuilder {
                 borderColor: upColor,
                 borderColor0: downColor,
             },
+            markLine: markLine,
             xAxisIndex: 0,
             yAxisIndex: 0,
             z: 5,
@@ -178,7 +225,9 @@ export class SeriesBuilder {
         paneLayout: PaneConfiguration[],
         totalDataLength: number,
         dataIndexOffset: number = 0,
-        candlestickData?: OHLCV[] // Add candlestick data to access High/Low for positioning
+        candlestickData?: OHLCV[], // Add candlestick data to access High/Low for positioning
+        overlayYAxisMap?: Map<string, number>, // Map of overlay indicator IDs to their Y-axis indices
+        separatePaneYAxisOffset: number = 1 // Offset for separate pane Y-axes (accounts for overlay axes)
     ): { series: any[]; barColors: (string | null)[] } {
         const series: any[] = [];
         const barColors: (string | null)[] = new Array(totalDataLength).fill(null);
@@ -186,23 +235,27 @@ export class SeriesBuilder {
         indicators.forEach((indicator, id) => {
             if (indicator.collapsed) return; // Skip if collapsed
 
-            // Find axis index
-            let xAxisIndex = 0;
-            let yAxisIndex = 0;
-
-            if (indicator.paneIndex > 0) {
-                // paneLayout contains only separate panes.
-                // The index in xAxis/yAxis array is 1 + index_in_paneLayout
-                const confIndex = paneLayout.findIndex((p) => p.index === indicator.paneIndex);
-                if (confIndex !== -1) {
-                    xAxisIndex = confIndex + 1;
-                    yAxisIndex = confIndex + 1;
-                }
-            }
-
             Object.keys(indicator.plots).forEach((plotName) => {
                 const plot = indicator.plots[plotName];
                 const seriesName = `${id}::${plotName}`;
+
+                // Find axis index for THIS SPECIFIC PLOT
+                let xAxisIndex = 0;
+                let yAxisIndex = 0;
+
+                if (indicator.paneIndex > 0) {
+                    // paneLayout contains only separate panes.
+                    // The index in xAxis/yAxis array accounts for overlay Y-axes
+                    const confIndex = paneLayout.findIndex((p) => p.index === indicator.paneIndex);
+                    if (confIndex !== -1) {
+                        xAxisIndex = confIndex + 1;
+                        yAxisIndex = separatePaneYAxisOffset + confIndex;
+                    }
+                } else if (overlayYAxisMap && overlayYAxisMap.has(seriesName)) {
+                    // This specific plot has its own Y-axis (incompatible with price range)
+                    yAxisIndex = overlayYAxisMap.get(seriesName)!;
+                }
+                // Otherwise, yAxisIndex stays 0 (shares main Y-axis with candlesticks)
 
                 const dataArray = new Array(totalDataLength).fill(null);
                 const colorArray = new Array(totalDataLength).fill(null);
@@ -583,7 +636,7 @@ export class SeriesBuilder {
                                 const barColor = colorArray[params.dataIndex];
                                 const val = api.value(1);
 
-                                if (!barColor || !val) return;
+                                if (!barColor || val === null || val === undefined || isNaN(val)) return;
 
                                 return {
                                     type: 'rect',
@@ -655,8 +708,8 @@ export class SeriesBuilder {
                                         pointColor === 'NaN' ||
                                         (typeof pointColor === 'number' && isNaN(pointColor));
 
-                                    if (!isNaColor && point.value) {
-                                        // Only apply color if value is truthy
+                                    if (!isNaColor && point.value !== null && point.value !== undefined) {
+                                        // Only apply color if value is defined (allow 0)
                                         barColors[offsetIndex] = pointColor;
                                     }
                                 }

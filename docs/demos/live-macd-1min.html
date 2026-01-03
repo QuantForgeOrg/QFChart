@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>QFChart - Live MACD Demo</title>
+
+        <script src="https://cdn.jsdelivr.net/npm/echarts/dist/echarts.min.js"></script>
+        <!-- QFChart Library -->
+        <script src="../js/qfchart.dev.browser.js"></script>
+
+        <!-- Dependencies for Data Loading -->
+        <script src="../js/pinets.dev.browser.js"></script>
+        <link rel="stylesheet" href="styles.css" />
+    </head>
+
+    <body>
+        <nav>
+            <a href="https://github.com/QuantForgeOrg/QFChart" target="_blank">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path
+                        d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"
+                    />
+                </svg>
+                QFChart on GitHub
+            </a>
+        </nav>
+        <div id="container">
+            <h1>Live MACD Demo</h1>
+            <p>
+                This demo uses the
+                <a href="https://github.com/QuantForgeOrg/PineTS" target="_blank">PineTS</a> library to load the market data and calculate the
+                indicators, and <a href="https://github.com/QuantForgeOrg/QFChart" target="_blank">QFChart</a> library for visualizing the results.
+            </p>
+            <hr />
+            <div id="main-chart"><p class="loading">Loading Data ...</p></div>
+        </div>
+        <hr />
+        <div id="info">
+            <h2>About MACD (Moving Average Convergence Divergence)</h2>
+
+            <h3>What is MACD?</h3>
+            <p>
+                The <strong>MACD (Moving Average Convergence Divergence)</strong> is one of the most popular and widely-used technical analysis
+                indicators in trading. Developed by Gerald Appel in the late 1970s, MACD is a momentum oscillator that shows the relationship between
+                two exponential moving averages (EMAs) of a security's price. It helps traders identify potential trend changes, momentum shifts, and
+                buy/sell signals in financial markets.
+            </p>
+
+            <h3>How MACD Works</h3>
+            <p>The MACD indicator consists of three main components:</p>
+            <ul>
+                <li>
+                    <strong>MACD Line (Blue)</strong>: The difference between the 12-period EMA and the 26-period EMA. This is the core of the
+                    indicator and represents the momentum of price movement.
+                </li>
+                <li>
+                    <strong>Signal Line (Orange)</strong>: A 9-period EMA of the MACD line itself. This acts as a trigger for buy and sell signals
+                    when the MACD line crosses above or below it.
+                </li>
+                <li>
+                    <strong>Histogram (Bars)</strong>: The visual difference between the MACD line and the Signal line. Green bars indicate bullish
+                    momentum (MACD above Signal), while red bars indicate bearish momentum (MACD below Signal).
+                </li>
+            </ul>
+
+            <h3>Trading with MACD</h3>
+            <p>Traders use MACD in several ways:</p>
+            <ul>
+                <li>
+                    <strong>Signal Line Crossovers</strong>: When the MACD line crosses above the Signal line, it generates a bullish signal.
+                    Conversely, when it crosses below, it's a bearish signal.
+                </li>
+                <li>
+                    <strong>Zero Line Crossovers</strong>: When the MACD crosses above zero, it indicates bullish momentum. Below zero suggests
+                    bearish momentum.
+                </li>
+                <li>
+                    <strong>Divergence</strong>: When price makes a new high but MACD doesn't (bearish divergence), or price makes a new low but MACD
+                    doesn't (bullish divergence), it can signal a potential trend reversal.
+                </li>
+                <li>
+                    <strong>Histogram Analysis</strong>: Growing histogram bars indicate strengthening momentum, while shrinking bars suggest
+                    weakening momentum.
+                </li>
+            </ul>
+
+            <h3>MACD with QFChart & PineTS</h3>
+            <p>
+                This demo showcases a <strong>real-time MACD implementation</strong> using QFChart for visualization and PineTS for indicator
+                calculation. Here's what makes this implementation special:
+            </p>
+            <ul>
+                <li>
+                    <strong>Live Streaming Data</strong>: Uses PineTS.stream() to fetch real-time market data from Binance every 3 seconds, providing
+                    up-to-the-second MACD calculations.
+                </li>
+                <li>
+                    <strong>Incremental Updates</strong>: The MACD indicator is recalculated and updated in real-time without re-rendering the entire
+                    chart, ensuring smooth performance.
+                </li>
+                <li>
+                    <strong>Separate Pane Display</strong>: The MACD is rendered in its own dedicated pane below the main price chart, making it easy
+                    to analyze price action alongside momentum indicators.
+                </li>
+                <li>
+                    <strong>Interactive Features</strong>: The chart includes drawing tools (line, Fibonacci retracement, measure tool) and supports
+                    zoom, pan, and collapse/maximize controls.
+                </li>
+                <li>
+                    <strong>Last Price Line</strong>: A dynamic horizontal line shows the current price with a countdown timer to the next candle
+                    close, helping traders time their entries and exits.
+                </li>
+            </ul>
+
+            <h3>Technical Implementation</h3>
+            <p>
+                <strong>PineTS</strong> handles the data fetching and MACD calculation using Pine Script v5 syntax, which is transpiled to JavaScript
+                at runtime. The indicator uses incremental calculation with state management, ensuring O(1) performance per bar update rather than
+                recalculating the entire history.
+            </p>
+            <p>
+                <strong>QFChart</strong> (built on Apache ECharts) renders the MACD in a separate pane with customizable height, automatically
+                handling Y-axis scaling, series data mapping, and real-time updates through the <code>updateData()</code> API.
+            </p>
+
+            <h3>Use Cases</h3>
+            <ul>
+                <li>
+                    <strong>Day Trading</strong>: Monitor 1-minute or 5-minute charts with MACD to catch quick momentum shifts in crypto, forex, or
+                    stock markets.
+                </li>
+                <li>
+                    <strong>Swing Trading</strong>: Use MACD on daily or 4-hour charts to identify medium-term trend changes and optimal entry/exit
+                    points.
+                </li>
+                <li><strong>Trend Confirmation</strong>: Combine MACD with price action to confirm breakouts, pullbacks, or trend continuations.</li>
+                <li>
+                    <strong>Algorithmic Trading</strong>: Integrate this real-time MACD implementation into automated trading systems that react to
+                    momentum signals.
+                </li>
+            </ul>
+
+            <h3>Getting Started</h3>
+            <p>To use this MACD implementation in your own project:</p>
+            <ol>
+                <li>Install QFChart: <code>npm install @quantforge/qfchart</code></li>
+                <li>Install PineTS: <code>npm install @quantforge/pinets</code></li>
+                <li>Create a chart container: <code>&lt;div id="chart"&gt;&lt;/div&gt;</code></li>
+                <li>Initialize with PineTS streaming and add the MACD indicator as shown in this demo's source code</li>
+            </ol>
+            <p>
+                View the source code of this page to see the complete implementation. The demo uses Binance market data for BTC/USDT on the 1-minute
+                timeframe, but you can easily adapt it to any symbol or timeframe supported by your data provider.
+            </p>
+
+            <h3>Learn More</h3>
+            <p>For more information about technical indicators, Pine Script, and advanced charting techniques:</p>
+            <ul>
+                <li><a href="https://github.com/QuantForgeOrg/QFChart" target="_blank">QFChart Documentation</a></li>
+                <li><a href="https://github.com/QuantForgeOrg/PineTS" target="_blank">PineTS Documentation</a></li>
+                <li><a href="/api">QFChart API Reference</a></li>
+                <li><a href="/layout">Chart Customization Guide</a></li>
+            </ul>
+        </div>
+
+        <script src="../js/indicators/macd.js"></script>
+
+        <script>
+            // Initialize QFChart
+            document.addEventListener('DOMContentLoaded', async () => {
+                const DATA_LENGTH = 1000;
+                const TIMEFRAME = '1';
+                const TICKER = 'BTCUSDC';
+
+                // Create PineTS instance
+                const macdPineTS = new PineTS(PineTS.Provider.Binance, TICKER, TIMEFRAME, DATA_LENGTH);
+
+                // Storage for accumulated historical data
+                let historicalMarketData = null;
+                let historicalMacdPlots = null;
+
+                // Chart indicator references for live updates
+                let macdChartIndicator = null;
+
+                // Chart instance
+                let chart = null;
+                let isChartInitialized = false;
+
+                // Initialize chart once we have initial historical data
+                function initializeChart() {
+                    if (isChartInitialized || !historicalMarketData || !historicalMacdPlots) {
+                        return;
+                    }
+
+                    const ohlcvData = historicalMarketData.map((k) => ({
+                        time: k.openTime,
+                        open: k.open,
+                        high: k.high,
+                        low: k.low,
+                        close: k.close,
+                        volume: k.volume,
+                    }));
+
+                    const isMobileDevice = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                    const chartContainer = document.getElementById('main-chart');
+
+                    chart = new QFChart.QFChart(chartContainer, {
+                        title: 'BTC/USDC - 1m - Live',
+                        height: '600px',
+                        padding: 0.2,
+                        databox: {
+                            position: isMobileDevice ? 'floating' : 'right',
+                        },
+                        dataZoom: {
+                            visible: true,
+                            position: 'top',
+                            height: 6,
+                            start: 90,
+                            end: 101,
+                        },
+                        layout: {
+                            mainPaneHeight: '60%',
+                            gap: 5,
+                        },
+                        controls: {
+                            collapse: true,
+                            maximize: true,
+                            fullscreen: true,
+                        },
+                        lastPriceLine: {
+                            visible: true,
+                            showCountdown: true,
+                        },
+                        interval: 60 * 1000, // 1 minute
+                    });
+
+                    chart.setMarketData(ohlcvData);
+
+                    // Add MACD indicator
+                    macdChartIndicator = chart.addIndicator('MACD', historicalMacdPlots, {
+                        isOverlay: false,
+                        height: 25,
+                        titleColor: '#ff9900',
+                        controls: { collapse: true, maximize: true },
+                    });
+
+                    // Register plugins
+                    chart.registerPlugin(new QFChart.MeasureTool());
+                    chart.registerPlugin(new QFChart.LineTool());
+                    chart.registerPlugin(new QFChart.FibonacciTool());
+
+                    isChartInitialized = true;
+                    console.log('✅ Chart initialized with', historicalMarketData.length, 'historical candles');
+                }
+
+                // Stream MACD
+                const macdStream = macdPineTS.stream(macdIndicator, {
+                    pageSize: 100,
+                    live: true,
+                    interval: 3000,
+                });
+
+                macdStream.on('data', (ctx) => {
+                    if (!isChartInitialized) {
+                        // Store market data and plots from full context
+                        historicalMarketData = ctx.marketData;
+                        historicalMacdPlots = ctx.fullContext ? ctx.fullContext.plots : ctx.plots;
+                        initializeChart();
+                    } else {
+                        // Live update - update indicator first, then chart data
+                        if (macdChartIndicator) {
+                            macdChartIndicator.updateData(ctx.plots);
+                        }
+
+                        // Update chart with latest candle
+                        const lastBar = ctx.marketData[ctx.marketData.length - 1];
+                        const updateBar = {
+                            time: lastBar.openTime,
+                            open: lastBar.open,
+                            high: lastBar.high,
+                            low: lastBar.low,
+                            close: lastBar.close,
+                            volume: lastBar.volume,
+                        };
+
+                        chart.updateData([updateBar]);
+                    }
+                });
+
+                // Error handling
+                macdStream.on('error', (err) => console.error('MACD stream error:', err));
+            });
+        </script>
+    </body>
+</html>

@@ -125,11 +125,26 @@
     }
 
     class LayoutManager {
-      static calculate(containerHeight, indicators, options, isMainCollapsed = false, maximizedPaneId = null) {
+      static calculate(containerHeight, indicators, options, isMainCollapsed = false, maximizedPaneId = null, marketData) {
         let pixelToPercent = 0;
         if (containerHeight > 0) {
           pixelToPercent = 1 / containerHeight * 100;
         }
+        const yAxisPaddingPercent = options.yAxisPadding !== void 0 ? options.yAxisPadding : 5;
+        const createMinFunction = (paddingPercent) => {
+          return (value) => {
+            const range = value.max - value.min;
+            const padding = range * (paddingPercent / 100);
+            return value.min - padding;
+          };
+        };
+        const createMaxFunction = (paddingPercent) => {
+          return (value) => {
+            const range = value.max - value.min;
+            const padding = range * (paddingPercent / 100);
+            return value.max + padding;
+          };
+        };
         const separatePaneIndices = Array.from(indicators.values()).map((ind) => ind.paneIndex).filter((idx) => idx > 0).sort((a, b) => a - b).filter((value, index, self) => self.indexOf(value) === index);
         const hasSeparatePane = separatePaneIndices.length > 0;
         const dzVisible = options.dataZoom?.visible ?? true;
@@ -157,7 +172,10 @@
           const dataZoom2 = [];
           const dzStart2 = options.dataZoom?.start ?? 50;
           const dzEnd2 = options.dataZoom?.end ?? 100;
-          dataZoom2.push({ type: "inside", xAxisIndex: "all", start: dzStart2, end: dzEnd2 });
+          const zoomOnTouch = options.dataZoom?.zoomOnTouch ?? true;
+          if (zoomOnTouch) {
+            dataZoom2.push({ type: "inside", xAxisIndex: "all", start: dzStart2, end: dzEnd2 });
+          }
           const maxPaneIndex = hasSeparatePane ? Math.max(...separatePaneIndices) : 0;
           const paneConfigs2 = [];
           for (let i = 0; i <= maxPaneIndex; i++) {
@@ -186,15 +204,36 @@
                 lineStyle: { color: "#334155", opacity: 0.5 }
               }
             });
+            let yMin;
+            let yMax;
+            if (i === 0 && maximizeTargetIndex === 0) {
+              yMin = options.yAxisMin !== void 0 && options.yAxisMin !== "auto" ? options.yAxisMin : createMinFunction(yAxisPaddingPercent);
+              yMax = options.yAxisMax !== void 0 && options.yAxisMax !== "auto" ? options.yAxisMax : createMaxFunction(yAxisPaddingPercent);
+            } else {
+              yMin = createMinFunction(yAxisPaddingPercent);
+              yMax = createMaxFunction(yAxisPaddingPercent);
+            }
             yAxis2.push({
               position: "right",
               gridIndex: i,
               show: isTarget,
               scale: true,
+              min: yMin,
+              max: yMax,
               axisLabel: {
                 show: isTarget,
                 color: "#94a3b8",
-                fontFamily: options.fontFamily
+                fontFamily: options.fontFamily,
+                formatter: (value) => {
+                  if (options.yAxisLabelFormatter) {
+                    return options.yAxisLabelFormatter(value);
+                  }
+                  const decimals = options.yAxisDecimalPlaces !== void 0 ? options.yAxisDecimalPlaces : 2;
+                  if (typeof value === "number") {
+                    return value.toFixed(decimals);
+                  }
+                  return String(value);
+                }
               },
               splitLine: {
                 show: isTarget,
@@ -224,7 +263,11 @@
             paneLayout: paneConfigs2,
             mainPaneHeight: maximizeTargetIndex === 0 ? 90 : 0,
             mainPaneTop: maximizeTargetIndex === 0 ? 5 : 0,
-            pixelToPercent
+            pixelToPercent,
+            overlayYAxisMap: /* @__PURE__ */ new Map(),
+            // No overlays in maximized view
+            separatePaneYAxisOffset: 1
+            // In maximized view, no overlays, so separate panes start at 1
           };
         }
         if (dzVisible) {
@@ -333,7 +376,17 @@
           axisLabel: {
             show: !isMainCollapsed,
             color: "#94a3b8",
-            fontFamily: options.fontFamily || "sans-serif"
+            fontFamily: options.fontFamily || "sans-serif",
+            formatter: (value) => {
+              if (options.yAxisLabelFormatter) {
+                return options.yAxisLabelFormatter(value);
+              }
+              const decimals = options.yAxisDecimalPlaces !== void 0 ? options.yAxisDecimalPlaces : 2;
+              if (typeof value === "number") {
+                return value.toFixed(decimals);
+              }
+              return String(value);
+            }
           },
           axisTick: { show: !isMainCollapsed },
           axisPointer: {
@@ -367,9 +420,23 @@
           });
         });
         const yAxis = [];
+        let mainYAxisMin;
+        let mainYAxisMax;
+        if (options.yAxisMin !== void 0 && options.yAxisMin !== "auto") {
+          mainYAxisMin = options.yAxisMin;
+        } else {
+          mainYAxisMin = createMinFunction(yAxisPaddingPercent);
+        }
+        if (options.yAxisMax !== void 0 && options.yAxisMax !== "auto") {
+          mainYAxisMax = options.yAxisMax;
+        } else {
+          mainYAxisMax = createMaxFunction(yAxisPaddingPercent);
+        }
         yAxis.push({
           position: "right",
           scale: true,
+          min: mainYAxisMin,
+          max: mainYAxisMax,
           gridIndex: 0,
           splitLine: {
             show: !isMainCollapsed,
@@ -379,13 +446,87 @@
           axisLabel: {
             show: !isMainCollapsed,
             color: "#94a3b8",
-            fontFamily: options.fontFamily || "sans-serif"
+            fontFamily: options.fontFamily || "sans-serif",
+            formatter: (value) => {
+              if (options.yAxisLabelFormatter) {
+                return options.yAxisLabelFormatter(value);
+              }
+              const decimals = options.yAxisDecimalPlaces !== void 0 ? options.yAxisDecimalPlaces : 2;
+              if (typeof value === "number") {
+                return value.toFixed(decimals);
+              }
+              return String(value);
+            }
           }
         });
+        let nextYAxisIndex = 1;
+        let priceMin = -Infinity;
+        let priceMax = Infinity;
+        if (marketData && marketData.length > 0) {
+          priceMin = Math.min(...marketData.map((d) => d.low));
+          priceMax = Math.max(...marketData.map((d) => d.high));
+        }
+        const overlayYAxisMap = /* @__PURE__ */ new Map();
+        indicators.forEach((indicator, id) => {
+          if (indicator.paneIndex === 0 && !indicator.collapsed) {
+            if (marketData && marketData.length > 0) {
+              Object.entries(indicator.plots).forEach(([plotName, plot]) => {
+                const plotKey = `${id}::${plotName}`;
+                const visualOnlyStyles = ["background", "barcolor", "shape", "char"];
+                if (visualOnlyStyles.includes(plot.options.style)) {
+                  if (!overlayYAxisMap.has(plotKey)) {
+                    overlayYAxisMap.set(plotKey, nextYAxisIndex);
+                    nextYAxisIndex++;
+                  }
+                  return;
+                }
+                const values = [];
+                Object.values(plot.data).forEach((value) => {
+                  if (typeof value === "number" && !isNaN(value) && isFinite(value)) {
+                    values.push(value);
+                  }
+                });
+                if (values.length > 0) {
+                  const plotMin = Math.min(...values);
+                  const plotMax = Math.max(...values);
+                  const plotRange = plotMax - plotMin;
+                  const priceRange = priceMax - priceMin;
+                  const isWithinBounds = plotMin >= priceMin * 0.5 && plotMax <= priceMax * 1.5;
+                  const hasSimilarMagnitude = plotRange > priceRange * 0.01;
+                  const isCompatible = isWithinBounds && hasSimilarMagnitude;
+                  if (!isCompatible) {
+                    if (!overlayYAxisMap.has(plotKey)) {
+                      overlayYAxisMap.set(plotKey, nextYAxisIndex);
+                      nextYAxisIndex++;
+                    }
+                  }
+                }
+              });
+            }
+          }
+        });
+        const numOverlayAxes = overlayYAxisMap.size > 0 ? nextYAxisIndex - 1 : 0;
+        for (let i = 0; i < numOverlayAxes; i++) {
+          yAxis.push({
+            position: "left",
+            scale: true,
+            min: createMinFunction(yAxisPaddingPercent),
+            max: createMaxFunction(yAxisPaddingPercent),
+            gridIndex: 0,
+            show: false,
+            // Hide the axis visual elements
+            splitLine: { show: false },
+            axisLine: { show: false },
+            axisLabel: { show: false }
+          });
+        }
+        const separatePaneYAxisOffset = nextYAxisIndex;
         paneConfigs.forEach((pane, i) => {
           yAxis.push({
             position: "right",
             scale: true,
+            min: createMinFunction(yAxisPaddingPercent),
+            max: createMaxFunction(yAxisPaddingPercent),
             gridIndex: i + 1,
             splitLine: {
               show: !pane.isCollapsed,
@@ -395,19 +536,32 @@
               show: !pane.isCollapsed,
               color: "#94a3b8",
               fontFamily: options.fontFamily || "sans-serif",
-              fontSize: 10
+              fontSize: 10,
+              formatter: (value) => {
+                if (options.yAxisLabelFormatter) {
+                  return options.yAxisLabelFormatter(value);
+                }
+                const decimals = options.yAxisDecimalPlaces !== void 0 ? options.yAxisDecimalPlaces : 2;
+                if (typeof value === "number") {
+                  return value.toFixed(decimals);
+                }
+                return String(value);
+              }
             },
             axisLine: { show: !pane.isCollapsed, lineStyle: { color: "#334155" } }
           });
         });
         const dataZoom = [];
         if (dzVisible) {
-          dataZoom.push({
-            type: "inside",
-            xAxisIndex: allXAxisIndices,
-            start: dzStart,
-            end: dzEnd
-          });
+          const zoomOnTouch = options.dataZoom?.zoomOnTouch ?? true;
+          if (zoomOnTouch) {
+            dataZoom.push({
+              type: "inside",
+              xAxisIndex: allXAxisIndices,
+              start: dzStart,
+              end: dzEnd
+            });
+          }
           if (dzPosition === "top") {
             dataZoom.push({
               type: "slider",
@@ -442,7 +596,9 @@
           paneLayout: paneConfigs,
           mainPaneHeight: mainHeightVal,
           mainPaneTop,
-          pixelToPercent
+          pixelToPercent,
+          overlayYAxisMap,
+          separatePaneYAxisOffset
         };
       }
       static calculateMaximized(containerHeight, options, targetPaneIndex) {
@@ -495,6 +651,49 @@
             data.push(null);
           }
         }
+        let markLine = void 0;
+        if (options.lastPriceLine?.visible !== false && marketData.length > 0) {
+          const lastBar = marketData[marketData.length - 1];
+          const lastClose = lastBar.close;
+          const isUp = lastBar.close >= lastBar.open;
+          const lineColor = options.lastPriceLine?.color || (isUp ? upColor : downColor);
+          const lineStyleType = options.lastPriceLine?.lineStyle || "dashed";
+          markLine = {
+            symbol: ["none", "none"],
+            data: [
+              {
+                yAxis: lastClose,
+                label: {
+                  show: true,
+                  position: "end",
+                  // Right side
+                  formatter: (params) => {
+                    if (options.yAxisLabelFormatter) {
+                      return options.yAxisLabelFormatter(params.value);
+                    }
+                    const decimals = options.yAxisDecimalPlaces !== void 0 ? options.yAxisDecimalPlaces : 2;
+                    return typeof params.value === "number" ? params.value.toFixed(decimals) : params.value;
+                  },
+                  color: "#fff",
+                  backgroundColor: lineColor,
+                  padding: [2, 4],
+                  borderRadius: 2,
+                  fontSize: 11,
+                  fontWeight: "bold"
+                },
+                lineStyle: {
+                  color: lineColor,
+                  type: lineStyleType,
+                  width: 1,
+                  opacity: 0.8
+                }
+              }
+            ],
+            animation: false,
+            silent: true
+            // Disable interaction
+          };
+        }
         return {
           type: "candlestick",
           name: options.title || "Market",
@@ -505,6 +704,7 @@
             borderColor: upColor,
             borderColor0: downColor
           },
+          markLine,
           xAxisIndex: 0,
           yAxisIndex: 0,
           z: 5
@@ -595,24 +795,26 @@
             return { position: "top", distance: 5 };
         }
       }
-      static buildIndicatorSeries(indicators, timeToIndex, paneLayout, totalDataLength, dataIndexOffset = 0, candlestickData) {
+      static buildIndicatorSeries(indicators, timeToIndex, paneLayout, totalDataLength, dataIndexOffset = 0, candlestickData, overlayYAxisMap, separatePaneYAxisOffset = 1) {
         const series = [];
         const barColors = new Array(totalDataLength).fill(null);
         indicators.forEach((indicator, id) => {
           if (indicator.collapsed)
             return;
-          let xAxisIndex = 0;
-          let yAxisIndex = 0;
-          if (indicator.paneIndex > 0) {
-            const confIndex = paneLayout.findIndex((p) => p.index === indicator.paneIndex);
-            if (confIndex !== -1) {
-              xAxisIndex = confIndex + 1;
-              yAxisIndex = confIndex + 1;
-            }
-          }
           Object.keys(indicator.plots).forEach((plotName) => {
             const plot = indicator.plots[plotName];
             const seriesName = `${id}::${plotName}`;
+            let xAxisIndex = 0;
+            let yAxisIndex = 0;
+            if (indicator.paneIndex > 0) {
+              const confIndex = paneLayout.findIndex((p) => p.index === indicator.paneIndex);
+              if (confIndex !== -1) {
+                xAxisIndex = confIndex + 1;
+                yAxisIndex = separatePaneYAxisOffset + confIndex;
+              }
+            } else if (overlayYAxisMap && overlayYAxisMap.has(seriesName)) {
+              yAxisIndex = overlayYAxisMap.get(seriesName);
+            }
             const dataArray = new Array(totalDataLength).fill(null);
             const colorArray = new Array(totalDataLength).fill(null);
             const optionsArray = new Array(totalDataLength).fill(null);
@@ -914,7 +1116,7 @@
                     const x = start[0] - width / 2;
                     const barColor = colorArray[params.dataIndex];
                     const val = api.value(1);
-                    if (!barColor || !val)
+                    if (!barColor || val === null || val === void 0 || isNaN(val))
                       return;
                     return {
                       type: "rect",
@@ -974,7 +1176,7 @@
                     if (offsetIndex >= 0 && offsetIndex < totalDataLength) {
                       const pointColor = point.options?.color || plot.options.color;
                       const isNaColor = pointColor === null || pointColor === "na" || pointColor === "NaN" || typeof pointColor === "number" && isNaN(pointColor);
-                      if (!isNaColor && point.value) {
+                      if (!isNaColor && point.value !== null && point.value !== void 0) {
                         barColors[offsetIndex] = pointColor;
                       }
                     }
@@ -1465,6 +1667,7 @@
       // --- UI Handling ---
       renderToolbar() {
         this.toolbarContainer.innerHTML = "";
+        this.toolbarContainer.classList.add("qfchart-toolbar");
         this.toolbarContainer.style.display = "flex";
         this.toolbarContainer.style.flexDirection = "column";
         this.toolbarContainer.style.width = "40px";
@@ -1510,17 +1713,13 @@
         this.toolbarContainer.appendChild(btn);
       }
       removeButton(pluginId) {
-        const btn = this.toolbarContainer.querySelector(
-          `#qfchart-plugin-btn-${pluginId}`
-        );
+        const btn = this.toolbarContainer.querySelector(`#qfchart-plugin-btn-${pluginId}`);
         if (btn) {
           btn.remove();
         }
       }
       setButtonActive(pluginId, active) {
-        const btn = this.toolbarContainer.querySelector(
-          `#qfchart-plugin-btn-${pluginId}`
-        );
+        const btn = this.toolbarContainer.querySelector(`#qfchart-plugin-btn-${pluginId}`);
         if (btn) {
           if (active) {
             btn.style.backgroundColor = "#2563eb";
@@ -1780,6 +1979,7 @@
         __publicField$4(this, "events", new EventBus());
         __publicField$4(this, "isMainCollapsed", false);
         __publicField$4(this, "maximizedPaneId", null);
+        __publicField$4(this, "countdownInterval", null);
         __publicField$4(this, "selectedDrawingId", null);
         // Track selected drawing
         // Drawing System
@@ -1915,7 +2115,16 @@
         this.chart = echarts__namespace.init(this.chartContainer);
         this.pluginManager = new PluginManager(this, this.toolbarContainer);
         this.drawingEditor = new DrawingEditor(this);
-        this.chart.on("dataZoom", (params) => this.events.emit("chart:dataZoom", params));
+        this.chart.on("dataZoom", (params) => {
+          this.events.emit("chart:dataZoom", params);
+          const triggerOn = this.options.databox?.triggerOn;
+          const position = this.options.databox?.position;
+          if (triggerOn === "click" && position === "floating") {
+            this.chart.dispatchAction({
+              type: "hideTip"
+            });
+          }
+        });
         this.chart.on("finished", (params) => this.events.emit("chart:updated", params));
         this.chart.getZr().on("mousedown", (params) => this.events.emit("mouse:down", params));
         this.chart.getZr().on("mousemove", (params) => this.events.emit("mouse:move", params));
@@ -2209,16 +2418,27 @@
         this.marketData = Array.from(existingTimeMap.values()).sort((a, b) => a.time - b.time);
         this.rebuildTimeIndex();
         const paddingPoints = this.dataIndexOffset;
-        const candlestickData = this.marketData.map((d) => [d.open, d.close, d.low, d.high]);
+        const candlestickSeries = SeriesBuilder.buildCandlestickSeries(this.marketData, this.options);
         const emptyCandle = { value: [NaN, NaN, NaN, NaN], itemStyle: { opacity: 0 } };
-        const paddedCandlestickData = [...Array(paddingPoints).fill(emptyCandle), ...candlestickData, ...Array(paddingPoints).fill(emptyCandle)];
+        const paddedCandlestickData = [
+          ...Array(paddingPoints).fill(emptyCandle),
+          ...candlestickSeries.data,
+          ...Array(paddingPoints).fill(emptyCandle)
+        ];
         const categoryData = [
           ...Array(paddingPoints).fill(""),
           ...this.marketData.map((k) => new Date(k.time).toLocaleString()),
           ...Array(paddingPoints).fill("")
         ];
         const currentOption = this.chart.getOption();
-        const layout = LayoutManager.calculate(this.chart.getHeight(), this.indicators, this.options, this.isMainCollapsed, this.maximizedPaneId);
+        const layout = LayoutManager.calculate(
+          this.chart.getHeight(),
+          this.indicators,
+          this.options,
+          this.isMainCollapsed,
+          this.maximizedPaneId,
+          this.marketData
+        );
         const paddedOHLCVForShapes = [...Array(paddingPoints).fill(null), ...this.marketData, ...Array(paddingPoints).fill(null)];
         const { series: indicatorSeries, barColors } = SeriesBuilder.buildIndicatorSeries(
           this.indicators,
@@ -2226,8 +2446,12 @@
           layout.paneLayout,
           categoryData.length,
           paddingPoints,
-          paddedOHLCVForShapes
+          paddedOHLCVForShapes,
           // Pass padded OHLCV data
+          layout.overlayYAxisMap,
+          // Pass overlay Y-axis mapping
+          layout.separatePaneYAxisOffset
+          // Pass Y-axis offset for separate panes
         );
         const coloredCandlestickData = paddedCandlestickData.map((candle, i) => {
           if (barColors[i]) {
@@ -2249,14 +2473,93 @@
           })),
           series: [
             {
-              data: coloredCandlestickData
+              data: coloredCandlestickData,
+              markLine: candlestickSeries.markLine
+              // Ensure markLine is updated
             },
-            ...indicatorSeries.map((s) => ({
-              data: s.data
-            }))
+            ...indicatorSeries.map((s) => {
+              const update = { data: s.data };
+              if (s.renderItem) {
+                update.renderItem = s.renderItem;
+              }
+              return update;
+            })
           ]
         };
         this.chart.setOption(updateOption, { notMerge: false });
+        this.startCountdown();
+      }
+      startCountdown() {
+        this.stopCountdown();
+        if (!this.options.lastPriceLine?.showCountdown || !this.options.interval || this.marketData.length === 0) {
+          return;
+        }
+        const updateLabel = () => {
+          if (this.marketData.length === 0)
+            return;
+          const lastBar = this.marketData[this.marketData.length - 1];
+          const nextCloseTime = lastBar.time + (this.options.interval || 0);
+          const now = Date.now();
+          const diff = nextCloseTime - now;
+          if (diff <= 0) {
+            return;
+          }
+          const absDiff = Math.abs(diff);
+          const hours = Math.floor(absDiff / 36e5);
+          const minutes = Math.floor(absDiff % 36e5 / 6e4);
+          const seconds = Math.floor(absDiff % 6e4 / 1e3);
+          const timeString = `${hours > 0 ? hours.toString().padStart(2, "0") + ":" : ""}${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+          const currentOption = this.chart.getOption();
+          if (!currentOption || !currentOption.series)
+            return;
+          const candleSeriesIndex = currentOption.series.findIndex((s) => s.type === "candlestick");
+          if (candleSeriesIndex === -1)
+            return;
+          const candleSeries = currentOption.series[candleSeriesIndex];
+          if (!candleSeries.markLine || !candleSeries.markLine.data || !candleSeries.markLine.data[0])
+            return;
+          const markLineData = candleSeries.markLine.data[0];
+          markLineData.label.formatter;
+          const price = markLineData.yAxis;
+          let priceStr = "";
+          if (this.options.yAxisLabelFormatter) {
+            priceStr = this.options.yAxisLabelFormatter(price);
+          } else {
+            const decimals = this.options.yAxisDecimalPlaces !== void 0 ? this.options.yAxisDecimalPlaces : 2;
+            priceStr = typeof price === "number" ? price.toFixed(decimals) : price;
+          }
+          const labelText = `${priceStr}
+${timeString}`;
+          this.chart.setOption({
+            series: [
+              {
+                name: this.options.title || "Market",
+                markLine: {
+                  data: [
+                    {
+                      ...markLineData,
+                      // Preserve lineStyle (color), symbol, yAxis, etc.
+                      label: {
+                        ...markLineData.label,
+                        // Preserve existing label styles including backgroundColor
+                        formatter: labelText
+                        // Update only the text
+                      }
+                    }
+                  ]
+                }
+              }
+            ]
+          });
+        };
+        updateLabel();
+        this.countdownInterval = setInterval(updateLabel, 1e3);
+      }
+      stopCountdown() {
+        if (this.countdownInterval) {
+          clearInterval(this.countdownInterval);
+          this.countdownInterval = null;
+        }
       }
       addIndicator(id, plots, options = { isOverlay: false }) {
         const isOverlay = options.isOverlay ?? false;
@@ -2321,6 +2624,7 @@
         this.chart.resize();
       }
       destroy() {
+        this.stopCountdown();
         window.removeEventListener("resize", this.resize.bind(this));
         document.removeEventListener("fullscreenchange", this.onFullscreenChange);
         document.removeEventListener("keydown", this.onKeyDown);
@@ -2372,7 +2676,32 @@
           ...Array(paddingPoints).fill("")
           // Right padding
         ];
-        const layout = LayoutManager.calculate(this.chart.getHeight(), this.indicators, this.options, this.isMainCollapsed, this.maximizedPaneId);
+        const layout = LayoutManager.calculate(
+          this.chart.getHeight(),
+          this.indicators,
+          this.options,
+          this.isMainCollapsed,
+          this.maximizedPaneId,
+          this.marketData
+        );
+        if (!currentZoomState && layout.dataZoom && this.marketData.length > 0) {
+          const realDataLength = this.marketData.length;
+          const totalLength = categoryData.length;
+          const paddingRatio = paddingPoints / totalLength;
+          const dataRatio = realDataLength / totalLength;
+          layout.dataZoom.forEach((dz) => {
+            if (dz.start !== void 0) {
+              const userStartFraction = dz.start / 100;
+              const actualStartFraction = paddingRatio + userStartFraction * dataRatio;
+              dz.start = actualStartFraction * 100;
+            }
+            if (dz.end !== void 0) {
+              const userEndFraction = dz.end / 100;
+              const actualEndFraction = paddingRatio + userEndFraction * dataRatio;
+              dz.end = actualEndFraction * 100;
+            }
+          });
+        }
         if (currentZoomState && layout.dataZoom) {
           layout.dataZoom.forEach((dz) => {
             dz.start = currentZoomState.start;
@@ -2393,8 +2722,12 @@
           layout.paneLayout,
           categoryData.length,
           paddingPoints,
-          paddedOHLCVForShapes
+          paddedOHLCVForShapes,
           // Pass padded OHLCV
+          layout.overlayYAxisMap,
+          // Pass overlay Y-axis mapping
+          layout.separatePaneYAxisOffset
+          // Pass Y-axis offset for separate panes
         );
         candlestickSeries.data = candlestickSeries.data.map((candle, i) => {
           if (barColors[i]) {
@@ -2690,6 +3023,8 @@
             showContent: !!this.options.databox,
             // Show content only if databox is present
             trigger: "axis",
+            triggerOn: this.options.databox?.triggerOn ?? "mousemove",
+            // Control when to show tooltip/crosshair
             axisPointer: { type: "cross", label: { backgroundColor: "#475569" } },
             backgroundColor: "rgba(30, 41, 59, 0.9)",
             borderWidth: 1,

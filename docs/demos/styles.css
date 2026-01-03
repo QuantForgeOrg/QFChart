@@ -81,3 +81,22 @@ nav a svg {
     height: 1.25rem;
     fill: currentColor;
 }
+
+p.loading {
+    margin: auto;
+    font: 700 20px Arial;
+    text-align: center;
+    padding: 5rem;
+}
+div#info {
+    margin: 6rem 2rem;
+    padding: 1rem;
+    border-radius: 10px;
+    background: #00000038;
+    color: #79bbff;
+}
+
+hr {
+    width: 90vw;
+    opacity: 0.2;
+}

@@ -78,7 +78,20 @@ export interface QFChartOptions {
     downColor?: string;
     fontColor?: string;
     fontFamily?: string;
-    padding?: number; // Defaults to 0.2
+    padding?: number; // Horizontal padding (empty candles on sides), defaults to 0.2
+    yAxisPadding?: number; // Vertical Y-axis padding in percentage (e.g., 5 = 5% padding), defaults to 5
+    yAxisMin?: number | 'auto'; // Fixed minimum value for main Y-axis, or 'auto' for dynamic
+    yAxisMax?: number | 'auto'; // Fixed maximum value for main Y-axis, or 'auto' for dynamic
+    yAxisLabelFormatter?: (value: number) => string; // Custom formatter function for Y-axis labels
+    yAxisDecimalPlaces?: number; // Number of decimal places for Y-axis labels (default: 2)
+    lastPriceLine?: {
+        // Configuration for the horizontal line showing the last price
+        visible?: boolean;
+        color?: string; // Defaults to current candle color or '#fff'
+        lineStyle?: 'solid' | 'dashed' | 'dotted'; // Defaults to 'dashed'
+        showCountdown?: boolean; // Show countdown to bar close
+    };
+    interval?: number; // Bar interval in milliseconds (required for countdown)
     height?: string | number;
     controls?: {
         collapse?: boolean;
@@ -91,9 +104,11 @@ export interface QFChartOptions {
         height?: number; // height in %, default 6
         start?: number; // 0-100, default 50
         end?: number; // 0-100, default 100
+        zoomOnTouch?: boolean; // Enable inside zoom on touch devices, default true
     };
     databox?: {
         position: 'floating' | 'left' | 'right';
+        triggerOn?: 'mousemove' | 'click' | 'none'; // When to show tooltip/crosshair, default 'mousemove'
     };
     layout?: {
         mainPaneHeight: string; // e.g. "60%"

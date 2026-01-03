@@ -190,17 +190,24 @@ Cleans up event listeners and disposes of the ECharts instance.
 
 Configuration object passed to the constructor.
 
-| Property          | Type                 | Default                    | Description                                                    |
-| ----------------- | -------------------- | -------------------------- | -------------------------------------------------------------- |
-| `title`           | `string`             | `"Market"`                 | Main chart title displayed in databox.                         |
-| `height`          | `string` \| `number` | -                          | Explicit height for the container.                             |
-| `padding`         | `number`             | `0.2`                      | Vertical padding for auto-scaling (0-1).                       |
-| `upColor`         | `string`             | `"#00da3c"`                | Color for bullish candles.                                     |
-| `downColor`       | `string`             | `"#ec0000"`                | Color for bearish candles.                                     |
-| `backgroundColor` | `string`             | `"#1e293b"`                | Chart background color.                                        |
-| `databox`         | `object`             | `{ position: 'floating' }` | Databox configuration (see Layouts).                           |
-| `dataZoom`        | `object`             | -                          | Configuration for the zoom slider.                             |
-| `controls`        | `object`             | `{}`                       | Enable control buttons (`collapse`, `maximize`, `fullscreen`). |
+| Property              | Type                        | Default                    | Description                                                                                                                       |
+| --------------------- | --------------------------- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `title`               | `string`                    | `"Market"`                 | Main chart title displayed in databox.                                                                                            |
+| `height`              | `string` \| `number`        | -                          | Explicit height for the container.                                                                                                |
+| `padding`             | `number`                    | `0.2`                      | Horizontal padding (empty candles on sides). Range: 0-1.                                                                          |
+| `yAxisPadding`        | `number`                    | `5`                        | Vertical Y-axis padding as percentage (e.g., 5 = 5% gap).                                                                         |
+| `yAxisMin`            | `number` \| `'auto'`        | `'auto'`                   | Fixed minimum value for main Y-axis, or 'auto' for dynamic.                                                                       |
+| `yAxisMax`            | `number` \| `'auto'`        | `'auto'`                   | Fixed maximum value for main Y-axis, or 'auto' for dynamic.                                                                       |
+| `yAxisDecimalPlaces`  | `number`                    | `2`                        | Number of decimal places for Y-axis labels.                                                                                       |
+| `yAxisLabelFormatter` | `(value: number) => string` | -                          | Custom formatting function for Y-axis labels.                                                                                     |
+| `lastPriceLine`       | `object`                    | `{ visible: false }`       | Configuration for last price line (`visible`, `color`, `lineStyle`, `showCountdown`).                                             |
+| `interval`            | `number`                    | -                          | Bar duration in ms (required for countdown timer).                                                                                |
+| `upColor`             | `string`                    | `"#00da3c"`                | Color for bullish candles.                                                                                                        |
+| `downColor`           | `string`                    | `"#ec0000"`                | Color for bearish candles.                                                                                                        |
+| `backgroundColor`     | `string`                    | `"#1e293b"`                | Chart background color.                                                                                                           |
+| `databox`             | `object`                    | `{ position: 'floating' }` | Databox configuration: `position` ('floating', 'left', 'right'), `triggerOn` ('mousemove', 'click' [auto-hides on drag], 'none'). |
+| `dataZoom`            | `object`                    | -                          | Zoom slider configuration: `visible`, `position`, `height`, `start`, `end`, `zoomOnTouch` (enable pan/drag on touch).             |
+| `controls`            | `object`                    | `{}`                       | Enable control buttons (`collapse`, `maximize`, `fullscreen`).                                                                    |
 
 ### `OHLCV`
 
