@@ -179,7 +179,19 @@ export class QFChart implements ChartContext {
         this.drawingEditor = new DrawingEditor(this);
 
         // Bind global chart/ZRender events to the EventBus
-        this.chart.on('dataZoom', (params: any) => this.events.emit('chart:dataZoom', params));
+        this.chart.on('dataZoom', (params: any) => {
+            this.events.emit('chart:dataZoom', params);
+            
+            // Auto-hide tooltip when dragging chart if triggerOn is 'click' and position is 'floating'
+            const triggerOn = this.options.databox?.triggerOn;
+            const position = this.options.databox?.position;
+            if (triggerOn === 'click' && position === 'floating') {
+                // Hide tooltip by dispatching a hideTooltip action
+                this.chart.dispatchAction({
+                    type: 'hideTip'
+                });
+            }
+        });
         // @ts-ignore - ECharts event handler type mismatch
         this.chart.on('finished', (params: any) => this.events.emit('chart:updated', params)); // General chart update
         // @ts-ignore - ECharts ZRender event handler type mismatch
@@ -1377,6 +1389,7 @@ export class QFChart implements ChartContext {
                 show: true,
                 showContent: !!this.options.databox, // Show content only if databox is present
                 trigger: 'axis',
+                triggerOn: this.options.databox?.triggerOn ?? 'mousemove', // Control when to show tooltip/crosshair
                 axisPointer: { type: 'cross', label: { backgroundColor: '#475569' } },
                 backgroundColor: 'rgba(30, 41, 59, 0.9)',
                 borderWidth: 1,

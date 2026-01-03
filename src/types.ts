@@ -104,9 +104,11 @@ export interface QFChartOptions {
         height?: number; // height in %, default 6
         start?: number; // 0-100, default 50
         end?: number; // 0-100, default 100
+        zoomOnTouch?: boolean; // Enable inside zoom on touch devices, default true
     };
     databox?: {
         position: 'floating' | 'left' | 'right';
+        triggerOn?: 'mousemove' | 'click' | 'none'; // When to show tooltip/crosshair, default 'mousemove'
     };
     layout?: {
         mainPaneHeight: string; // e.g. "60%"

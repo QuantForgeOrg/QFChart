@@ -113,7 +113,11 @@ export class LayoutManager {
             const dzStart = options.dataZoom?.start ?? 50;
             const dzEnd = options.dataZoom?.end ?? 100;
 
-            dataZoom.push({ type: 'inside', xAxisIndex: 'all', start: dzStart, end: dzEnd });
+            // Add 'inside' zoom only if zoomOnTouch is enabled (default true)
+            const zoomOnTouch = options.dataZoom?.zoomOnTouch ?? true;
+            if (zoomOnTouch) {
+                dataZoom.push({ type: 'inside', xAxisIndex: 'all', start: dzStart, end: dzEnd });
+            }
 
             // Need to know total panes to iterate
             const maxPaneIndex = hasSeparatePane ? Math.max(...separatePaneIndices) : 0;
@@ -583,12 +587,16 @@ export class LayoutManager {
         // --- Generate DataZoom ---
         const dataZoom: any[] = [];
         if (dzVisible) {
-            dataZoom.push({
-                type: 'inside',
-                xAxisIndex: allXAxisIndices,
-                start: dzStart,
-                end: dzEnd,
-            });
+            // Add 'inside' zoom (pan/drag) only if zoomOnTouch is enabled (default true)
+            const zoomOnTouch = options.dataZoom?.zoomOnTouch ?? true;
+            if (zoomOnTouch) {
+                dataZoom.push({
+                    type: 'inside',
+                    xAxisIndex: allXAxisIndices,
+                    start: dzStart,
+                    end: dzEnd,
+                });
+            }
 
             if (dzPosition === 'top') {
                 dataZoom.push({

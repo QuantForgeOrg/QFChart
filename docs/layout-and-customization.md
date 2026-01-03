@@ -40,6 +40,32 @@ The databox is the primary way to view precise values. You can configure its beh
     }
     ```
 
+### Trigger Behavior
+
+Control when the databox and crosshair appear:
+
+```javascript
+databox: {
+    position: 'floating',
+    triggerOn: 'mousemove' // 'mousemove', 'click', or 'none'
+}
+```
+
+-   **`mousemove` (default)**: Tooltip and crosshair follow mouse movement (desktop behavior)
+-   **`click`**: Tooltip and crosshair appear only when user clicks/taps (mobile-friendly). Automatically hides when dragging the chart.
+-   **`none`**: Disable tooltip and crosshair entirely
+
+**Example for mobile devices**:
+
+```javascript
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+databox: {
+    position: 'floating',
+    triggerOn: isMobile ? 'click' : 'mousemove' // Tap on mobile, hover on desktop
+}
+```
+
 ## Multi-Pane Indicators
 
 When adding indicators with `isOverlay: false`, QFChart automatically manages vertical stacking.
@@ -225,10 +251,42 @@ The zoom slider allows users to navigate history.
 dataZoom: {
     visible: true,
     position: 'top', // 'top' or 'bottom'
-    height: 6        // Height in %
+    height: 6,       // Height in %
+    start: 80,       // Start at 80% of data range
+    end: 100,        // End at 100% of data range
+    zoomOnTouch: true // Enable pan/drag on touch devices (default: true)
 }
 ```
 
 -   **Top**: Places slider at the very top. Chart starts below.
 -   **Bottom**: Places slider at the bottom.
 -   **Hidden**: Set `visible: false` to control zoom only via mouse wheel/drag.
+-   **zoomOnTouch**: Controls whether touch/pan gestures zoom/drag the chart. Set to `false` on mobile to avoid conflicts with tooltip interactions.
+
+### Mobile-Friendly Configuration
+
+For better mobile experience, disable inside zoom to prevent conflicts between dragging and viewing tooltips:
+
+```javascript
+// Detect mobile device
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+const chart = new QFChart(container, {
+    dataZoom: {
+        visible: true,
+        position: 'top',
+        zoomOnTouch: !isMobile, // Disable pan/drag on mobile, use slider only
+    },
+    databox: {
+        position: 'floating',
+        triggerOn: isMobile ? 'click' : 'mousemove', // Tap on mobile, hover on desktop
+    },
+});
+```
+
+This configuration ensures:
+
+-   **Mobile users** can tap to see values without accidentally dragging the chart
+-   **Mobile users** can still zoom using the slider
+-   **Desktop users** get smooth hover-to-view and drag-to-pan experience
+-   **Auto-hide on drag**: When using `triggerOn: 'click'`, the tooltip automatically hides when the user starts dragging the chart

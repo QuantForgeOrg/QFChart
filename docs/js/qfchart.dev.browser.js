@@ -172,7 +172,10 @@
           const dataZoom2 = [];
           const dzStart2 = options.dataZoom?.start ?? 50;
           const dzEnd2 = options.dataZoom?.end ?? 100;
-          dataZoom2.push({ type: "inside", xAxisIndex: "all", start: dzStart2, end: dzEnd2 });
+          const zoomOnTouch = options.dataZoom?.zoomOnTouch ?? true;
+          if (zoomOnTouch) {
+            dataZoom2.push({ type: "inside", xAxisIndex: "all", start: dzStart2, end: dzEnd2 });
+          }
           const maxPaneIndex = hasSeparatePane ? Math.max(...separatePaneIndices) : 0;
           const paneConfigs2 = [];
           for (let i = 0; i <= maxPaneIndex; i++) {
@@ -550,12 +553,15 @@
         });
         const dataZoom = [];
         if (dzVisible) {
-          dataZoom.push({
-            type: "inside",
-            xAxisIndex: allXAxisIndices,
-            start: dzStart,
-            end: dzEnd
-          });
+          const zoomOnTouch = options.dataZoom?.zoomOnTouch ?? true;
+          if (zoomOnTouch) {
+            dataZoom.push({
+              type: "inside",
+              xAxisIndex: allXAxisIndices,
+              start: dzStart,
+              end: dzEnd
+            });
+          }
           if (dzPosition === "top") {
             dataZoom.push({
               type: "slider",
@@ -1661,6 +1667,7 @@
       // --- UI Handling ---
       renderToolbar() {
         this.toolbarContainer.innerHTML = "";
+        this.toolbarContainer.classList.add("qfchart-toolbar");
         this.toolbarContainer.style.display = "flex";
         this.toolbarContainer.style.flexDirection = "column";
         this.toolbarContainer.style.width = "40px";
@@ -1706,17 +1713,13 @@
         this.toolbarContainer.appendChild(btn);
       }
       removeButton(pluginId) {
-        const btn = this.toolbarContainer.querySelector(
-          `#qfchart-plugin-btn-${pluginId}`
-        );
+        const btn = this.toolbarContainer.querySelector(`#qfchart-plugin-btn-${pluginId}`);
         if (btn) {
           btn.remove();
         }
       }
       setButtonActive(pluginId, active) {
-        const btn = this.toolbarContainer.querySelector(
-          `#qfchart-plugin-btn-${pluginId}`
-        );
+        const btn = this.toolbarContainer.querySelector(`#qfchart-plugin-btn-${pluginId}`);
         if (btn) {
           if (active) {
             btn.style.backgroundColor = "#2563eb";
@@ -2112,7 +2115,16 @@
         this.chart = echarts__namespace.init(this.chartContainer);
         this.pluginManager = new PluginManager(this, this.toolbarContainer);
         this.drawingEditor = new DrawingEditor(this);
-        this.chart.on("dataZoom", (params) => this.events.emit("chart:dataZoom", params));
+        this.chart.on("dataZoom", (params) => {
+          this.events.emit("chart:dataZoom", params);
+          const triggerOn = this.options.databox?.triggerOn;
+          const position = this.options.databox?.position;
+          if (triggerOn === "click" && position === "floating") {
+            this.chart.dispatchAction({
+              type: "hideTip"
+            });
+          }
+        });
         this.chart.on("finished", (params) => this.events.emit("chart:updated", params));
         this.chart.getZr().on("mousedown", (params) => this.events.emit("mouse:down", params));
         this.chart.getZr().on("mousemove", (params) => this.events.emit("mouse:move", params));
@@ -3011,6 +3023,8 @@ ${timeString}`;
             showContent: !!this.options.databox,
             // Show content only if databox is present
             trigger: "axis",
+            triggerOn: this.options.databox?.triggerOn ?? "mousemove",
+            // Control when to show tooltip/crosshair
             axisPointer: { type: "cross", label: { backgroundColor: "#475569" } },
             backgroundColor: "rgba(30, 41, 59, 0.9)",
             borderWidth: 1,
