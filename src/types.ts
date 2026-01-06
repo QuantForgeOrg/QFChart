@@ -37,6 +37,7 @@ export type IndicatorStyle =
 export interface IndicatorOptions {
     style: IndicatorStyle;
     color: string;
+    overlay?: boolean; // Override indicator-level overlay setting for this specific plot
     offset?: number;
     linewidth?: number;
     smooth?: boolean;

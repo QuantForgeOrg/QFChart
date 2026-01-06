@@ -472,8 +472,16 @@
             if (marketData && marketData.length > 0) {
               Object.entries(indicator.plots).forEach(([plotName, plot]) => {
                 const plotKey = `${id}::${plotName}`;
-                const visualOnlyStyles = ["background", "barcolor", "shape", "char"];
+                const visualOnlyStyles = ["background", "barcolor", "char"];
+                const isShapeWithPriceLocation = plot.options.style === "shape" && (plot.options.location === "abovebar" || plot.options.location === "belowbar");
                 if (visualOnlyStyles.includes(plot.options.style)) {
+                  if (!overlayYAxisMap.has(plotKey)) {
+                    overlayYAxisMap.set(plotKey, nextYAxisIndex);
+                    nextYAxisIndex++;
+                  }
+                  return;
+                }
+                if (plot.options.style === "shape" && !isShapeWithPriceLocation) {
                   if (!overlayYAxisMap.has(plotKey)) {
                     overlayYAxisMap.set(plotKey, nextYAxisIndex);
                     nextYAxisIndex++;
@@ -806,14 +814,21 @@
             const seriesName = `${id}::${plotName}`;
             let xAxisIndex = 0;
             let yAxisIndex = 0;
-            if (indicator.paneIndex > 0) {
+            const plotOverlay = plot.options.overlay;
+            const isPlotOverlay = plotOverlay !== void 0 ? plotOverlay : indicator.paneIndex === 0;
+            if (isPlotOverlay) {
+              xAxisIndex = 0;
+              if (overlayYAxisMap && overlayYAxisMap.has(seriesName)) {
+                yAxisIndex = overlayYAxisMap.get(seriesName);
+              } else {
+                yAxisIndex = 0;
+              }
+            } else {
               const confIndex = paneLayout.findIndex((p) => p.index === indicator.paneIndex);
               if (confIndex !== -1) {
                 xAxisIndex = confIndex + 1;
                 yAxisIndex = separatePaneYAxisOffset + confIndex;
               }
-            } else if (overlayYAxisMap && overlayYAxisMap.has(seriesName)) {
-              yAxisIndex = overlayYAxisMap.get(seriesName);
             }
             const dataArray = new Array(totalDataLength).fill(null);
             const colorArray = new Array(totalDataLength).fill(null);
@@ -2561,8 +2576,8 @@ ${timeString}`;
           this.countdownInterval = null;
         }
       }
-      addIndicator(id, plots, options = { isOverlay: false }) {
-        const isOverlay = options.isOverlay ?? false;
+      addIndicator(id, plots, options = {}) {
+        const isOverlay = options.overlay !== void 0 ? options.overlay : options.isOverlay ?? false;
         let paneIndex = 0;
         if (!isOverlay) {
           let maxPaneIndex = 0;
@@ -2583,9 +2598,9 @@ ${timeString}`;
         this.render();
         return indicator;
       }
-      // Deprecated: keeping for compatibility if needed, but redirects to addIndicator logic
+      /** @deprecated Use addIndicator instead */
       setIndicator(id, plot, isOverlay = false) {
-        this.addIndicator(id, { [id]: plot }, { isOverlay });
+        this.addIndicator(id, { [id]: plot }, { overlay: isOverlay });
       }
       removeIndicator(id) {
         this.indicators.delete(id);

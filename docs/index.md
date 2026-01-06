@@ -134,7 +134,7 @@ const plots = {
 };
 
 // Add as overlay on main chart
-chart.addIndicator('SMA_14', plots, { isOverlay: true });
+chart.addIndicator('SMA_14', plots, { overlay: true });
 ```
 
 #### Plotting System
@@ -150,7 +150,7 @@ For real-time data feeds (e.g., WebSocket), use `updateData()` for optimal perfo
 ```javascript
 // Keep reference to indicator for updates
 const macdIndicator = chart.addIndicator('MACD', macdPlots, {
-    isOverlay: false,
+    overlay: false,
     height: 15,
 });
 

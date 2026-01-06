@@ -840,13 +840,16 @@ export class QFChart implements ChartContext {
         id: string,
         plots: { [name: string]: IndicatorPlot },
         options: {
+            overlay?: boolean;
+            /** @deprecated Use overlay instead */
             isOverlay?: boolean;
             height?: number;
             titleColor?: string;
             controls?: { collapse?: boolean; maximize?: boolean };
-        } = { isOverlay: false }
+        } = {}
     ): Indicator {
-        const isOverlay = options.isOverlay ?? false;
+        // Handle backward compatibility: prefer 'overlay' over 'isOverlay'
+        const isOverlay = options.overlay !== undefined ? options.overlay : (options.isOverlay ?? false);
         let paneIndex = 0;
         if (!isOverlay) {
             // Find the next available pane index
@@ -873,10 +876,10 @@ export class QFChart implements ChartContext {
         return indicator;
     }
 
-    // Deprecated: keeping for compatibility if needed, but redirects to addIndicator logic
+    /** @deprecated Use addIndicator instead */
     public setIndicator(id: string, plot: IndicatorPlot, isOverlay: boolean = false): void {
-        // Wrap single plot into the new structure
-        this.addIndicator(id, { [id]: plot }, { isOverlay });
+        // Wrap single plot into the new structure (backward compatibility)
+        this.addIndicator(id, { [id]: plot }, { overlay: isOverlay });
     }
 
     public removeIndicator(id: string): void {
