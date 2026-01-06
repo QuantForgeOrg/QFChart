@@ -68,7 +68,7 @@ databox: {
 
 ## Multi-Pane Indicators
 
-When adding indicators with `isOverlay: false`, QFChart automatically manages vertical stacking.
+When adding indicators with `overlay: false`, QFChart automatically manages vertical stacking.
 
 ### Independent Heights
 
@@ -77,13 +77,13 @@ You can specify the height of each indicator pane as a percentage of the total c
 ```javascript
 // Add RSI with 15% height
 chart.addIndicator('RSI', rsiPlots, {
-    isOverlay: false,
+    overlay: false,
     height: 15,
 });
 
 // Add MACD with 20% height
 chart.addIndicator('MACD', macdPlots, {
-    isOverlay: false,
+    overlay: false,
     height: 20,
 });
 ```
@@ -121,7 +121,7 @@ const chart = new QFChart(container, {
 
 // Indicator Configuration
 chart.addIndicator('MACD', plots, {
-    isOverlay: false,
+    overlay: false,
     controls: {
         collapse: true,
         maximize: true,

@@ -66,10 +66,10 @@ const plots = {
 };
 
 // Add as overlay on main chart
-chart.addIndicator('SMA_14', plots, { isOverlay: true });
+chart.addIndicator('SMA_14', plots, { overlay: true });
 
 // Or add as separate pane
-chart.addIndicator('RSI_14', plots, { isOverlay: false, height: 15 });
+chart.addIndicator('RSI_14', plots, { overlay: false, height: 15 });
 ```
 
 ---
@@ -499,7 +499,7 @@ Applies colors to the main chart candlesticks without creating a visual series. 
 
 -   Does not create a visual series on the chart
 -   Colors the main chart candlesticks (body, wicks, and borders)
--   Works regardless of whether the indicator is an overlay (`isOverlay: true/false`)
+-   Works regardless of whether the indicator is an overlay (`overlay: true/false`)
 -   Honors the `offset` parameter to shift colors forward/backward in time
 -   Only applies color when the value is truthy (non-zero, not null/false)
 -   Color `'na'` or `null` means no color change for that bar
@@ -533,7 +533,7 @@ const trendColor = {
 chart.addIndicator(
     'Trend Color',
     { trendColor },
-    { isOverlay: false } // Works even when not overlay
+    { overlay: false } // Works even when not overlay
 );
 ```
 
@@ -914,7 +914,7 @@ const macdPlots = {
     },
 };
 
-chart.addIndicator('MACD_12_26_9', macdPlots, { isOverlay: false, height: 20 });
+chart.addIndicator('MACD_12_26_9', macdPlots, { overlay: false, height: 20 });
 ```
 
 ---
@@ -925,7 +925,7 @@ To update plot data incrementally (e.g., for WebSocket feeds), use the `updateDa
 
 ```javascript
 // Initial setup
-const indicator = chart.addIndicator('RSI_14', rsiPlots, { isOverlay: false });
+const indicator = chart.addIndicator('RSI_14', rsiPlots, { overlay: false });
 
 // Later: update with new data
 function onNewBar(bar, indicators) {
@@ -961,8 +961,27 @@ function onNewBar(bar, indicators) {
 
 7. **Overlay vs. Separate Pane**:
 
-    - Use `isOverlay: true` for indicators that share the same scale as price (e.g., moving averages, Bollinger Bands)
-    - Use `isOverlay: false` for oscillators with different ranges (e.g., RSI, MACD, Stochastic)
+    - Use `overlay: true` for indicators that share the same scale as price (e.g., moving averages, Bollinger Bands)
+    - Use `overlay: false` for oscillators with different ranges (e.g., RSI, MACD, Stochastic)
+    - **Plot-level override**: Individual plots can override the indicator's overlay setting using `plot.options.overlay`
+
+    ```javascript
+    // MACD indicator with histogram in separate pane but signal lines as overlay
+    chart.addIndicator('MACD', {
+        histogram: {
+            data: histogramData,
+            options: { style: 'histogram', color: '#888', overlay: false } // Stays in separate pane
+        },
+        macdLine: {
+            data: macdData,
+            options: { style: 'line', color: '#2962FF', overlay: true } // Overrides to main chart
+        },
+        signalLine: {
+            data: signalData,
+            options: { style: 'line', color: '#FF6D00', overlay: true } // Overrides to main chart
+        }
+    }, { overlay: false, height: 15 }); // Indicator default is separate pane
+    ```
 
 8. **Performance**: For high-frequency updates, minimize the number of separate indicators; combine plots into a single indicator when possible
 

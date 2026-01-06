@@ -488,7 +488,14 @@ export class LayoutManager {
                         const plotKey = `${id}::${plotName}`;
 
                         // Skip visual-only plot types that should never affect Y-axis scaling
-                        const visualOnlyStyles = ['background', 'barcolor', 'shape', 'char'];
+                        // EXCEPTION: shapes with abovebar/belowbar must stay on main Y-axis
+                        const visualOnlyStyles = ['background', 'barcolor', 'char'];
+                        
+                        // Check if this is a shape with price-relative positioning
+                        const isShapeWithPriceLocation = 
+                            plot.options.style === 'shape' && 
+                            (plot.options.location === 'abovebar' || plot.options.location === 'belowbar');
+
                         if (visualOnlyStyles.includes(plot.options.style)) {
                             // Assign these to a separate Y-axis so they don't affect price scale
                             if (!overlayYAxisMap.has(plotKey)) {
@@ -496,6 +503,15 @@ export class LayoutManager {
                                 nextYAxisIndex++;
                             }
                             return; // Skip further processing for this plot
+                        }
+
+                        // If it's a shape but NOT with price-relative positioning, treat as visual-only
+                        if (plot.options.style === 'shape' && !isShapeWithPriceLocation) {
+                            if (!overlayYAxisMap.has(plotKey)) {
+                                overlayYAxisMap.set(plotKey, nextYAxisIndex);
+                                nextYAxisIndex++;
+                            }
+                            return;
                         }
 
                         const values: number[] = [];

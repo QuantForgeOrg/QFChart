@@ -243,19 +243,28 @@ export class SeriesBuilder {
                 let xAxisIndex = 0;
                 let yAxisIndex = 0;
 
-                if (indicator.paneIndex > 0) {
-                    // paneLayout contains only separate panes.
-                    // The index in xAxis/yAxis array accounts for overlay Y-axes
+                // Check plot-level overlay setting (overrides indicator-level setting)
+                const plotOverlay = plot.options.overlay;
+                const isPlotOverlay = plotOverlay !== undefined ? plotOverlay : indicator.paneIndex === 0;
+
+                if (isPlotOverlay) {
+                    // Plot should be on main chart (overlay)
+                    xAxisIndex = 0;
+                    if (overlayYAxisMap && overlayYAxisMap.has(seriesName)) {
+                        // This specific plot has its own Y-axis (incompatible with price range)
+                        yAxisIndex = overlayYAxisMap.get(seriesName)!;
+                    } else {
+                        // Shares main Y-axis with candlesticks
+                        yAxisIndex = 0;
+                    }
+                } else {
+                    // Plot should be in indicator's separate pane
                     const confIndex = paneLayout.findIndex((p) => p.index === indicator.paneIndex);
                     if (confIndex !== -1) {
                         xAxisIndex = confIndex + 1;
                         yAxisIndex = separatePaneYAxisOffset + confIndex;
                     }
-                } else if (overlayYAxisMap && overlayYAxisMap.has(seriesName)) {
-                    // This specific plot has its own Y-axis (incompatible with price range)
-                    yAxisIndex = overlayYAxisMap.get(seriesName)!;
                 }
-                // Otherwise, yAxisIndex stays 0 (shares main Y-axis with candlesticks)
 
                 const dataArray = new Array(totalDataLength).fill(null);
                 const colorArray = new Array(totalDataLength).fill(null);

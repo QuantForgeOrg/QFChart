@@ -84,7 +84,7 @@ Adds an indicator to the chart and returns the indicator instance.
 -   **id**: Unique identifier for the indicator.
 -   **plots**: Object containing plot data definitions.
 -   **options**:
-    -   `isOverlay`: (boolean) If `true`, renders on the main chart. If `false`, creates a new pane below.
+    -   `overlay`: (boolean) If `true`, renders on the main chart. If `false`, creates a new pane below. Default: `false`.
     -   `height`: (number) Height percentage for the new pane (e.g., `15` for 15%).
     -   `titleColor`: (string) Color for the indicator title.
     -   `controls`: (object) Control buttons configuration.
@@ -95,7 +95,7 @@ Adds an indicator to the chart and returns the indicator instance.
 
 ```typescript
 const macdIndicator = chart.addIndicator('MACD', macdPlots, {
-    isOverlay: false,
+    overlay: false,
     height: 15,
     titleColor: '#ff9900',
 });
@@ -234,7 +234,19 @@ interface IndicatorPlot {
     options: {
         style: 'line' | 'histogram' | 'columns' | 'circles' | 'cross' | 'background';
         color: string;
+        overlay?: boolean; // Override indicator-level overlay setting for this specific plot
         linewidth?: number;
+        // ... other style-specific options
     };
 }
 ```
+
+**Plot-Level Overlay**:
+
+Individual plots can override the indicator's `overlay` setting by specifying `options.overlay`:
+
+-   `overlay: true` - Plot renders on main chart (regardless of indicator setting)
+-   `overlay: false` - Plot renders in indicator's pane (default behavior)
+-   `overlay: undefined` - Uses indicator's overlay setting
+
+This allows mixed layouts where some plots of an indicator are overlays while others remain in a separate pane.
