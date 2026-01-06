@@ -967,20 +967,24 @@ function onNewBar(bar, indicators) {
 
     ```javascript
     // MACD indicator with histogram in separate pane but signal lines as overlay
-    chart.addIndicator('MACD', {
-        histogram: {
-            data: histogramData,
-            options: { style: 'histogram', color: '#888', overlay: false } // Stays in separate pane
+    chart.addIndicator(
+        'MACD',
+        {
+            histogram: {
+                data: histogramData,
+                options: { style: 'histogram', color: '#888', overlay: false }, // Stays in separate pane
+            },
+            macdLine: {
+                data: macdData,
+                options: { style: 'line', color: '#2962FF', overlay: true }, // Overrides to main chart
+            },
+            signalLine: {
+                data: signalData,
+                options: { style: 'line', color: '#FF6D00', overlay: true }, // Overrides to main chart
+            },
         },
-        macdLine: {
-            data: macdData,
-            options: { style: 'line', color: '#2962FF', overlay: true } // Overrides to main chart
-        },
-        signalLine: {
-            data: signalData,
-            options: { style: 'line', color: '#FF6D00', overlay: true } // Overrides to main chart
-        }
-    }, { overlay: false, height: 15 }); // Indicator default is separate pane
+        { overlay: false, height: 15 }
+    ); // Indicator default is separate pane
     ```
 
 8. **Performance**: For high-frequency updates, minimize the number of separate indicators; combine plots into a single indicator when possible

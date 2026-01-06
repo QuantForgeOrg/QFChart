@@ -3,6 +3,8 @@ import { PaneConfiguration } from './LayoutManager';
 import { textToBase64Image } from '../Utils';
 
 export class SeriesBuilder {
+    private static readonly DEFAULT_COLOR = '#2962ff';
+
     public static buildCandlestickSeries(marketData: OHLCV[], options: QFChartOptions, totalLength?: number): any {
         const upColor = options.upColor || '#00da3c';
         const downColor = options.downColor || '#ec0000';
@@ -295,7 +297,7 @@ export class SeriesBuilder {
                             }
 
                             dataArray[offsetIndex] = value;
-                            colorArray[offsetIndex] = pointColor || plot.options.color;
+                            colorArray[offsetIndex] = pointColor || plot.options.color || SeriesBuilder.DEFAULT_COLOR;
                             optionsArray[offsetIndex] = point.options || {};
                         }
                     }
@@ -316,7 +318,7 @@ export class SeriesBuilder {
                                 value: val,
                                 itemStyle: colorArray[i] ? { color: colorArray[i] } : undefined,
                             })),
-                            itemStyle: { color: plot.options.color },
+                            itemStyle: { color: plot.options.color || SeriesBuilder.DEFAULT_COLOR },
                         });
                         break;
 
@@ -326,7 +328,7 @@ export class SeriesBuilder {
                         const scatterData = dataArray
                             .map((val, i) => {
                                 if (val === null) return null;
-                                const pointColor = colorArray[i] || plot.options.color;
+                                const pointColor = colorArray[i] || plot.options.color || SeriesBuilder.DEFAULT_COLOR;
                                 const item: any = {
                                     value: [i, val],
                                     itemStyle: { color: pointColor },
@@ -361,7 +363,7 @@ export class SeriesBuilder {
 
                                 const [open, high, low, close] = val;
                                 const pointOpts = optionsArray[i] || {};
-                                const color = pointOpts.color || colorArray[i] || plot.options.color;
+                                const color = pointOpts.color || colorArray[i] || plot.options.color || SeriesBuilder.DEFAULT_COLOR;
                                 const wickColor = pointOpts.wickcolor || plot.options.wickcolor || color;
                                 const borderColor = pointOpts.bordercolor || plot.options.bordercolor || wickColor;
 
@@ -530,7 +532,7 @@ export class SeriesBuilder {
                                     return null; // Can't plot without a Y coordinate
                                 }
 
-                                const color = pointOpts.color || globalOpts.color || 'blue';
+                                const color = pointOpts.color || globalOpts.color || SeriesBuilder.DEFAULT_COLOR;
                                 const shape = pointOpts.shape || globalOpts.shape || 'circle';
                                 const size = pointOpts.size || globalOpts.size || 'normal';
                                 const text = pointOpts.text || globalOpts.text;
@@ -695,7 +697,7 @@ export class SeriesBuilder {
                                         y2: coords[1],
                                     },
                                     style: {
-                                        stroke: colorArray[params.dataIndex] || plot.options.color,
+                                        stroke: colorArray[params.dataIndex] || plot.options.color || SeriesBuilder.DEFAULT_COLOR,
                                         lineWidth: plot.options.linewidth || 1,
                                     },
                                     silent: true,
@@ -715,7 +717,7 @@ export class SeriesBuilder {
                                 const offsetIndex = index + dataIndexOffset + plotOffset;
 
                                 if (offsetIndex >= 0 && offsetIndex < totalDataLength) {
-                                    const pointColor = point.options?.color || plot.options.color;
+                                    const pointColor = point.options?.color || plot.options.color || SeriesBuilder.DEFAULT_COLOR;
                                     // Only apply if color is valid (not 'na')
                                     const isNaColor =
                                         pointColor === null ||
@@ -776,7 +778,7 @@ export class SeriesBuilder {
                                         y2: p2[1],
                                     },
                                     style: {
-                                        stroke: colorArray[index] || plot.options.color,
+                                        stroke: colorArray[index] || plot.options.color || SeriesBuilder.DEFAULT_COLOR,
                                         lineWidth: plot.options.linewidth || 1,
                                     },
                                     silent: true,
