@@ -1,4 +1,4 @@
-import { OHLCV, Indicator as IndicatorType, QFChartOptions, IndicatorPlot } from '../types';
+import { OHLCV, Indicator as IndicatorType, QFChartOptions, IndicatorPlot, IndicatorStyle } from '../types';
 import { PaneConfiguration } from './LayoutManager';
 import { textToBase64Image } from '../Utils';
 
@@ -25,8 +25,11 @@ export class SeriesBuilder {
             const isUp = lastBar.close >= lastBar.open;
             // Use configured color, or dynamic color based on candle direction
             const lineColor = options.lastPriceLine?.color || (isUp ? upColor : downColor);
-            const lineStyleType = options.lastPriceLine?.lineStyle || 'dashed';
+            let lineStyleType = options.lastPriceLine?.lineStyle || 'dashed';
 
+            if (lineStyleType.startsWith('linestyle_')) {
+                lineStyleType = lineStyleType.replace('linestyle_', '') as any;
+            }
             markLine = {
                 symbol: ['none', 'none'],
                 data: [
@@ -298,6 +301,9 @@ export class SeriesBuilder {
                     }
                 });
 
+                if (plot.options?.style?.startsWith('style_')) {
+                    plot.options.style = plot.options.style.replace('style_', '') as IndicatorStyle;
+                }
                 switch (plot.options.style) {
                     case 'histogram':
                     case 'columns':
