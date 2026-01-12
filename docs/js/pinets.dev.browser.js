@@ -7376,9 +7376,9 @@
     return state.output
   }
 
-  var __defProp$g = Object.defineProperty;
-  var __defNormalProp$g = (obj, key, value) => key in obj ? __defProp$g(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-  var __publicField$g = (obj, key, value) => __defNormalProp$g(obj, typeof key !== "symbol" ? key + "" : key, value);
+  var __defProp$h = Object.defineProperty;
+  var __defNormalProp$h = (obj, key, value) => key in obj ? __defProp$h(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __publicField$h = (obj, key, value) => __defNormalProp$h(obj, typeof key !== "symbol" ? key + "" : key, value);
   const JS_GLOBAL_LITERALS = /* @__PURE__ */ new Set(["Infinity", "NaN", "undefined", "null", "true", "false"]);
   const JS_GLOBAL_OBJECTS = /* @__PURE__ */ new Set([
     "Math",
@@ -7412,23 +7412,25 @@
   ]);
   class ScopeManager {
     constructor() {
-      __publicField$g(this, "scopes", []);
-      __publicField$g(this, "scopeTypes", []);
-      __publicField$g(this, "scopeCounts", /* @__PURE__ */ new Map());
-      __publicField$g(this, "contextBoundVars", /* @__PURE__ */ new Set());
-      __publicField$g(this, "arrayPatternElements", /* @__PURE__ */ new Set());
-      __publicField$g(this, "rootParams", /* @__PURE__ */ new Set());
-      __publicField$g(this, "localSeriesVars", /* @__PURE__ */ new Set());
-      __publicField$g(this, "varKinds", /* @__PURE__ */ new Map());
-      __publicField$g(this, "loopVars", /* @__PURE__ */ new Set());
-      __publicField$g(this, "loopVarNames", /* @__PURE__ */ new Map());
+      __publicField$h(this, "scopes", []);
+      __publicField$h(this, "scopeTypes", []);
+      __publicField$h(this, "scopeCounts", /* @__PURE__ */ new Map());
+      __publicField$h(this, "contextBoundVars", /* @__PURE__ */ new Set());
+      __publicField$h(this, "arrayPatternElements", /* @__PURE__ */ new Set());
+      __publicField$h(this, "rootParams", /* @__PURE__ */ new Set());
+      __publicField$h(this, "localSeriesVars", /* @__PURE__ */ new Set());
+      __publicField$h(this, "varKinds", /* @__PURE__ */ new Map());
+      __publicField$h(this, "loopVars", /* @__PURE__ */ new Set());
+      __publicField$h(this, "loopVarNames", /* @__PURE__ */ new Map());
       // Map original names to transformed names
-      __publicField$g(this, "paramIdCounter", 0);
-      __publicField$g(this, "cacheIdCounter", 0);
-      __publicField$g(this, "tempVarCounter", 0);
-      __publicField$g(this, "taCallIdCounter", 0);
-      __publicField$g(this, "hoistingStack", []);
-      __publicField$g(this, "suppressHoisting", false);
+      __publicField$h(this, "paramIdCounter", 0);
+      __publicField$h(this, "cacheIdCounter", 0);
+      __publicField$h(this, "tempVarCounter", 0);
+      __publicField$h(this, "taCallIdCounter", 0);
+      __publicField$h(this, "userCallIdCounter", 0);
+      __publicField$h(this, "hoistingStack", []);
+      __publicField$h(this, "suppressHoisting", false);
+      __publicField$h(this, "reservedNames", /* @__PURE__ */ new Set());
       this.pushScope("glb");
     }
     get nextParamIdArg() {
@@ -7447,6 +7449,12 @@
       return {
         type: "Literal",
         value: `_ta${this.taCallIdCounter++}`
+      };
+    }
+    getNextUserCallId() {
+      return {
+        type: "Literal",
+        value: `_fn${this.userCallIdCounter++}`
       };
     }
     pushScope(type) {
@@ -7509,6 +7517,9 @@
     isLoopVariable(name) {
       return this.loopVars.has(name);
     }
+    addReservedName(name) {
+      this.reservedNames.add(name);
+    }
     addVariable(name, kind) {
       if (this.isContextBound(name)) {
         return name;
@@ -7562,9 +7573,38 @@
     shouldSuppressHoisting() {
       return this.suppressHoisting;
     }
+    // Helper method to check if a variable exists in any scope
+    hasVariableInScope(name) {
+      if (this.reservedNames.has(name)) {
+        return true;
+      }
+      for (let i = this.scopes.length - 1; i >= 0; i--) {
+        if (this.scopes[i].has(name)) {
+          return true;
+        }
+      }
+      if (this.contextBoundVars.has(name)) {
+        return true;
+      }
+      if (this.loopVars.has(name)) {
+        return true;
+      }
+      if (this.localSeriesVars.has(name)) {
+        return true;
+      }
+      return false;
+    }
     // Param ID Generator Helper (for hoisting)
     generateParamId() {
-      return `p${this.paramIdCounter++}`;
+      let candidate = `p${this.paramIdCounter++}`;
+      while (this.hasVariableInScope(candidate)) {
+        candidate = `p${this.paramIdCounter++}`;
+      }
+      const currentScope = this.scopes[this.scopes.length - 1];
+      if (currentScope) {
+        currentScope.set(candidate, candidate);
+      }
+      return candidate;
     }
   }
 
@@ -8002,7 +8042,7 @@
   };
 
   const KNOWN_NAMESPACES = ["ta", "math", "request", "array", "input"];
-  const NAMESPACES_LIKE = ["hline", "plot"];
+  const NAMESPACES_LIKE = ["hline", "plot", "fill"];
   const ASYNC_METHODS = ["request.security", "request.security_lower_tf"];
   const CONTEXT_DATA_VARS = ["open", "high", "low", "close", "volume", "hl2", "hlc3", "ohlc4", "openTime", "closeTime"];
   const CONTEXT_PINE_VARS = [
@@ -8018,6 +8058,7 @@
     "bgcolor",
     "barcolor",
     "hline",
+    "fill",
     //declarations
     "indicator",
     "strategy",
@@ -8049,6 +8090,7 @@
     "bar_index",
     "last_bar_index",
     "last_bar_time",
+    "inputs",
     // Pine Script enum types
     "order",
     "currency",
@@ -8059,7 +8101,7 @@
     "format",
     "dayofweek"
   ];
-  const CONTEXT_CORE_VARS = ["na", "nz", "plot", "plotchar", "color", "hline"];
+  const CONTEXT_CORE_VARS = ["na", "nz", "plot", "plotchar", "color", "hline", "fill"];
 
   function injectImplicitImports(ast) {
     let mainBody = null;
@@ -8398,6 +8440,9 @@ ${code}
     simple(ast, {
       FunctionDeclaration(node) {
         registerFunctionParameters(node, scopeManager);
+        if (node.id && node.id.name) {
+          scopeManager.addReservedName(node.id.name);
+        }
       },
       ArrowFunctionExpression(node) {
         const isRootFunction = node.start === 0;
@@ -8409,7 +8454,20 @@ ${code}
       },
       VariableDeclaration(node) {
         node.declarations.forEach((decl) => {
-          if (decl.id.type === "ArrayPattern") {
+          if (decl.id.type === "Identifier") {
+            scopeManager.addReservedName(decl.id.name);
+          } else if (decl.id.type === "ObjectPattern") {
+            decl.id.properties.forEach((prop) => {
+              if (prop.key && prop.key.type === "Identifier") {
+                scopeManager.addReservedName(prop.key.name);
+              }
+            });
+          } else if (decl.id.type === "ArrayPattern") {
+            decl.id.elements?.forEach((element) => {
+              if (element && element.type === "Identifier") {
+                scopeManager.addReservedName(element.name);
+              }
+            });
             const tempVarName = scopeManager.generateTempVar();
             const tempVarDecl = {
               type: "VariableDeclaration",
@@ -8531,10 +8589,14 @@ ${code}
       let isSeriesFunctionArg = false;
       if (node.parent && node.parent.type === "CallExpression" && node.parent.arguments.includes(node)) {
         const callee = node.parent.callee;
-        const isContextMethod = callee.type === "MemberExpression" && callee.object && callee.object.name === CONTEXT_NAME && ["get", "set", "init", "param"].includes(callee.property.name);
+        const isContextMethod = callee.type === "MemberExpression" && callee.object && callee.object.name === CONTEXT_NAME && ["get", "set", "init", "param", "call"].includes(callee.property.name);
         if (isContextMethod) {
           const argIndex = node.parent.arguments.indexOf(node);
-          if (argIndex === 0) {
+          if (callee.property.name === "call") {
+            if (argIndex >= 2) {
+              isSeriesFunctionArg = true;
+            }
+          } else if (argIndex === 0) {
             isSeriesFunctionArg = true;
           }
         } else {
@@ -8668,10 +8730,14 @@ ${code}
       if (scopeManager.isContextBound(node.name)) {
         return node;
       }
-      if (scopeManager.isLocalSeriesVar(node.name)) {
+      const [scopedName, kind] = scopeManager.getVariable(node.name);
+      const isUserVariable = scopedName !== node.name;
+      if (scopeManager.isLocalSeriesVar(node.name) && !isUserVariable) {
         return node;
       }
-      const [scopedName, kind] = scopeManager.getVariable(node.name);
+      if (isUserVariable) {
+        return ASTFactory.createContextVariableReference(kind, scopedName);
+      }
       if (scopedName === node.name && !scopeManager.isContextBound(node.name)) {
         return node;
       }
@@ -8683,6 +8749,9 @@ ${code}
     switch (node.type) {
       case "BinaryExpression": {
         return getParamFromBinaryExpression(node, scopeManager, namespace);
+      }
+      case "LogicalExpression": {
+        return getParamFromLogicalExpression(node, scopeManager, namespace);
       }
       case "MemberExpression": {
         const transformedObject = node.object.type === "Identifier" ? transformIdentifierForParam(node.object, scopeManager) : node.object;
@@ -9046,7 +9115,26 @@ ${code}
       });
       node.arguments = newArgs;
       if (namespace2 === "ta") {
-        node.arguments.push(scopeManager.getNextTACallId());
+        if (scopeManager.getCurrentScopeType() === "fn") {
+          const staticId = scopeManager.getNextTACallId();
+          const [scopedName, kind] = scopeManager.getVariable("_callId");
+          let leftOperand;
+          if (scopedName !== "_callId") {
+            const contextVar = ASTFactory.createContextVariableReference(kind, scopedName);
+            leftOperand = ASTFactory.createGetCall(contextVar, 0);
+          } else {
+            leftOperand = ASTFactory.createIdentifier("_callId");
+          }
+          const callIdArg = {
+            type: "BinaryExpression",
+            operator: "+",
+            left: leftOperand,
+            right: staticId
+          };
+          node.arguments.push(callIdArg);
+        } else {
+          node.arguments.push(scopeManager.getNextTACallId());
+        }
       }
       const methodName = node.callee.property.name;
       const methodPath = `${namespace2}.${methodName}`;
@@ -9081,6 +9169,13 @@ ${code}
         }
         return transformFunctionArgument(arg, CONTEXT_NAME, scopeManager);
       });
+      if (!scopeManager.isContextBound(node.callee.name)) {
+        const callId = scopeManager.getNextUserCallId();
+        const contextCall = ASTFactory.createMemberExpression(ASTFactory.createContextIdentifier(), ASTFactory.createIdentifier("call"));
+        const newArgs = [node.callee, callId, ...node.arguments];
+        node.callee = contextCall;
+        node.arguments = newArgs;
+      }
       node._transformed = true;
     }
     if (!isNamespaceCall && node.callee && node.callee.type === "MemberExpression") {
@@ -9620,8 +9715,16 @@ ${code}
             MemberExpression(node2) {
               transformMemberExpression(node2, "", scopeManager);
             },
-            CallExpression(node2, state) {
+            // c is the callback function for recursion (acorn-walk)
+            CallExpression(node2, state, c) {
               transformCallExpression(node2, state);
+              if (node2.type === "CallExpression") {
+                node2.arguments.forEach((arg) => c(arg, state));
+              }
+            },
+            BinaryExpression(node2, state, c) {
+              c(node2.left, state);
+              c(node2.right, state);
             }
           });
         }
@@ -9634,7 +9737,15 @@ ${code}
     }
   }
   function transformFunctionDeclaration(node, scopeManager, c) {
+    const callIdDecl = ASTFactory.createVariableDeclaration(
+      "_callId",
+      ASTFactory.createCallExpression(
+        ASTFactory.createMemberExpression(ASTFactory.createContextIdentifier(), ASTFactory.createIdentifier("peekId")),
+        []
+      )
+    );
     if (node.body && node.body.type === "BlockStatement") {
+      node.body.body.unshift(callIdDecl);
       scopeManager.pushScope("fn");
       c(node.body, scopeManager);
       scopeManager.popScope();
@@ -9822,26 +9933,26 @@ ${code}
       this.column = column;
       this.indent = indent;
     }
-    toString() {
-      return `Token(${this.type}, ${JSON.stringify(this.value)}, ${this.line}:${this.column}, indent=${this.indent})`;
-    }
+    // toString() {
+    //     return `Token(${this.type}, ${JSON.stringify(this.value)}, ${this.line}:${this.column}, indent=${this.indent})`;
+    // }
   }
 
-  var __defProp$f = Object.defineProperty;
-  var __defNormalProp$f = (obj, key, value) => key in obj ? __defProp$f(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-  var __publicField$f = (obj, key, value) => __defNormalProp$f(obj, typeof key !== "symbol" ? key + "" : key, value);
+  var __defProp$g = Object.defineProperty;
+  var __defNormalProp$g = (obj, key, value) => key in obj ? __defProp$g(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __publicField$g = (obj, key, value) => __defNormalProp$g(obj, typeof key !== "symbol" ? key + "" : key, value);
   class Lexer {
     constructor(source) {
-      __publicField$f(this, "source");
-      __publicField$f(this, "pos");
-      __publicField$f(this, "line");
-      __publicField$f(this, "column");
-      __publicField$f(this, "tokens");
-      __publicField$f(this, "indentStack");
-      __publicField$f(this, "atLineStart");
-      __publicField$f(this, "parenDepth");
-      __publicField$f(this, "bracketDepth");
-      __publicField$f(this, "braceDepth");
+      __publicField$g(this, "source");
+      __publicField$g(this, "pos");
+      __publicField$g(this, "line");
+      __publicField$g(this, "column");
+      __publicField$g(this, "tokens");
+      __publicField$g(this, "indentStack");
+      __publicField$g(this, "atLineStart");
+      __publicField$g(this, "parenDepth");
+      __publicField$g(this, "bracketDepth");
+      __publicField$g(this, "braceDepth");
       this.source = source;
       this.pos = 0;
       this.line = 1;
@@ -10160,9 +10271,9 @@ ${code}
     }
   }
 
-  var __defProp$e = Object.defineProperty;
-  var __defNormalProp$e = (obj, key, value) => key in obj ? __defProp$e(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-  var __publicField$e = (obj, key, value) => __defNormalProp$e(obj, typeof key !== "symbol" ? key + "" : key, value);
+  var __defProp$f = Object.defineProperty;
+  var __defNormalProp$f = (obj, key, value) => key in obj ? __defProp$f(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __publicField$f = (obj, key, value) => __defNormalProp$f(obj, typeof key !== "symbol" ? key + "" : key, value);
   class ASTNode {
     constructor(type) {
       this.type = type;
@@ -10223,7 +10334,7 @@ ${code}
       this.test = test;
       this.consequent = consequent;
       this.alternate = alternate;
-      __publicField$e(this, "_line");
+      __publicField$f(this, "_line");
     }
   }
   class ForStatement extends ASTNode {
@@ -10233,7 +10344,7 @@ ${code}
       this.test = test;
       this.update = update;
       this.body = body;
-      __publicField$e(this, "isForIn");
+      __publicField$f(this, "isForIn");
     }
   }
   class WhileStatement extends ASTNode {
@@ -10259,9 +10370,9 @@ ${code}
     constructor(name) {
       super("Identifier");
       this.name = name;
-      __publicField$e(this, "varType");
-      __publicField$e(this, "returnType");
-      __publicField$e(this, "isMethod");
+      __publicField$f(this, "varType");
+      __publicField$f(this, "returnType");
+      __publicField$f(this, "isMethod");
     }
   }
   class Literal extends ASTNode {
@@ -10308,7 +10419,7 @@ ${code}
       super("CallExpression");
       this.callee = callee;
       this.args = args;
-      __publicField$e(this, "arguments");
+      __publicField$f(this, "arguments");
       this.callee = callee;
       this.arguments = args;
     }
@@ -10327,9 +10438,9 @@ ${code}
       this.test = test;
       this.consequent = consequent;
       this.alternate = alternate;
-      __publicField$e(this, "needsIIFE");
-      __publicField$e(this, "consequentStmts");
-      __publicField$e(this, "alternateStmts");
+      __publicField$f(this, "needsIIFE");
+      __publicField$f(this, "consequentStmts");
+      __publicField$f(this, "alternateStmts");
     }
   }
   class ArrayExpression extends ASTNode {
@@ -10349,10 +10460,10 @@ ${code}
       super("Property");
       this.key = key;
       this.value = value;
-      __publicField$e(this, "kind");
-      __publicField$e(this, "method");
-      __publicField$e(this, "shorthand");
-      __publicField$e(this, "computed");
+      __publicField$f(this, "kind");
+      __publicField$f(this, "method");
+      __publicField$f(this, "shorthand");
+      __publicField$f(this, "computed");
       this.kind = "init";
       this.method = false;
       this.shorthand = false;
@@ -10387,13 +10498,13 @@ ${code}
     }
   }
 
-  var __defProp$d = Object.defineProperty;
-  var __defNormalProp$d = (obj, key, value) => key in obj ? __defProp$d(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-  var __publicField$d = (obj, key, value) => __defNormalProp$d(obj, typeof key !== "symbol" ? key + "" : key, value);
+  var __defProp$e = Object.defineProperty;
+  var __defNormalProp$e = (obj, key, value) => key in obj ? __defProp$e(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __publicField$e = (obj, key, value) => __defNormalProp$e(obj, typeof key !== "symbol" ? key + "" : key, value);
   class Parser {
     constructor(tokens) {
-      __publicField$d(this, "tokens");
-      __publicField$d(this, "pos");
+      __publicField$e(this, "tokens");
+      __publicField$e(this, "pos");
       this.tokens = tokens;
       this.pos = 0;
     }
@@ -11301,18 +11412,18 @@ ${code}
     }
   }
 
-  var __defProp$c = Object.defineProperty;
-  var __defNormalProp$c = (obj, key, value) => key in obj ? __defProp$c(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-  var __publicField$c = (obj, key, value) => __defNormalProp$c(obj, typeof key !== "symbol" ? key + "" : key, value);
+  var __defProp$d = Object.defineProperty;
+  var __defNormalProp$d = (obj, key, value) => key in obj ? __defProp$d(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __publicField$d = (obj, key, value) => __defNormalProp$d(obj, typeof key !== "symbol" ? key + "" : key, value);
   class CodeGenerator {
     constructor(options = {}) {
-      __publicField$c(this, "indent");
-      __publicField$c(this, "indentStr");
-      __publicField$c(this, "output");
-      __publicField$c(this, "sourceCode");
-      __publicField$c(this, "sourceLines");
-      __publicField$c(this, "lastCommentedLine");
-      __publicField$c(this, "includeSourceComments");
+      __publicField$d(this, "indent");
+      __publicField$d(this, "indentStr");
+      __publicField$d(this, "output");
+      __publicField$d(this, "sourceCode");
+      __publicField$d(this, "sourceLines");
+      __publicField$d(this, "lastCommentedLine");
+      __publicField$d(this, "includeSourceComments");
       this.indent = 0;
       this.indentStr = options.indentStr || "  ";
       this.output = [];
@@ -11413,35 +11524,22 @@ ${code}
           throw new Error(`Unknown statement type: ${node.type}`);
       }
     }
-    // Generate TypeDefinition (convert to class in JavaScript)
+    // Generate TypeDefinition (convert to Type(...) call)
     generateTypeDefinition(node) {
       this.write(this.indentStr.repeat(this.indent));
-      this.write(`class ${node.name} {
-`);
-      this.increaseIndent();
-      this.write(this.indentStr.repeat(this.indent));
-      this.write("constructor(");
-      const params = node.fields.map((f) => f.name).join(", ");
-      this.write(params);
-      this.write(") {\n");
-      this.increaseIndent();
-      for (const field of node.fields) {
-        this.write(this.indentStr.repeat(this.indent));
-        this.write(`this.${field.name} = ${field.name}`);
-        if (field.defaultValue) {
-          this.write(" !== undefined ? ");
-          this.write(field.name);
-          this.write(" : ");
-          this.generateExpression(field.defaultValue);
+      this.write(`const ${node.name} = Type({`);
+      if (node.fields.length > 0) {
+        this.write(" ");
+        for (let i = 0; i < node.fields.length; i++) {
+          const field = node.fields[i];
+          this.write(`${field.name}: '${field.type}'`);
+          if (i < node.fields.length - 1) {
+            this.write(", ");
+          }
         }
-        this.write(";\n");
+        this.write(" ");
       }
-      this.decreaseIndent();
-      this.write(this.indentStr.repeat(this.indent));
-      this.write("}\n");
-      this.decreaseIndent();
-      this.write(this.indentStr.repeat(this.indent));
-      this.write("}\n");
+      this.write("});\n");
     }
     // Generate FunctionDeclaration
     generateFunctionDeclaration(node) {
@@ -11922,24 +12020,49 @@ ${code}
     }
     // Generate BinaryExpression
     generateBinaryExpression(node) {
-      const needsParens = this.needsParentheses(node);
-      if (needsParens) this.write("(");
-      this.generateExpression(node.left);
+      const currentPrecedence = this.getPrecedence(node);
+      const leftPrecedence = this.getPrecedence(node.left);
+      if (leftPrecedence < currentPrecedence) {
+        this.write("(");
+        this.generateExpression(node.left);
+        this.write(")");
+      } else {
+        this.generateExpression(node.left);
+      }
       this.write(" ");
       let op = node.operator;
       if (op === "and") op = "&&";
       else if (op === "or") op = "||";
       this.write(op);
       this.write(" ");
-      this.generateExpression(node.right);
-      if (needsParens) this.write(")");
+      const rightPrecedence = this.getPrecedence(node.right);
+      let needsRightParens = rightPrecedence < currentPrecedence;
+      if (rightPrecedence === currentPrecedence) {
+        if (op === "-" || op === "/" || op === "%") {
+          needsRightParens = true;
+        }
+      }
+      if (needsRightParens) {
+        this.write("(");
+        this.generateExpression(node.right);
+        this.write(")");
+      } else {
+        this.generateExpression(node.right);
+      }
     }
     // Generate UnaryExpression
     generateUnaryExpression(node) {
       let op = node.operator;
       if (op === "not") op = "!";
       this.write(op);
-      this.generateExpression(node.argument);
+      const argPrecedence = this.getPrecedence(node.argument);
+      if (argPrecedence < 15) {
+        this.write("(");
+        this.generateExpression(node.argument);
+        this.write(")");
+      } else {
+        this.generateExpression(node.argument);
+      }
     }
     // Generate AssignmentExpression
     generateAssignmentExpression(node) {
@@ -11963,7 +12086,14 @@ ${code}
     }
     // Generate CallExpression
     generateCallExpression(node) {
-      this.generateExpression(node.callee);
+      const calleePrecedence = this.getPrecedence(node.callee);
+      if (calleePrecedence < 19) {
+        this.write("(");
+        this.generateExpression(node.callee);
+        this.write(")");
+      } else {
+        this.generateExpression(node.callee);
+      }
       this.write("(");
       for (let i = 0; i < node.arguments.length; i++) {
         const arg = node.arguments[i];
@@ -11980,7 +12110,14 @@ ${code}
     }
     // Generate MemberExpression
     generateMemberExpression(node) {
-      this.generateExpression(node.object);
+      const objPrecedence = this.getPrecedence(node.object);
+      if (objPrecedence < 19) {
+        this.write("(");
+        this.generateExpression(node.object);
+        this.write(")");
+      } else {
+        this.generateExpression(node.object);
+      }
       if (node.computed) {
         this.write("[");
         this.generateExpression(node.property);
@@ -12349,9 +12486,60 @@ ${code}
       }
       this.write(")");
     }
-    // Helper: determine if expression needs parentheses
-    needsParentheses(node) {
-      return false;
+    // Get operator precedence
+    getPrecedence(node) {
+      switch (node.type) {
+        case "Literal":
+        case "Identifier":
+        case "ArrayExpression":
+        case "ObjectExpression":
+          return 20;
+        case "CallExpression":
+        case "MemberExpression":
+          return 19;
+        case "UnaryExpression":
+        case "UpdateExpression":
+          return 15;
+        // !, +, -, ++, --
+        case "BinaryExpression":
+        case "LogicalExpression":
+          switch (node.operator) {
+            case "*":
+            case "/":
+            case "%":
+              return 13;
+            case "+":
+            case "-":
+              return 12;
+            case "<":
+            case "<=":
+            case ">":
+            case ">=":
+              return 10;
+            case "==":
+            case "!=":
+              return 9;
+            case "and":
+            // PineScript 'and'
+            case "&&":
+              return 5;
+            case "or":
+            // PineScript 'or'
+            case "||":
+              return 4;
+            default:
+              return 0;
+          }
+        case "ConditionalExpression":
+          return 3;
+        case "AssignmentExpression":
+        case "AssignmentPattern":
+          return 2;
+        case "SequenceExpression":
+          return 1;
+        default:
+          return 0;
+      }
     }
   }
 
@@ -12618,7 +12806,7 @@ ${code}
     } else if (values.every((value) => typeof value === "boolean")) {
       return PineArrayType.bool;
     } else {
-      throw new Error("Cannot infer type from values");
+      return PineArrayType.any;
     }
   }
   function inferValueType(value) {
@@ -12639,9 +12827,9 @@ ${code}
   function isValueOfType(value, type) {
     switch (type) {
       case PineArrayType.int:
-        return typeof value === "number" && (value | 0) === value || isNaN(value);
+        return typeof value === "number" && ((value | 0) === value || isNaN(value));
       case PineArrayType.float:
-        return typeof value === "number" || isNaN(value);
+        return typeof value === "number";
       case PineArrayType.string:
         return typeof value === "string";
       case PineArrayType.bool:
@@ -13048,6 +13236,13 @@ ${code}
     format2["volume"] = "volume";
     return format2;
   })(format || {});
+  var barmerge = /* @__PURE__ */ ((barmerge2) => {
+    barmerge2["gaps_on"] = "gaps_on";
+    barmerge2["gaps_off"] = "gaps_off";
+    barmerge2["lookahead_on"] = "lookahead_on";
+    barmerge2["lookahead_off"] = "lookahead_off";
+    return barmerge2;
+  })(barmerge || {});
   const types = {
     order,
     currency,
@@ -13056,7 +13251,8 @@ ${code}
     shape,
     location,
     size: size$1,
-    format
+    format,
+    barmerge
   };
 
   function sort$1(context) {
@@ -13184,9 +13380,9 @@ ${code}
     };
   }
 
-  var __defProp$b = Object.defineProperty;
-  var __defNormalProp$b = (obj, key, value) => key in obj ? __defProp$b(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-  var __publicField$b = (obj, key, value) => __defNormalProp$b(obj, typeof key !== "symbol" ? key + "" : key, value);
+  var __defProp$c = Object.defineProperty;
+  var __defNormalProp$c = (obj, key, value) => key in obj ? __defProp$c(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __publicField$c = (obj, key, value) => __defNormalProp$c(obj, typeof key !== "symbol" ? key + "" : key, value);
   var PineArrayType = /* @__PURE__ */ ((PineArrayType2) => {
     PineArrayType2["any"] = "";
     PineArrayType2["box"] = "box";
@@ -13206,49 +13402,49 @@ ${code}
       this.array = array;
       this.type = type;
       this.context = context;
-      __publicField$b(this, "_abs");
-      __publicField$b(this, "_avg");
-      __publicField$b(this, "_binary_search");
-      __publicField$b(this, "_binary_search_leftmost");
-      __publicField$b(this, "_binary_search_rightmost");
-      __publicField$b(this, "_clear");
-      __publicField$b(this, "_concat");
-      __publicField$b(this, "_copy");
-      __publicField$b(this, "_covariance");
-      __publicField$b(this, "_every");
-      __publicField$b(this, "_fill");
-      __publicField$b(this, "_first");
-      __publicField$b(this, "_get");
-      __publicField$b(this, "_includes");
-      __publicField$b(this, "_indexof");
-      __publicField$b(this, "_insert");
-      __publicField$b(this, "_join");
-      __publicField$b(this, "_last");
-      __publicField$b(this, "_lastindexof");
-      __publicField$b(this, "_max");
-      __publicField$b(this, "_median");
-      __publicField$b(this, "_min");
-      __publicField$b(this, "_mode");
-      __publicField$b(this, "_percentile_linear_interpolation");
-      __publicField$b(this, "_percentile_nearest_rank");
-      __publicField$b(this, "_percentrank");
-      __publicField$b(this, "_pop");
-      __publicField$b(this, "_push");
-      __publicField$b(this, "_range");
-      __publicField$b(this, "_remove");
-      __publicField$b(this, "_reverse");
-      __publicField$b(this, "_set");
-      __publicField$b(this, "_shift");
-      __publicField$b(this, "_size");
-      __publicField$b(this, "_slice");
-      __publicField$b(this, "_some");
-      __publicField$b(this, "_sort");
-      __publicField$b(this, "_sort_indices");
-      __publicField$b(this, "_standardize");
-      __publicField$b(this, "_stdev");
-      __publicField$b(this, "_sum");
-      __publicField$b(this, "_unshift");
-      __publicField$b(this, "_variance");
+      __publicField$c(this, "_abs");
+      __publicField$c(this, "_avg");
+      __publicField$c(this, "_binary_search");
+      __publicField$c(this, "_binary_search_leftmost");
+      __publicField$c(this, "_binary_search_rightmost");
+      __publicField$c(this, "_clear");
+      __publicField$c(this, "_concat");
+      __publicField$c(this, "_copy");
+      __publicField$c(this, "_covariance");
+      __publicField$c(this, "_every");
+      __publicField$c(this, "_fill");
+      __publicField$c(this, "_first");
+      __publicField$c(this, "_get");
+      __publicField$c(this, "_includes");
+      __publicField$c(this, "_indexof");
+      __publicField$c(this, "_insert");
+      __publicField$c(this, "_join");
+      __publicField$c(this, "_last");
+      __publicField$c(this, "_lastindexof");
+      __publicField$c(this, "_max");
+      __publicField$c(this, "_median");
+      __publicField$c(this, "_min");
+      __publicField$c(this, "_mode");
+      __publicField$c(this, "_percentile_linear_interpolation");
+      __publicField$c(this, "_percentile_nearest_rank");
+      __publicField$c(this, "_percentrank");
+      __publicField$c(this, "_pop");
+      __publicField$c(this, "_push");
+      __publicField$c(this, "_range");
+      __publicField$c(this, "_remove");
+      __publicField$c(this, "_reverse");
+      __publicField$c(this, "_set");
+      __publicField$c(this, "_shift");
+      __publicField$c(this, "_size");
+      __publicField$c(this, "_slice");
+      __publicField$c(this, "_some");
+      __publicField$c(this, "_sort");
+      __publicField$c(this, "_sort_indices");
+      __publicField$c(this, "_standardize");
+      __publicField$c(this, "_stdev");
+      __publicField$c(this, "_sum");
+      __publicField$c(this, "_unshift");
+      __publicField$c(this, "_variance");
       this._abs = abs$1(this.context);
       this._avg = avg$2(this.context);
       this._binary_search = binary_search(this.context);
@@ -13633,23 +13829,23 @@ ${code}
     };
   }
 
-  var __defProp$a = Object.defineProperty;
-  var __defNormalProp$a = (obj, key, value) => key in obj ? __defProp$a(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-  var __publicField$a = (obj, key, value) => __defNormalProp$a(obj, typeof key !== "symbol" ? key + "" : key, value);
+  var __defProp$b = Object.defineProperty;
+  var __defNormalProp$b = (obj, key, value) => key in obj ? __defProp$b(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __publicField$b = (obj, key, value) => __defNormalProp$b(obj, typeof key !== "symbol" ? key + "" : key, value);
   class PineMapObject {
     constructor(context) {
       this.context = context;
-      __publicField$a(this, "map");
-      __publicField$a(this, "_clear");
-      __publicField$a(this, "_contains");
-      __publicField$a(this, "_copy");
-      __publicField$a(this, "_get");
-      __publicField$a(this, "_keys");
-      __publicField$a(this, "_put");
-      __publicField$a(this, "_put_all");
-      __publicField$a(this, "_remove");
-      __publicField$a(this, "_size");
-      __publicField$a(this, "_values");
+      __publicField$b(this, "map");
+      __publicField$b(this, "_clear");
+      __publicField$b(this, "_contains");
+      __publicField$b(this, "_copy");
+      __publicField$b(this, "_get");
+      __publicField$b(this, "_keys");
+      __publicField$b(this, "_put");
+      __publicField$b(this, "_put_all");
+      __publicField$b(this, "_remove");
+      __publicField$b(this, "_size");
+      __publicField$b(this, "_values");
       this.map = /* @__PURE__ */ new Map();
       this._clear = clear(this.context);
       this._contains = contains(this.context);
@@ -14625,61 +14821,61 @@ ${code}
     };
   }
 
-  var __defProp$9 = Object.defineProperty;
-  var __defNormalProp$9 = (obj, key, value) => key in obj ? __defProp$9(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-  var __publicField$9 = (obj, key, value) => __defNormalProp$9(obj, typeof key !== "symbol" ? key + "" : key, value);
+  var __defProp$a = Object.defineProperty;
+  var __defNormalProp$a = (obj, key, value) => key in obj ? __defProp$a(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __publicField$a = (obj, key, value) => __defNormalProp$a(obj, typeof key !== "symbol" ? key + "" : key, value);
   class PineMatrixObject {
     constructor(rows$1 = 0, cols = 0, initialValue = NaN, context) {
       this.context = context;
-      __publicField$9(this, "matrix");
-      __publicField$9(this, "_add_col");
-      __publicField$9(this, "_add_row");
-      __publicField$9(this, "_avg");
-      __publicField$9(this, "_col");
-      __publicField$9(this, "_columns");
-      __publicField$9(this, "_concat");
-      __publicField$9(this, "_copy");
-      __publicField$9(this, "_det");
-      __publicField$9(this, "_diff");
-      __publicField$9(this, "_eigenvalues");
-      __publicField$9(this, "_eigenvectors");
-      __publicField$9(this, "_elements_count");
-      __publicField$9(this, "_fill");
-      __publicField$9(this, "_get");
-      __publicField$9(this, "_inv");
-      __publicField$9(this, "_is_antidiagonal");
-      __publicField$9(this, "_is_antisymmetric");
-      __publicField$9(this, "_is_binary");
-      __publicField$9(this, "_is_diagonal");
-      __publicField$9(this, "_is_identity");
-      __publicField$9(this, "_is_square");
-      __publicField$9(this, "_is_stochastic");
-      __publicField$9(this, "_is_symmetric");
-      __publicField$9(this, "_is_triangular");
-      __publicField$9(this, "_is_zero");
-      __publicField$9(this, "_kron");
-      __publicField$9(this, "_max");
-      __publicField$9(this, "_median");
-      __publicField$9(this, "_min");
-      __publicField$9(this, "_mode");
-      __publicField$9(this, "_mult");
-      __publicField$9(this, "_pinv");
-      __publicField$9(this, "_pow");
-      __publicField$9(this, "_rank");
-      __publicField$9(this, "_remove_col");
-      __publicField$9(this, "_remove_row");
-      __publicField$9(this, "_reshape");
-      __publicField$9(this, "_reverse");
-      __publicField$9(this, "_row");
-      __publicField$9(this, "_rows");
-      __publicField$9(this, "_set");
-      __publicField$9(this, "_sort");
-      __publicField$9(this, "_submatrix");
-      __publicField$9(this, "_sum");
-      __publicField$9(this, "_swap_columns");
-      __publicField$9(this, "_swap_rows");
-      __publicField$9(this, "_trace");
-      __publicField$9(this, "_transpose");
+      __publicField$a(this, "matrix");
+      __publicField$a(this, "_add_col");
+      __publicField$a(this, "_add_row");
+      __publicField$a(this, "_avg");
+      __publicField$a(this, "_col");
+      __publicField$a(this, "_columns");
+      __publicField$a(this, "_concat");
+      __publicField$a(this, "_copy");
+      __publicField$a(this, "_det");
+      __publicField$a(this, "_diff");
+      __publicField$a(this, "_eigenvalues");
+      __publicField$a(this, "_eigenvectors");
+      __publicField$a(this, "_elements_count");
+      __publicField$a(this, "_fill");
+      __publicField$a(this, "_get");
+      __publicField$a(this, "_inv");
+      __publicField$a(this, "_is_antidiagonal");
+      __publicField$a(this, "_is_antisymmetric");
+      __publicField$a(this, "_is_binary");
+      __publicField$a(this, "_is_diagonal");
+      __publicField$a(this, "_is_identity");
+      __publicField$a(this, "_is_square");
+      __publicField$a(this, "_is_stochastic");
+      __publicField$a(this, "_is_symmetric");
+      __publicField$a(this, "_is_triangular");
+      __publicField$a(this, "_is_zero");
+      __publicField$a(this, "_kron");
+      __publicField$a(this, "_max");
+      __publicField$a(this, "_median");
+      __publicField$a(this, "_min");
+      __publicField$a(this, "_mode");
+      __publicField$a(this, "_mult");
+      __publicField$a(this, "_pinv");
+      __publicField$a(this, "_pow");
+      __publicField$a(this, "_rank");
+      __publicField$a(this, "_remove_col");
+      __publicField$a(this, "_remove_row");
+      __publicField$a(this, "_reshape");
+      __publicField$a(this, "_reverse");
+      __publicField$a(this, "_row");
+      __publicField$a(this, "_rows");
+      __publicField$a(this, "_set");
+      __publicField$a(this, "_sort");
+      __publicField$a(this, "_submatrix");
+      __publicField$a(this, "_sum");
+      __publicField$a(this, "_swap_columns");
+      __publicField$a(this, "_swap_rows");
+      __publicField$a(this, "_trace");
+      __publicField$a(this, "_transpose");
       this.matrix = [];
       if (rows$1 > 0 && cols > 0) {
         for (let i = 0; i < rows$1; i++) {
@@ -14957,13 +15153,13 @@ ${code}
     }
   }
 
-  var __defProp$8 = Object.defineProperty;
-  var __defNormalProp$8 = (obj, key, value) => key in obj ? __defProp$8(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-  var __publicField$8 = (obj, key, value) => __defNormalProp$8(obj, typeof key !== "symbol" ? key + "" : key, value);
+  var __defProp$9 = Object.defineProperty;
+  var __defNormalProp$9 = (obj, key, value) => key in obj ? __defProp$9(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __publicField$9 = (obj, key, value) => __defNormalProp$9(obj, typeof key !== "symbol" ? key + "" : key, value);
   class Barstate {
     constructor(context) {
       this.context = context;
-      __publicField$8(this, "_live", false);
+      __publicField$9(this, "_live", false);
     }
     setLive() {
       this._live = true;
@@ -15014,6 +15210,9 @@ ${code}
     }
   }
 
+  function isPlot(arg) {
+    return typeof arg === "object" && arg.title !== void 0 && arg.data !== void 0 && arg.options !== void 0;
+  }
   const TYPE_CHECK = {
     series: (arg) => arg instanceof Series || typeof arg === "number" || typeof arg === "string" || typeof arg === "boolean",
     string: (arg) => typeof arg === "string",
@@ -15027,7 +15226,7 @@ ${code}
     null: (arg) => arg === null,
     NaN: (arg) => isNaN(arg),
     //TODO should we exclude the other PineTS Objects ?
-    remaining_options: (arg) => typeof arg === "object" && !(arg instanceof Series)
+    remaining_options: (arg) => typeof arg === "object" && !(arg instanceof Series) && !isPlot(arg)
   };
   function parseArgsForPineParams(args, signatures, types, override) {
     if (Array.isArray(signatures) && typeof signatures[0] === "string") {
@@ -15060,9 +15259,9 @@ ${code}
     return { ...options_arg, ...options, ...override };
   }
 
-  var __defProp$7 = Object.defineProperty;
-  var __defNormalProp$7 = (obj, key, value) => key in obj ? __defProp$7(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-  var __publicField$7 = (obj, key, value) => __defNormalProp$7(obj, typeof key !== "symbol" ? key + "" : key, value);
+  var __defProp$8 = Object.defineProperty;
+  var __defNormalProp$8 = (obj, key, value) => key in obj ? __defProp$8(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __publicField$8 = (obj, key, value) => __defNormalProp$8(obj, typeof key !== "symbol" ? key + "" : key, value);
   const INDICATOR_SIGNATURE = [
     "title",
     "shorttitle",
@@ -15108,20 +15307,20 @@ ${code}
   class Core {
     constructor(context) {
       this.context = context;
-      __publicField$7(this, "color", {
+      __publicField$8(this, "color", {
         param: (source, index = 0) => {
           return Series.from(source).get(index);
         },
-        rgb: (r, g, b, a) => a ? `rgba(${r}, ${g}, ${b}, ${a})` : `rgb(${r}, ${g}, ${b})`,
+        rgb: (r, g, b, a) => a ? `rgba(${r}, ${g}, ${b}, ${(100 - a) / 100})` : `rgb(${r}, ${g}, ${b})`,
         new: (color, a) => {
           if (color && color.startsWith("#")) {
             const hex = color.slice(1);
             const r = parseInt(hex.slice(0, 2), 16);
             const g = parseInt(hex.slice(2, 4), 16);
             const b = parseInt(hex.slice(4, 6), 16);
-            return a ? `rgba(${r}, ${g}, ${b}, ${a})` : `rgb(${r}, ${g}, ${b})`;
+            return a ? `rgba(${r}, ${g}, ${b}, ${(100 - a) / 100})` : `rgb(${r}, ${g}, ${b})`;
           }
-          return a ? `rgba(${color}, ${a})` : color;
+          return a ? `rgba(${color}, ${(100 - a) / 100})` : color;
         },
         white: "white",
         lime: "lime",
@@ -15268,11 +15467,17 @@ ${code}
   function parseInputOptions(args) {
     return parseArgsForPineParams(args, INPUT_SIGNATURES, INPUT_ARGS_TYPES);
   }
+  function resolveInput(context, options) {
+    if (options.title && context.inputs && context.inputs[options.title] !== void 0) {
+      return context.inputs[options.title];
+    }
+    return options.defval;
+  }
 
   function any(context) {
     return (...args) => {
       const options = parseInputOptions(args);
-      return options.defval;
+      return resolveInput(context, options);
     };
   }
 
@@ -15286,28 +15491,28 @@ ${code}
   function color(context) {
     return (...args) => {
       const options = parseInputOptions(args);
-      return options.defval;
+      return resolveInput(context, options);
     };
   }
 
   function enum_fn(context) {
     return (...args) => {
       const options = parseInputOptions(args);
-      return options.defval;
+      return resolveInput(context, options);
     };
   }
 
   function float(context) {
     return (...args) => {
       const options = parseInputOptions(args);
-      return options.defval;
+      return resolveInput(context, options);
     };
   }
 
   function int(context) {
     return (...args) => {
       const options = parseInputOptions(args);
-      return options.defval;
+      return resolveInput(context, options);
     };
   }
 
@@ -15321,49 +15526,49 @@ ${code}
   function price(context) {
     return (...args) => {
       const options = parseInputOptions(args);
-      return options.defval;
+      return resolveInput(context, options);
     };
   }
 
   function session(context) {
     return (...args) => {
       const options = parseInputOptions(args);
-      return options.defval;
+      return resolveInput(context, options);
     };
   }
 
   function source(context) {
     return (...args) => {
       const options = parseInputOptions(args);
-      return options.defval;
+      return resolveInput(context, options);
     };
   }
 
   function string(context) {
     return (...args) => {
       const options = parseInputOptions(args);
-      return options.defval;
+      return resolveInput(context, options);
     };
   }
 
   function symbol(context) {
     return (...args) => {
       const options = parseInputOptions(args);
-      return options.defval;
+      return resolveInput(context, options);
     };
   }
 
   function text_area(context) {
     return (...args) => {
       const options = parseInputOptions(args);
-      return options.defval;
+      return resolveInput(context, options);
     };
   }
 
   function time(context) {
     return (...args) => {
       const options = parseInputOptions(args);
-      return options.defval;
+      return resolveInput(context, options);
     };
   }
 
@@ -15374,9 +15579,9 @@ ${code}
     };
   }
 
-  var __defProp$6 = Object.defineProperty;
-  var __defNormalProp$6 = (obj, key, value) => key in obj ? __defProp$6(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-  var __publicField$6 = (obj, key, value) => __defNormalProp$6(obj, typeof key !== "symbol" ? key + "" : key, value);
+  var __defProp$7 = Object.defineProperty;
+  var __defNormalProp$7 = (obj, key, value) => key in obj ? __defProp$7(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __publicField$7 = (obj, key, value) => __defNormalProp$7(obj, typeof key !== "symbol" ? key + "" : key, value);
   const methods$3 = {
     any,
     bool,
@@ -15397,21 +15602,21 @@ ${code}
   class Input {
     constructor(context) {
       this.context = context;
-      __publicField$6(this, "any");
-      __publicField$6(this, "bool");
-      __publicField$6(this, "color");
-      __publicField$6(this, "enum");
-      __publicField$6(this, "float");
-      __publicField$6(this, "int");
-      __publicField$6(this, "param");
-      __publicField$6(this, "price");
-      __publicField$6(this, "session");
-      __publicField$6(this, "source");
-      __publicField$6(this, "string");
-      __publicField$6(this, "symbol");
-      __publicField$6(this, "text_area");
-      __publicField$6(this, "time");
-      __publicField$6(this, "timeframe");
+      __publicField$7(this, "any");
+      __publicField$7(this, "bool");
+      __publicField$7(this, "color");
+      __publicField$7(this, "enum");
+      __publicField$7(this, "float");
+      __publicField$7(this, "int");
+      __publicField$7(this, "param");
+      __publicField$7(this, "price");
+      __publicField$7(this, "session");
+      __publicField$7(this, "source");
+      __publicField$7(this, "string");
+      __publicField$7(this, "symbol");
+      __publicField$7(this, "text_area");
+      __publicField$7(this, "time");
+      __publicField$7(this, "timeframe");
       Object.entries(methods$3).forEach(([name, factory]) => {
         this[name] = factory(context);
       });
@@ -15630,9 +15835,9 @@ ${code}
     };
   }
 
-  var __defProp$5 = Object.defineProperty;
-  var __defNormalProp$5 = (obj, key, value) => key in obj ? __defProp$5(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-  var __publicField$5 = (obj, key, value) => __defNormalProp$5(obj, typeof key !== "symbol" ? key + "" : key, value);
+  var __defProp$6 = Object.defineProperty;
+  var __defNormalProp$6 = (obj, key, value) => key in obj ? __defProp$6(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __publicField$6 = (obj, key, value) => __defNormalProp$6(obj, typeof key !== "symbol" ? key + "" : key, value);
   const methods$2 = {
     abs,
     acos,
@@ -15667,36 +15872,36 @@ ${code}
   class PineMath {
     constructor(context) {
       this.context = context;
-      __publicField$5(this, "_cache", {});
-      __publicField$5(this, "abs");
-      __publicField$5(this, "acos");
-      __publicField$5(this, "asin");
-      __publicField$5(this, "atan");
-      __publicField$5(this, "avg");
-      __publicField$5(this, "ceil");
-      __publicField$5(this, "cos");
-      __publicField$5(this, "e");
-      __publicField$5(this, "exp");
-      __publicField$5(this, "floor");
-      __publicField$5(this, "ln");
-      __publicField$5(this, "log");
-      __publicField$5(this, "log10");
-      __publicField$5(this, "max");
-      __publicField$5(this, "min");
-      __publicField$5(this, "param");
-      __publicField$5(this, "phi");
-      __publicField$5(this, "pi");
-      __publicField$5(this, "pow");
-      __publicField$5(this, "random");
-      __publicField$5(this, "round");
-      __publicField$5(this, "round_to_mintick");
-      __publicField$5(this, "rphi");
-      __publicField$5(this, "sign");
-      __publicField$5(this, "sin");
-      __publicField$5(this, "sqrt");
-      __publicField$5(this, "sum");
-      __publicField$5(this, "tan");
-      __publicField$5(this, "__eq");
+      __publicField$6(this, "_cache", {});
+      __publicField$6(this, "abs");
+      __publicField$6(this, "acos");
+      __publicField$6(this, "asin");
+      __publicField$6(this, "atan");
+      __publicField$6(this, "avg");
+      __publicField$6(this, "ceil");
+      __publicField$6(this, "cos");
+      __publicField$6(this, "e");
+      __publicField$6(this, "exp");
+      __publicField$6(this, "floor");
+      __publicField$6(this, "ln");
+      __publicField$6(this, "log");
+      __publicField$6(this, "log10");
+      __publicField$6(this, "max");
+      __publicField$6(this, "min");
+      __publicField$6(this, "param");
+      __publicField$6(this, "phi");
+      __publicField$6(this, "pi");
+      __publicField$6(this, "pow");
+      __publicField$6(this, "random");
+      __publicField$6(this, "round");
+      __publicField$6(this, "round_to_mintick");
+      __publicField$6(this, "rphi");
+      __publicField$6(this, "sign");
+      __publicField$6(this, "sin");
+      __publicField$6(this, "sqrt");
+      __publicField$6(this, "sum");
+      __publicField$6(this, "tan");
+      __publicField$6(this, "__eq");
       Object.entries(methods$2).forEach(([name, factory]) => {
         this[name] = factory(context);
       });
@@ -15913,9 +16118,9 @@ ${code}
     };
   }
 
-  var __defProp$4 = Object.defineProperty;
-  var __defNormalProp$4 = (obj, key, value) => key in obj ? __defProp$4(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-  var __publicField$4 = (obj, key, value) => __defNormalProp$4(obj, typeof key !== "symbol" ? key + "" : key, value);
+  var __defProp$5 = Object.defineProperty;
+  var __defNormalProp$5 = (obj, key, value) => key in obj ? __defProp$5(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __publicField$5 = (obj, key, value) => __defNormalProp$5(obj, typeof key !== "symbol" ? key + "" : key, value);
   const methods$1 = {
     param: param$1,
     security,
@@ -15924,10 +16129,10 @@ ${code}
   class PineRequest {
     constructor(context) {
       this.context = context;
-      __publicField$4(this, "_cache", {});
-      __publicField$4(this, "param");
-      __publicField$4(this, "security");
-      __publicField$4(this, "security_lower_tf");
+      __publicField$5(this, "_cache", {});
+      __publicField$5(this, "param");
+      __publicField$5(this, "security");
+      __publicField$5(this, "security_lower_tf");
       Object.entries(methods$1).forEach(([name, factory]) => {
         this[name] = factory(context);
       });
@@ -18930,9 +19135,9 @@ ${code}
     };
   }
 
-  var __defProp$3 = Object.defineProperty;
-  var __defNormalProp$3 = (obj, key, value) => key in obj ? __defProp$3(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-  var __publicField$3 = (obj, key, value) => __defNormalProp$3(obj, typeof key !== "symbol" ? key + "" : key, value);
+  var __defProp$4 = Object.defineProperty;
+  var __defNormalProp$4 = (obj, key, value) => key in obj ? __defProp$4(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __publicField$4 = (obj, key, value) => __defNormalProp$4(obj, typeof key !== "symbol" ? key + "" : key, value);
   const methods = {
     accdist,
     alma,
@@ -19002,70 +19207,70 @@ ${code}
   class TechnicalAnalysis {
     constructor(context) {
       this.context = context;
-      __publicField$3(this, "accdist");
-      __publicField$3(this, "alma");
-      __publicField$3(this, "atr");
-      __publicField$3(this, "barssince");
-      __publicField$3(this, "bb");
-      __publicField$3(this, "bbw");
-      __publicField$3(this, "cci");
-      __publicField$3(this, "change");
-      __publicField$3(this, "cmo");
-      __publicField$3(this, "cog");
-      __publicField$3(this, "correlation");
-      __publicField$3(this, "cross");
-      __publicField$3(this, "crossover");
-      __publicField$3(this, "crossunder");
-      __publicField$3(this, "cum");
-      __publicField$3(this, "dev");
-      __publicField$3(this, "dmi");
-      __publicField$3(this, "ema");
-      __publicField$3(this, "falling");
-      __publicField$3(this, "highest");
-      __publicField$3(this, "highestbars");
-      __publicField$3(this, "hma");
-      __publicField$3(this, "iii");
-      __publicField$3(this, "kc");
-      __publicField$3(this, "kcw");
-      __publicField$3(this, "linreg");
-      __publicField$3(this, "lowest");
-      __publicField$3(this, "lowestbars");
-      __publicField$3(this, "macd");
-      __publicField$3(this, "median");
-      __publicField$3(this, "mfi");
-      __publicField$3(this, "mode");
-      __publicField$3(this, "mom");
-      __publicField$3(this, "nvi");
-      __publicField$3(this, "obv");
-      __publicField$3(this, "param");
-      __publicField$3(this, "percentile_linear_interpolation");
-      __publicField$3(this, "percentile_nearest_rank");
-      __publicField$3(this, "percentrank");
-      __publicField$3(this, "pivothigh");
-      __publicField$3(this, "pivotlow");
-      __publicField$3(this, "pvi");
-      __publicField$3(this, "pvt");
-      __publicField$3(this, "range");
-      __publicField$3(this, "rising");
-      __publicField$3(this, "rma");
-      __publicField$3(this, "roc");
-      __publicField$3(this, "rsi");
-      __publicField$3(this, "sar");
-      __publicField$3(this, "sma");
-      __publicField$3(this, "stdev");
-      __publicField$3(this, "stoch");
-      __publicField$3(this, "supertrend");
-      __publicField$3(this, "swma");
-      __publicField$3(this, "tr");
-      __publicField$3(this, "tsi");
-      __publicField$3(this, "valuewhen");
-      __publicField$3(this, "variance");
-      __publicField$3(this, "vwap");
-      __publicField$3(this, "vwma");
-      __publicField$3(this, "wad");
-      __publicField$3(this, "wma");
-      __publicField$3(this, "wpr");
-      __publicField$3(this, "wvad");
+      __publicField$4(this, "accdist");
+      __publicField$4(this, "alma");
+      __publicField$4(this, "atr");
+      __publicField$4(this, "barssince");
+      __publicField$4(this, "bb");
+      __publicField$4(this, "bbw");
+      __publicField$4(this, "cci");
+      __publicField$4(this, "change");
+      __publicField$4(this, "cmo");
+      __publicField$4(this, "cog");
+      __publicField$4(this, "correlation");
+      __publicField$4(this, "cross");
+      __publicField$4(this, "crossover");
+      __publicField$4(this, "crossunder");
+      __publicField$4(this, "cum");
+      __publicField$4(this, "dev");
+      __publicField$4(this, "dmi");
+      __publicField$4(this, "ema");
+      __publicField$4(this, "falling");
+      __publicField$4(this, "highest");
+      __publicField$4(this, "highestbars");
+      __publicField$4(this, "hma");
+      __publicField$4(this, "iii");
+      __publicField$4(this, "kc");
+      __publicField$4(this, "kcw");
+      __publicField$4(this, "linreg");
+      __publicField$4(this, "lowest");
+      __publicField$4(this, "lowestbars");
+      __publicField$4(this, "macd");
+      __publicField$4(this, "median");
+      __publicField$4(this, "mfi");
+      __publicField$4(this, "mode");
+      __publicField$4(this, "mom");
+      __publicField$4(this, "nvi");
+      __publicField$4(this, "obv");
+      __publicField$4(this, "param");
+      __publicField$4(this, "percentile_linear_interpolation");
+      __publicField$4(this, "percentile_nearest_rank");
+      __publicField$4(this, "percentrank");
+      __publicField$4(this, "pivothigh");
+      __publicField$4(this, "pivotlow");
+      __publicField$4(this, "pvi");
+      __publicField$4(this, "pvt");
+      __publicField$4(this, "range");
+      __publicField$4(this, "rising");
+      __publicField$4(this, "rma");
+      __publicField$4(this, "roc");
+      __publicField$4(this, "rsi");
+      __publicField$4(this, "sar");
+      __publicField$4(this, "sma");
+      __publicField$4(this, "stdev");
+      __publicField$4(this, "stoch");
+      __publicField$4(this, "supertrend");
+      __publicField$4(this, "swma");
+      __publicField$4(this, "tr");
+      __publicField$4(this, "tsi");
+      __publicField$4(this, "valuewhen");
+      __publicField$4(this, "variance");
+      __publicField$4(this, "vwap");
+      __publicField$4(this, "vwma");
+      __publicField$4(this, "wad");
+      __publicField$4(this, "wma");
+      __publicField$4(this, "wpr");
+      __publicField$4(this, "wvad");
       Object.entries(methods).forEach(([name, factory]) => {
         this[name] = factory(context);
       });
@@ -19343,6 +19548,16 @@ ${code}
     "display",
     "force_overlay"
   ];
+  const FILL_SIGNATURE = [
+    "plot1",
+    "plot2",
+    "color",
+    "title",
+    "editable",
+    "show_last",
+    "fillgaps",
+    "display"
+  ];
   const PLOT_ARGS_TYPES = {
     series: "series",
     title: "string",
@@ -19431,6 +19646,16 @@ ${code}
     display: "string",
     force_overlay: "boolean"
   };
+  const FILL_ARGS_TYPES = {
+    plot1: "object",
+    plot2: "object",
+    color: "string",
+    title: "string",
+    editable: "boolean",
+    show_last: "number",
+    fillgaps: "boolean",
+    display: "string"
+  };
   class PlotHelper {
     constructor(context) {
       this.context = context;
@@ -19497,9 +19722,11 @@ ${code}
       }
       const value = Series.from(series).get(0);
       this.context.plots[title].data.push({
+        title,
         time: this.context.marketData[this.context.idx].openTime,
         value
       });
+      return this.context.plots[title];
     }
     //this will map to plot() - see README.md for more details
     any(...args) {
@@ -19507,24 +19734,33 @@ ${code}
       const { series, title, ...others } = _parsed;
       const options = this.extractPlotOptions(others);
       if (!this.context.plots[title]) {
-        this.context.plots[title] = { data: [], options, title };
+        const overlay = options.force_overlay ?? (this.context?.indicator?.overlay || false);
+        this.context.plots[title] = { data: [], options: { ...options, overlay }, title };
       }
       const value = Series.from(series).get(0);
       this.context.plots[title].data.push({
+        title,
         time: this.context.marketData[this.context.idx].openTime,
         value,
         options: { color: options.color, offset: options.offset }
       });
+      return this.context.plots[title];
     }
     plotshape(...args) {
       const _parsed = parseArgsForPineParams(args, PLOT_SHAPE_SIGNATURE, PLOT_SHAPE_ARGS_TYPES);
       const { series, title, ...others } = _parsed;
       const options = this.extractPlotOptions(others);
       if (!this.context.plots[title]) {
-        this.context.plots[title] = { data: [], options: { ...options, style: "shape", shape: options.style }, title };
+        const overlay = options.force_overlay ?? (this.context?.indicator?.overlay || false);
+        this.context.plots[title] = {
+          data: [],
+          options: { ...options, style: "shape", shape: options.style, overlay },
+          title
+        };
       }
       const value = Series.from(series).get(0);
       this.context.plots[title].data.push({
+        title,
         time: this.context.marketData[this.context.idx].openTime,
         value,
         options: options?.location === "absolute" || value ? {
@@ -19537,6 +19773,7 @@ ${code}
           size: options.size
         } : void 0
       });
+      return this.context.plots[title];
     }
     plotarrow(...args) {
       const _parsed = parseArgsForPineParams(args, PLOT_ARROW_SIGNATURE, PLOT_ARROW_ARGS_TYPES);
@@ -19544,9 +19781,11 @@ ${code}
       const value = Series.from(series).get(0);
       const options = this.extractPlotOptions(others);
       if (!this.context.plots[title]) {
-        this.context.plots[title] = { data: [], options: { ...options, style: "shape" }, title };
+        const overlay = options.force_overlay ?? (this.context?.indicator?.overlay || false);
+        this.context.plots[title] = { data: [], options: { ...options, style: "shape", overlay }, title };
       }
       this.context.plots[title].data.push({
+        title,
         time: this.context.marketData[this.context.idx].openTime,
         value,
         options: typeof value === "number" && !isNaN(value) && value !== 0 ? {
@@ -19559,16 +19798,19 @@ ${code}
           height: options.maxheight
         } : void 0
       });
+      return this.context.plots[title];
     }
     plotbar(...args) {
       const _parsed = parseArgsForPineParams(args, PLOTBAR_SIGNATURE, PLOTBAR_ARGS_TYPES);
       const { open, high, low, close, title, ...others } = _parsed;
       const options = this.extractPlotOptions(others);
       if (!this.context.plots[title]) {
-        this.context.plots[title] = { data: [], options: { ...options, style: "bar" }, title };
+        const overlay = options.force_overlay ?? (this.context?.indicator?.overlay || false);
+        this.context.plots[title] = { data: [], options: { ...options, style: "bar", overlay }, title };
       }
       const value = [Series.from(open).get(0), Series.from(high).get(0), Series.from(low).get(0), Series.from(close).get(0)];
       this.context.plots[title].data.push({
+        title,
         time: this.context.marketData[this.context.idx].openTime,
         value,
         options: { color: options.color }
@@ -19579,23 +19821,28 @@ ${code}
       const { open, high, low, close, title, ...others } = _parsed;
       const options = this.extractPlotOptions(others);
       if (!this.context.plots[title]) {
-        this.context.plots[title] = { data: [], options: { ...options, style: "candle" }, title };
+        const overlay = options.force_overlay ?? (this.context?.indicator?.overlay || false);
+        this.context.plots[title] = { data: [], options: { ...options, style: "candle", overlay }, title };
       }
       const value = [Series.from(open).get(0), Series.from(high).get(0), Series.from(low).get(0), Series.from(close).get(0)];
       this.context.plots[title].data.push({
+        title,
         time: this.context.marketData[this.context.idx].openTime,
         value,
         options: { color: options.color, wickcolor: options.wickcolor, bordercolor: options.bordercolor }
       });
+      return this.context.plots[title];
     }
     bgcolor(...args) {
       const _parsed = parseArgsForPineParams(args, BGCOLOR_SIGNATURE, BGCOLOR_ARGS_TYPES);
       const { title, ...others } = _parsed;
       const options = this.extractPlotOptions(others);
       if (!this.context.plots[title]) {
-        this.context.plots[title] = { data: [], options: { ...options, style: "background" }, title };
+        const overlay = options.force_overlay ?? (this.context?.indicator?.overlay || false);
+        this.context.plots[title] = { data: [], options: { ...options, style: "background", overlay }, title };
       }
       this.context.plots[title].data.push({
+        title,
         time: this.context.marketData[this.context.idx].openTime,
         value: options.color && options.color !== "na" && options?.color.toString() !== "NaN",
         options: { color: options.color }
@@ -19609,10 +19856,12 @@ ${code}
         this.context.plots[title] = { data: [], options: { ...options, style: "barcolor" }, title };
       }
       this.context.plots[title].data.push({
+        title,
         time: this.context.marketData[this.context.idx].openTime,
         value: options.color && options.color !== "na" && options?.color.toString() !== "NaN",
         options: { color: options.color }
       });
+      return this.context.plots[title];
     }
   }
   class HlineHelper {
@@ -19636,10 +19885,30 @@ ${code}
       return this.context.pine.plot.any(price, { title, color, linestyle, linewidth, editable, display });
     }
   }
+  class FillHelper {
+    constructor(context) {
+      this.context = context;
+    }
+    param(source, index = 0, name) {
+      return Series.from(source).get(index);
+    }
+    any(...args) {
+      const _parsed = parseArgsForPineParams(args, FILL_SIGNATURE, FILL_ARGS_TYPES);
+      const { plot1, plot2, color, title, editable, show_last, fillgaps, display } = _parsed;
+      if (!this.context.plots[title]) {
+        this.context.plots[title] = {
+          title,
+          plot1: plot1.title,
+          plot2: plot2.title,
+          options: { color, editable, show_last, fillgaps, display, style: "fill" }
+        };
+      }
+    }
+  }
 
-  var __defProp$2 = Object.defineProperty;
-  var __defNormalProp$2 = (obj, key, value) => key in obj ? __defProp$2(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-  var __publicField$2 = (obj, key, value) => __defNormalProp$2(obj, typeof key !== "symbol" ? key + "" : key, value);
+  var __defProp$3 = Object.defineProperty;
+  var __defNormalProp$3 = (obj, key, value) => key in obj ? __defProp$3(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __publicField$3 = (obj, key, value) => __defNormalProp$3(obj, typeof key !== "symbol" ? key + "" : key, value);
   const _Context = class _Context {
     constructor({
       marketData,
@@ -19649,9 +19918,10 @@ ${code}
       limit,
       sDate,
       eDate,
-      fullContext
+      fullContext,
+      inputs
     }) {
-      __publicField$2(this, "data", {
+      __publicField$3(this, "data", {
         open: new Series([]),
         high: new Series([]),
         low: new Series([]),
@@ -19662,32 +19932,35 @@ ${code}
         ohlc4: new Series([]),
         hlcc4: new Series([])
       });
-      __publicField$2(this, "indicator");
-      __publicField$2(this, "cache", {});
-      __publicField$2(this, "taState", {});
+      __publicField$3(this, "indicator");
+      __publicField$3(this, "cache", {});
+      __publicField$3(this, "taState", {});
       // State for incremental TA calculations
-      __publicField$2(this, "isSecondaryContext", false);
+      __publicField$3(this, "isSecondaryContext", false);
       // Flag to prevent infinite recursion in request.security
-      __publicField$2(this, "NA", NaN);
-      __publicField$2(this, "lang");
+      __publicField$3(this, "NA", NaN);
+      __publicField$3(this, "lang");
       // Combined namespace and core functions - the default way to access everything
-      __publicField$2(this, "pine");
-      __publicField$2(this, "idx", 0);
-      __publicField$2(this, "params", {});
-      __publicField$2(this, "const", {});
-      __publicField$2(this, "var", {});
-      __publicField$2(this, "let", {});
-      __publicField$2(this, "result");
-      __publicField$2(this, "plots", {});
-      __publicField$2(this, "marketData");
-      __publicField$2(this, "source");
-      __publicField$2(this, "tickerId");
-      __publicField$2(this, "timeframe", "");
-      __publicField$2(this, "limit");
-      __publicField$2(this, "sDate");
-      __publicField$2(this, "eDate");
-      __publicField$2(this, "fullContext");
-      __publicField$2(this, "pineTSCode");
+      __publicField$3(this, "pine");
+      __publicField$3(this, "idx", 0);
+      __publicField$3(this, "params", {});
+      __publicField$3(this, "const", {});
+      __publicField$3(this, "var", {});
+      __publicField$3(this, "let", {});
+      __publicField$3(this, "result");
+      __publicField$3(this, "plots", {});
+      __publicField$3(this, "marketData");
+      __publicField$3(this, "source");
+      __publicField$3(this, "tickerId");
+      __publicField$3(this, "timeframe", "");
+      __publicField$3(this, "limit");
+      __publicField$3(this, "sDate");
+      __publicField$3(this, "eDate");
+      __publicField$3(this, "fullContext");
+      __publicField$3(this, "pineTSCode");
+      __publicField$3(this, "inputs", {});
+      //#region [Call Stack Management] ===========================
+      __publicField$3(this, "_callStack", []);
       this.marketData = marketData;
       this.source = source;
       this.tickerId = tickerId;
@@ -19696,6 +19969,7 @@ ${code}
       this.sDate = sDate;
       this.eDate = eDate;
       this.fullContext = fullContext || this;
+      this.inputs = inputs || {};
       const core = new Core(this);
       const coreFunctions = {
         Type: core.Type.bind(core),
@@ -19734,6 +20008,9 @@ ${code}
         get timenow() {
           return (/* @__PURE__ */ new Date()).getTime();
         },
+        get inputs() {
+          return _this.inputs;
+        },
         log: new Log(this),
         str: new Str(this),
         ...coreFunctions,
@@ -19741,6 +20018,7 @@ ${code}
       };
       const plotHelper = new PlotHelper(this);
       const hlineHelper = new HlineHelper(this);
+      const fillHelper = new FillHelper(this);
       this.bindContextObject(plotHelper, ["plotchar", "plotshape", "plotarrow", "plotbar", "plotcandle", "bgcolor", "barcolor"]);
       this.bindContextObject(
         plotHelper,
@@ -19765,6 +20043,7 @@ ${code}
         "plot"
       );
       this.bindContextObject(hlineHelper, ["any", "style_dashed", "style_solid", "style_dotted", "param"], "hline");
+      this.bindContextObject(fillHelper, ["any", "param"], "fill");
     }
     bindContextObject(instance, entries, root = "") {
       if (root && !this.pine[root]) this.pine[root] = {};
@@ -19914,6 +20193,40 @@ ${code}
         return;
       }
     }
+    /**
+     * Pushes a call ID onto the stack
+     * @param id - The call ID
+     */
+    pushId(id) {
+      this._callStack.push(id);
+    }
+    /**
+     * Pops a call ID from the stack
+     */
+    popId() {
+      this._callStack.pop();
+    }
+    /**
+     * Returns the current call ID from the top of the stack
+     */
+    peekId() {
+      return this._callStack.length > 0 ? this._callStack[this._callStack.length - 1] : "";
+    }
+    /**
+     * Calls a function with a specific call ID context
+     * @param fn - The function to call
+     * @param id - The call ID to use
+     * @param args - Arguments to pass to the function
+     */
+    call(fn, id, ...args) {
+      this.pushId(id);
+      try {
+        return fn(...args);
+      } finally {
+        this.popId();
+      }
+    }
+    //#endregion
     //#region [Deprecated getters] ===========================
     /**
      * @deprecated Use context.pine.math instead. This will be removed in a future version.
@@ -19957,6 +20270,7 @@ ${code}
       this._showDeprecationWarning("context.core.*", "context.pine (e.g., const { na, plotchar, color, plot, nz } = context.pine)");
       return {
         na: this.pine.na,
+        fill: this.pine.fill,
         plotchar: this.pine.plotchar,
         plotshape: this.pine.plotshape,
         plotarrow: this.pine.plotarrow,
@@ -19990,8 +20304,20 @@ ${code}
     //#endregion
   };
   // Track deprecation warnings to avoid spam
-  __publicField$2(_Context, "_deprecationWarningsShown", /* @__PURE__ */ new Set());
+  __publicField$3(_Context, "_deprecationWarningsShown", /* @__PURE__ */ new Set());
   let Context = _Context;
+
+  var __defProp$2 = Object.defineProperty;
+  var __defNormalProp$2 = (obj, key, value) => key in obj ? __defProp$2(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+  var __publicField$2 = (obj, key, value) => __defNormalProp$2(obj, typeof key !== "symbol" ? key + "" : key, value);
+  class Indicator {
+    constructor(source, inputs = {}) {
+      __publicField$2(this, "source");
+      __publicField$2(this, "inputs");
+      this.source = source;
+      this.inputs = inputs;
+    }
+  }
 
   var __defProp$1 = Object.defineProperty;
   var __defNormalProp$1 = (obj, key, value) => key in obj ? __defProp$1(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
@@ -20109,11 +20435,19 @@ ${code}
      * @returns Context if pageSize is 0 or undefined, or AsyncGenerator<Context> if pageSize > 0
      */
     run(pineTSCode, periods, pageSize) {
+      let code;
+      let inputs = {};
+      if (pineTSCode instanceof Indicator) {
+        code = pineTSCode.source;
+        inputs = pineTSCode.inputs || {};
+      } else {
+        code = pineTSCode;
+      }
       if (pageSize && pageSize > 0) {
         const enableLiveStream = typeof this.eDate === "undefined" && !Array.isArray(this.source);
-        return this._runPaginated(pineTSCode, periods, pageSize, enableLiveStream);
+        return this._runPaginated(code, inputs, periods, pageSize, enableLiveStream);
       } else {
-        return this._runComplete(pineTSCode, periods);
+        return this._runComplete(code, inputs, periods);
       }
     }
     /**
@@ -20126,6 +20460,14 @@ ${code}
     stream(pineTSCode, options = {}) {
       const { live = true, interval = 1e3 } = options;
       const pageSize = options.pageSize || this.data.length;
+      let code;
+      let inputs = {};
+      if (pineTSCode instanceof Indicator) {
+        code = pineTSCode.source;
+        inputs = pineTSCode.inputs || {};
+      } else {
+        code = pineTSCode;
+      }
       const listeners = { data: [], error: [] };
       let stopped = false;
       const emit = (event, ...args) => {
@@ -20144,7 +20486,7 @@ ${code}
         try {
           const isLiveCapable = typeof this.eDate === "undefined" && !Array.isArray(this.source);
           const enableLiveStream = isLiveCapable && live;
-          const iterator = this._runPaginated(pineTSCode, void 0, pageSize, enableLiveStream);
+          const iterator = this._runPaginated(code, inputs, void 0, pageSize, enableLiveStream);
           for await (const ctx of iterator) {
             if (stopped) break;
             if (ctx === null) {
@@ -20170,10 +20512,10 @@ ${code}
      * Run the script completely and return the final context (backward compatible behavior)
      * @private
      */
-    async _runComplete(pineTSCode, periods) {
+    async _runComplete(pineTSCode, inputs, periods) {
       await this.ready();
       if (!periods) periods = this.data.length;
-      const context = this._initializeContext(pineTSCode, this._isSecondaryContext);
+      const context = this._initializeContext(pineTSCode, inputs, this._isSecondaryContext);
       this._transpiledCode = this._transpileCode(pineTSCode);
       await this._executeIterations(context, this._transpiledCode, this.data.length - periods, this.data.length);
       return context;
@@ -20184,10 +20526,10 @@ ${code}
      * Uses a unified loop that handles both historical and live streaming data
      * @private
      */
-    async *_runPaginated(pineTSCode, periods, pageSize, enableLiveStream = false) {
+    async *_runPaginated(pineTSCode, inputs, periods, pageSize, enableLiveStream = false) {
       await this.ready();
       if (!periods) periods = this.data.length;
-      const context = this._initializeContext(pineTSCode, this._isSecondaryContext);
+      const context = this._initializeContext(pineTSCode, inputs, this._isSecondaryContext);
       this._transpiledCode = this._transpileCode(pineTSCode);
       const startIdx = this.data.length - periods;
       let processedUpToIdx = startIdx;
@@ -20244,7 +20586,8 @@ ${code}
         limit: this.limit,
         sDate: this.sDate,
         eDate: this.eDate,
-        fullContext
+        fullContext,
+        inputs: fullContext.inputs
       });
       pageContext.pineTSCode = fullContext.pineTSCode;
       pageContext.idx = fullContext.idx;
@@ -20382,7 +20725,7 @@ ${code}
      * Initialize a new context for running Pine Script code
      * @private
      */
-    _initializeContext(pineTSCode, isSecondary = false) {
+    _initializeContext(pineTSCode, inputs = {}, isSecondary = false) {
       const context = new Context({
         marketData: this.data,
         source: this.source,
@@ -20390,7 +20733,8 @@ ${code}
         timeframe: this.timeframe,
         limit: this.limit,
         sDate: this.sDate,
-        eDate: this.eDate
+        eDate: this.eDate,
+        inputs
       });
       context.pine.syminfo = this._syminfo;
       context.pineTSCode = pineTSCode;
@@ -20864,6 +21208,7 @@ ${code}
   };
 
   exports.Context = Context;
+  exports.Indicator = Indicator;
   exports.PineTS = PineTS;
   exports.Provider = Provider;
 

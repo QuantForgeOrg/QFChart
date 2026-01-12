@@ -39,21 +39,21 @@
 
     var echarts__namespace = /*#__PURE__*/_interopNamespaceDefault(echarts);
 
-    var __defProp$8 = Object.defineProperty;
-    var __defNormalProp$8 = (obj, key, value) => key in obj ? __defProp$8(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-    var __publicField$8 = (obj, key, value) => {
-      __defNormalProp$8(obj, typeof key !== "symbol" ? key + "" : key, value);
+    var __defProp$9 = Object.defineProperty;
+    var __defNormalProp$9 = (obj, key, value) => key in obj ? __defProp$9(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+    var __publicField$9 = (obj, key, value) => {
+      __defNormalProp$9(obj, typeof key !== "symbol" ? key + "" : key, value);
       return value;
     };
     class Indicator {
       constructor(id, plots, paneIndex, options = {}) {
-        __publicField$8(this, "id");
-        __publicField$8(this, "plots");
-        __publicField$8(this, "paneIndex");
-        __publicField$8(this, "height");
-        __publicField$8(this, "collapsed");
-        __publicField$8(this, "titleColor");
-        __publicField$8(this, "controls");
+        __publicField$9(this, "id");
+        __publicField$9(this, "plots");
+        __publicField$9(this, "paneIndex");
+        __publicField$9(this, "height");
+        __publicField$9(this, "collapsed");
+        __publicField$9(this, "titleColor");
+        __publicField$9(this, "controls");
         this.id = id;
         this.plots = plots;
         this.paneIndex = paneIndex;
@@ -489,11 +489,13 @@
                   return;
                 }
                 const values = [];
-                Object.values(plot.data).forEach((value) => {
-                  if (typeof value === "number" && !isNaN(value) && isFinite(value)) {
-                    values.push(value);
-                  }
-                });
+                if (plot.data) {
+                  Object.values(plot.data).forEach((value) => {
+                    if (typeof value === "number" && !isNaN(value) && isFinite(value)) {
+                      values.push(value);
+                    }
+                  });
+                }
                 if (values.length > 0) {
                   const plotMin = Math.min(...values);
                   const plotMax = Math.max(...values);
@@ -648,7 +650,37 @@
       return "";
     }
 
-    class SeriesBuilder {
+    var __defProp$8 = Object.defineProperty;
+    var __defNormalProp$8 = (obj, key, value) => key in obj ? __defProp$8(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+    var __publicField$8 = (obj, key, value) => {
+      __defNormalProp$8(obj, typeof key !== "symbol" ? key + "" : key, value);
+      return value;
+    };
+    const _SeriesBuilder = class _SeriesBuilder {
+      /**
+       * Parse color string and extract opacity
+       * Supports: hex (#RRGGBB), named colors (green, red), rgba(r,g,b,a), rgb(r,g,b)
+       */
+      static parseColor(colorStr) {
+        if (!colorStr) {
+          return { color: "#888888", opacity: 0.2 };
+        }
+        const rgbaMatch = colorStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+        if (rgbaMatch) {
+          const r = rgbaMatch[1];
+          const g = rgbaMatch[2];
+          const b = rgbaMatch[3];
+          const a = rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1;
+          return {
+            color: `rgb(${r},${g},${b})`,
+            opacity: a
+          };
+        }
+        return {
+          color: colorStr,
+          opacity: 0.3
+        };
+      }
       static buildCandlestickSeries(marketData, options, totalLength) {
         const upColor = options.upColor || "#00da3c";
         const downColor = options.downColor || "#ec0000";
@@ -665,7 +697,10 @@
           const lastClose = lastBar.close;
           const isUp = lastBar.close >= lastBar.open;
           const lineColor = options.lastPriceLine?.color || (isUp ? upColor : downColor);
-          const lineStyleType = options.lastPriceLine?.lineStyle || "dashed";
+          let lineStyleType = options.lastPriceLine?.lineStyle || "dashed";
+          if (lineStyleType.startsWith("linestyle_")) {
+            lineStyleType = lineStyleType.replace("linestyle_", "");
+          }
           markLine = {
             symbol: ["none", "none"],
             data: [
@@ -806,10 +841,22 @@
       static buildIndicatorSeries(indicators, timeToIndex, paneLayout, totalDataLength, dataIndexOffset = 0, candlestickData, overlayYAxisMap, separatePaneYAxisOffset = 1) {
         const series = [];
         const barColors = new Array(totalDataLength).fill(null);
+        const plotDataArrays = /* @__PURE__ */ new Map();
         indicators.forEach((indicator, id) => {
           if (indicator.collapsed)
             return;
-          Object.keys(indicator.plots).forEach((plotName) => {
+          const sortedPlots = Object.keys(indicator.plots).sort((a, b) => {
+            const plotA = indicator.plots[a];
+            const plotB = indicator.plots[b];
+            const isFillA = plotA.options.style === "fill";
+            const isFillB = plotB.options.style === "fill";
+            if (isFillA && !isFillB)
+              return 1;
+            if (!isFillA && isFillB)
+              return -1;
+            return 0;
+          });
+          sortedPlots.forEach((plotName) => {
             const plot = indicator.plots[plotName];
             const seriesName = `${id}::${plotName}`;
             let xAxisIndex = 0;
@@ -833,7 +880,7 @@
             const dataArray = new Array(totalDataLength).fill(null);
             const colorArray = new Array(totalDataLength).fill(null);
             const optionsArray = new Array(totalDataLength).fill(null);
-            plot.data.forEach((point) => {
+            plot.data?.forEach((point) => {
               const index = timeToIndex.get(point.time);
               if (index !== void 0) {
                 const plotOffset = point.options?.offset ?? plot.options.offset ?? 0;
@@ -846,11 +893,15 @@
                     value = null;
                   }
                   dataArray[offsetIndex] = value;
-                  colorArray[offsetIndex] = pointColor || plot.options.color;
+                  colorArray[offsetIndex] = pointColor || plot.options.color || _SeriesBuilder.DEFAULT_COLOR;
                   optionsArray[offsetIndex] = point.options || {};
                 }
               }
             });
+            plotDataArrays.set(`${id}::${plotName}`, dataArray);
+            if (plot.options?.style?.startsWith("style_")) {
+              plot.options.style = plot.options.style.replace("style_", "");
+            }
             switch (plot.options.style) {
               case "histogram":
               case "columns":
@@ -863,7 +914,7 @@
                     value: val,
                     itemStyle: colorArray[i] ? { color: colorArray[i] } : void 0
                   })),
-                  itemStyle: { color: plot.options.color }
+                  itemStyle: { color: plot.options.color || _SeriesBuilder.DEFAULT_COLOR }
                 });
                 break;
               case "circles":
@@ -871,7 +922,7 @@
                 const scatterData = dataArray.map((val, i) => {
                   if (val === null)
                     return null;
-                  const pointColor = colorArray[i] || plot.options.color;
+                  const pointColor = colorArray[i] || plot.options.color || _SeriesBuilder.DEFAULT_COLOR;
                   const item = {
                     value: [i, val],
                     itemStyle: { color: pointColor }
@@ -900,7 +951,7 @@
                     return null;
                   const [open, high, low, close] = val;
                   const pointOpts = optionsArray[i] || {};
-                  const color = pointOpts.color || colorArray[i] || plot.options.color;
+                  const color = pointOpts.color || colorArray[i] || plot.options.color || _SeriesBuilder.DEFAULT_COLOR;
                   const wickColor = pointOpts.wickcolor || plot.options.wickcolor || color;
                   const borderColor = pointOpts.bordercolor || plot.options.bordercolor || wickColor;
                   return [i, open, close, low, high, color, wickColor, borderColor];
@@ -1046,7 +1097,7 @@
                   if (val === null || val === void 0) {
                     return null;
                   }
-                  const color = pointOpts.color || globalOpts.color || "blue";
+                  const color = pointOpts.color || globalOpts.color || _SeriesBuilder.DEFAULT_COLOR;
                   const shape = pointOpts.shape || globalOpts.shape || "circle";
                   const size = pointOpts.size || globalOpts.size || "normal";
                   const text = pointOpts.text || globalOpts.text;
@@ -1072,9 +1123,9 @@
                     yValue = val;
                     symbolOffset = [0, 0];
                   }
-                  const symbol = SeriesBuilder.getShapeSymbol(shape);
-                  const symbolSize = SeriesBuilder.getShapeSize(size, width, height);
-                  const rotate = SeriesBuilder.getShapeRotation(shape);
+                  const symbol = _SeriesBuilder.getShapeSymbol(shape);
+                  const symbolSize = _SeriesBuilder.getShapeSize(size, width, height);
+                  const rotate = _SeriesBuilder.getShapeRotation(shape);
                   let finalSize = symbolSize;
                   if (shape.includes("label")) {
                     if (Array.isArray(symbolSize)) {
@@ -1083,7 +1134,7 @@
                       finalSize = symbolSize * 2.5;
                     }
                   }
-                  const labelConfig = SeriesBuilder.getLabelConfig(shape, location);
+                  const labelConfig = _SeriesBuilder.getLabelConfig(shape, location);
                   const item = {
                     value: [i, yValue],
                     symbol,
@@ -1173,7 +1224,7 @@
                         y2: coords[1]
                       },
                       style: {
-                        stroke: colorArray[params.dataIndex] || plot.options.color,
+                        stroke: colorArray[params.dataIndex] || plot.options.color || _SeriesBuilder.DEFAULT_COLOR,
                         lineWidth: plot.options.linewidth || 1
                       },
                       silent: true
@@ -1183,13 +1234,13 @@
                 });
                 break;
               case "barcolor":
-                plot.data.forEach((point) => {
+                plot.data?.forEach((point) => {
                   const index = timeToIndex.get(point.time);
                   if (index !== void 0) {
                     const plotOffset = point.options?.offset ?? plot.options.offset ?? 0;
                     const offsetIndex = index + dataIndexOffset + plotOffset;
                     if (offsetIndex >= 0 && offsetIndex < totalDataLength) {
-                      const pointColor = point.options?.color || plot.options.color;
+                      const pointColor = point.options?.color || plot.options.color || _SeriesBuilder.DEFAULT_COLOR;
                       const isNaColor = pointColor === null || pointColor === "na" || pointColor === "NaN" || typeof pointColor === "number" && isNaN(pointColor);
                       if (!isNaColor && point.value !== null && point.value !== void 0) {
                         barColors[offsetIndex] = pointColor;
@@ -1212,6 +1263,74 @@
                   })),
                   silent: true
                   // No interaction
+                });
+                break;
+              case "fill":
+                const plot1Key = plot.plot1 ? `${id}::${plot.plot1}` : null;
+                const plot2Key = plot.plot2 ? `${id}::${plot.plot2}` : null;
+                if (!plot1Key || !plot2Key) {
+                  console.warn(`Fill plot "${plotName}" missing plot1 or plot2 reference`);
+                  break;
+                }
+                const plot1Data = plotDataArrays.get(plot1Key);
+                const plot2Data = plotDataArrays.get(plot2Key);
+                if (!plot1Data || !plot2Data) {
+                  console.warn(`Fill plot "${plotName}" references non-existent plots: ${plot.plot1}, ${plot.plot2}`);
+                  break;
+                }
+                const { color: fillColor, opacity: fillOpacity } = _SeriesBuilder.parseColor(plot.options.color || "rgba(128, 128, 128, 0.2)");
+                const fillDataWithPrev = [];
+                for (let i = 0; i < totalDataLength; i++) {
+                  const y1 = plot1Data[i];
+                  const y2 = plot2Data[i];
+                  const prevY1 = i > 0 ? plot1Data[i - 1] : null;
+                  const prevY2 = i > 0 ? plot2Data[i - 1] : null;
+                  fillDataWithPrev.push([i, y1, y2, prevY1, prevY2]);
+                }
+                series.push({
+                  name: seriesName,
+                  type: "custom",
+                  xAxisIndex,
+                  yAxisIndex,
+                  z: -5,
+                  // Render behind lines but above background
+                  renderItem: (params, api) => {
+                    const index = params.dataIndex;
+                    if (index === 0)
+                      return null;
+                    const y1 = api.value(1);
+                    const y2 = api.value(2);
+                    const prevY1 = api.value(3);
+                    const prevY2 = api.value(4);
+                    if (y1 === null || y2 === null || prevY1 === null || prevY2 === null || isNaN(y1) || isNaN(y2) || isNaN(prevY1) || isNaN(prevY2)) {
+                      return null;
+                    }
+                    const p1Prev = api.coord([index - 1, prevY1]);
+                    const p1Curr = api.coord([index, y1]);
+                    const p2Curr = api.coord([index, y2]);
+                    const p2Prev = api.coord([index - 1, prevY2]);
+                    return {
+                      type: "polygon",
+                      shape: {
+                        points: [
+                          p1Prev,
+                          // Top-left
+                          p1Curr,
+                          // Top-right
+                          p2Curr,
+                          // Bottom-right
+                          p2Prev
+                          // Bottom-left
+                        ]
+                      },
+                      style: {
+                        fill: fillColor,
+                        opacity: fillOpacity
+                      },
+                      silent: true
+                    };
+                  },
+                  data: fillDataWithPrev
                 });
                 break;
               case "line":
@@ -1240,7 +1359,7 @@
                         y2: p2[1]
                       },
                       style: {
-                        stroke: colorArray[index] || plot.options.color,
+                        stroke: colorArray[index] || plot.options.color || _SeriesBuilder.DEFAULT_COLOR,
                         lineWidth: plot.options.linewidth || 1
                       },
                       silent: true
@@ -1255,7 +1374,9 @@
         });
         return { series, barColors };
       }
-    }
+    };
+    __publicField$8(_SeriesBuilder, "DEFAULT_COLOR", "#2962ff");
+    let SeriesBuilder = _SeriesBuilder;
 
     class GraphicBuilder {
       static build(layout, options, onToggle, isMainCollapsed = false, maximizedPaneId = null) {

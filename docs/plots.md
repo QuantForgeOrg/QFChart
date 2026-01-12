@@ -84,6 +84,7 @@ QFChart uses a unified plot structure where all plots have a `style` property. T
 -   `plotcandle()` always creates plots with `style: 'candle'`
 -   `plotbar()` always creates plots with `style: 'bar'`
 -   `barcolor()` always creates plots with `style: 'barcolor'`
+-   `fill()` creates plots with `style: 'fill'` (fills area between two plots)
 
 This unified approach simplifies plot management and provides a consistent API across all visualization types.
 
@@ -809,6 +810,158 @@ const customShapes = {
         location: 'absolute',
     },
 };
+```
+
+---
+
+### 12. Fill (`style: 'fill'`)
+
+Fills the area between two existing plots with a color. This is commonly used for Bollinger Bands, Keltner Channels, or any indicator with upper/lower bounds.
+
+**Special Structure:**
+
+Unlike other plot styles, fill plots **do not have a `data` array**. Instead, they reference two existing plots using `plot1` and `plot2`:
+
+```javascript
+{
+    plot1: 'upperPlotId',  // Reference to first plot
+    plot2: 'lowerPlotId',  // Reference to second plot
+    options: {
+        style: 'fill',
+        color: 'rgba(33, 150, 243, 0.2)'
+    }
+}
+```
+
+**Options:**
+
+-   `color`: Fill color (supports hex, named colors, or rgba with transparency)
+-   `plot1`: ID of the first plot to fill from (required)
+-   `plot2`: ID of the second plot to fill to (required)
+
+**Example: Bollinger Bands with Fill**
+
+```javascript
+const bbPlots = {
+    upper: {
+        data: [
+            { time: 1620000000000, value: 50500 },
+            { time: 1620086400000, value: 50700 },
+            { time: 1620172800000, value: 50900 },
+        ],
+        options: {
+            style: 'line',
+            color: '#2196F3',
+            linewidth: 1,
+        },
+    },
+    basis: {
+        data: [
+            { time: 1620000000000, value: 50000 },
+            { time: 1620086400000, value: 50200 },
+            { time: 1620172800000, value: 50400 },
+        ],
+        options: {
+            style: 'line',
+            color: '#FFC107',
+            linewidth: 2,
+        },
+    },
+    lower: {
+        data: [
+            { time: 1620000000000, value: 49500 },
+            { time: 1620086400000, value: 49700 },
+            { time: 1620172800000, value: 49900 },
+        ],
+        options: {
+            style: 'line',
+            color: '#2196F3',
+            linewidth: 1,
+        },
+    },
+    // Fill between upper and lower bands
+    fill: {
+        plot1: 'upper',
+        plot2: 'lower',
+        options: {
+            style: 'fill',
+            color: 'rgba(33, 150, 243, 0.2)', // Semi-transparent blue
+        },
+    },
+};
+
+chart.addIndicator('BB_20', bbPlots, { overlay: true });
+```
+
+**Color Formats:**
+
+All of the following are valid:
+
+```javascript
+// RGBA with custom transparency (recommended for fills)
+color: 'rgba(255, 87, 34, 0.3)'  // 30% opacity
+
+// Hex color (defaults to 30% opacity)
+color: '#FF5722'
+
+// Named color (defaults to 30% opacity)
+color: 'green'
+
+// RGB without alpha (defaults to 30% opacity)
+color: 'rgb(255, 87, 34)'
+```
+
+**Opacity Handling:**
+
+-   When using `rgba()` format, the alpha channel value is extracted and used as the fill opacity
+-   For hex colors, named colors, or `rgb()` format, a default opacity of `0.3` (30%) is applied
+-   Example: `rgba(33, 150, 243, 0.95)` renders with 95% opacity
+-   Example: `#2196F3` renders with 30% opacity (default)
+
+**Requirements:**
+
+1. Both `plot1` and `plot2` must reference existing plot IDs within the same indicator
+2. Referenced plots are processed first, then fill plots are created
+3. Both plots must be on the same pane (overlay or separate)
+4. If either plot has `null` at any point, the fill is skipped for that segment
+
+**Behavior:**
+
+-   Fill renders at `z: -5` (behind lines, above background)
+-   Creates smooth, continuous area fill between lines (like TradingView's Bollinger Bands)
+-   Each segment is rendered as a polygon connecting consecutive points for smooth transitions
+-   Automatically handles gaps in data - no fill is rendered where data is missing
+-   Supports any combination of plot styles (line, step, etc.)
+
+**Example: Keltner Channels**
+
+```javascript
+const kcPlots = {
+    upper: {
+        data: upperData,
+        options: { style: 'line', color: '#4CAF50', linewidth: 1 },
+    },
+    middle: {
+        data: middleData,
+        options: { style: 'line', color: '#FFC107', linewidth: 2 },
+    },
+    lower: {
+        data: lowerData,
+        options: { style: 'line', color: '#F44336', linewidth: 1 },
+    },
+    fill1: {
+        plot1: 'middle',
+        plot2: 'upper',
+        options: { style: 'fill', color: 'rgba(76, 175, 80, 0.15)' },
+    },
+    fill2: {
+        plot1: 'middle',
+        plot2: 'lower',
+        options: { style: 'fill', color: 'rgba(244, 67, 54, 0.15)' },
+    },
+};
+
+chart.addIndicator('KC_20', kcPlots, { overlay: true });
 ```
 
 ---
