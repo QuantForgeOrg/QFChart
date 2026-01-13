@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.4] - 2026-01-13
+
+### Added
+
+-   **Plot Fill Method**: Implemented `plot.fill()` method to fill the area between two plot lines with customizable colors and transparency, matching Pine Script's `fill()` functionality.
+-   **Per-Plot Overlay Option**: Added support for overlay option per plot, allowing individual plots to be configured as overlay or separate pane indicators.
+-   **Default Color Support**: Added default color handling for plots when color is not explicitly specified.
+
+### Fixed
+
+-   **Plot Shape Y-Axis Alignment**: Fixed y-axis alignment issues with `plotshape` plots to ensure proper positioning relative to price bars.
+-   **Plot Styles Compatibility**: Hotfix for plot styles compatibility issues to ensure consistent rendering across different plot types.
+
 ## [0.6.1] - 2025-01-03
 
 ### Added
