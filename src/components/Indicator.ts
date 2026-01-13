@@ -80,6 +80,8 @@ export class Indicator implements IndicatorInterface {
                 const existingPlot = this.plots[plotName];
                 const newPlot = plots[plotName];
 
+                if (!existingPlot.data) return;
+
                 // Update options if provided
                 if (newPlot.options) {
                     existingPlot.options = { ...existingPlot.options, ...newPlot.options };
@@ -87,12 +89,12 @@ export class Indicator implements IndicatorInterface {
 
                 // Merge data points by time
                 const existingTimeMap = new Map<number, IndicatorPoint>();
-                existingPlot.data.forEach((point) => {
+                existingPlot.data?.forEach((point) => {
                     existingTimeMap.set(point.time, point);
                 });
 
                 // Update or add new points
-                newPlot.data.forEach((point) => {
+                newPlot.data?.forEach((point) => {
                     existingTimeMap.set(point.time, point);
                 });
 

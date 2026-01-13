@@ -32,7 +32,8 @@ export type IndicatorStyle =
     | 'char'
     | 'bar'
     | 'candle'
-    | 'barcolor';
+    | 'barcolor'
+    | 'fill';
 
 export interface IndicatorOptions {
     style: IndicatorStyle;
@@ -53,8 +54,10 @@ export interface IndicatorOptions {
 }
 
 export interface IndicatorPlot {
-    data: IndicatorPoint[];
+    data?: IndicatorPoint[]; // Optional for fill plots
     options: IndicatorOptions;
+    plot1?: string; // For fill plots: reference to first plot ID
+    plot2?: string; // For fill plots: reference to second plot ID
 }
 
 // A collection of plots that make up a single indicator (e.g. MACD has macd line, signal line, histogram)

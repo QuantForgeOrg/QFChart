@@ -3,6 +3,39 @@ import { PaneConfiguration } from './LayoutManager';
 import { textToBase64Image } from '../Utils';
 
 export class SeriesBuilder {
+    private static readonly DEFAULT_COLOR = '#2962ff';
+
+    /**
+     * Parse color string and extract opacity
+     * Supports: hex (#RRGGBB), named colors (green, red), rgba(r,g,b,a), rgb(r,g,b)
+     */
+    private static parseColor(colorStr: string): { color: string; opacity: number } {
+        if (!colorStr) {
+            return { color: '#888888', opacity: 0.2 };
+        }
+
+        // Check for rgba format
+        const rgbaMatch = colorStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+        if (rgbaMatch) {
+            const r = rgbaMatch[1];
+            const g = rgbaMatch[2];
+            const b = rgbaMatch[3];
+            const a = rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1;
+
+            // Return rgb color and separate opacity
+            return {
+                color: `rgb(${r},${g},${b})`,
+                opacity: a,
+            };
+        }
+
+        // For hex or named colors, default opacity to 0.3 for fill areas
+        return {
+            color: colorStr,
+            opacity: 0.3,
+        };
+    }
+
     public static buildCandlestickSeries(marketData: OHLCV[], options: QFChartOptions, totalLength?: number): any {
         const upColor = options.upColor || '#00da3c';
         const downColor = options.downColor || '#ec0000';
@@ -235,10 +268,25 @@ export class SeriesBuilder {
         const series: any[] = [];
         const barColors: (string | null)[] = new Array(totalDataLength).fill(null);
 
+        // Store plot data arrays for fill plots to reference
+        const plotDataArrays = new Map<string, number[]>();
+
         indicators.forEach((indicator, id) => {
             if (indicator.collapsed) return; // Skip if collapsed
 
-            Object.keys(indicator.plots).forEach((plotName) => {
+            // Sort plots so that 'fill' plots are processed last
+            // This ensures that the plots they reference (plot1, plot2) have already been processed and their data stored
+            const sortedPlots = Object.keys(indicator.plots).sort((a, b) => {
+                const plotA = indicator.plots[a];
+                const plotB = indicator.plots[b];
+                const isFillA = plotA.options.style === 'fill';
+                const isFillB = plotB.options.style === 'fill';
+                if (isFillA && !isFillB) return 1;
+                if (!isFillA && isFillB) return -1;
+                return 0;
+            });
+
+            sortedPlots.forEach((plotName) => {
                 const plot = indicator.plots[plotName];
                 const seriesName = `${id}::${plotName}`;
 
@@ -269,11 +317,13 @@ export class SeriesBuilder {
                     }
                 }
 
+                // Prepare data arrays
+                // For 'fill' style, we don't use plot.data directly in the same way, but we initialize generic arrays
                 const dataArray = new Array(totalDataLength).fill(null);
                 const colorArray = new Array(totalDataLength).fill(null);
                 const optionsArray = new Array(totalDataLength).fill(null); // Store per-point options
 
-                plot.data.forEach((point) => {
+                plot.data?.forEach((point) => {
                     const index = timeToIndex.get(point.time);
                     if (index !== undefined) {
                         const plotOffset = point.options?.offset ?? plot.options.offset ?? 0;
@@ -295,11 +345,15 @@ export class SeriesBuilder {
                             }
 
                             dataArray[offsetIndex] = value;
-                            colorArray[offsetIndex] = pointColor || plot.options.color;
+                            colorArray[offsetIndex] = pointColor || plot.options.color || SeriesBuilder.DEFAULT_COLOR;
                             optionsArray[offsetIndex] = point.options || {};
                         }
                     }
                 });
+
+                // Store data array for fill plots to reference
+                // Only store for non-fill plots as fill plots don't produce data to be referenced by other fills (usually)
+                plotDataArrays.set(`${id}::${plotName}`, dataArray);
 
                 if (plot.options?.style?.startsWith('style_')) {
                     plot.options.style = plot.options.style.replace('style_', '') as IndicatorStyle;
@@ -316,7 +370,7 @@ export class SeriesBuilder {
                                 value: val,
                                 itemStyle: colorArray[i] ? { color: colorArray[i] } : undefined,
                             })),
-                            itemStyle: { color: plot.options.color },
+                            itemStyle: { color: plot.options.color || SeriesBuilder.DEFAULT_COLOR },
                         });
                         break;
 
@@ -326,7 +380,7 @@ export class SeriesBuilder {
                         const scatterData = dataArray
                             .map((val, i) => {
                                 if (val === null) return null;
-                                const pointColor = colorArray[i] || plot.options.color;
+                                const pointColor = colorArray[i] || plot.options.color || SeriesBuilder.DEFAULT_COLOR;
                                 const item: any = {
                                     value: [i, val],
                                     itemStyle: { color: pointColor },
@@ -361,7 +415,7 @@ export class SeriesBuilder {
 
                                 const [open, high, low, close] = val;
                                 const pointOpts = optionsArray[i] || {};
-                                const color = pointOpts.color || colorArray[i] || plot.options.color;
+                                const color = pointOpts.color || colorArray[i] || plot.options.color || SeriesBuilder.DEFAULT_COLOR;
                                 const wickColor = pointOpts.wickcolor || plot.options.wickcolor || color;
                                 const borderColor = pointOpts.bordercolor || plot.options.bordercolor || wickColor;
 
@@ -530,7 +584,7 @@ export class SeriesBuilder {
                                     return null; // Can't plot without a Y coordinate
                                 }
 
-                                const color = pointOpts.color || globalOpts.color || 'blue';
+                                const color = pointOpts.color || globalOpts.color || SeriesBuilder.DEFAULT_COLOR;
                                 const shape = pointOpts.shape || globalOpts.shape || 'circle';
                                 const size = pointOpts.size || globalOpts.size || 'normal';
                                 const text = pointOpts.text || globalOpts.text;
@@ -695,7 +749,7 @@ export class SeriesBuilder {
                                         y2: coords[1],
                                     },
                                     style: {
-                                        stroke: colorArray[params.dataIndex] || plot.options.color,
+                                        stroke: colorArray[params.dataIndex] || plot.options.color || SeriesBuilder.DEFAULT_COLOR,
                                         lineWidth: plot.options.linewidth || 1,
                                     },
                                     silent: true,
@@ -708,14 +762,14 @@ export class SeriesBuilder {
                     case 'barcolor':
                         // Apply colors to main chart candlesticks
                         // Don't create a visual series, just store colors in barColors array
-                        plot.data.forEach((point) => {
+                        plot.data?.forEach((point) => {
                             const index = timeToIndex.get(point.time);
                             if (index !== undefined) {
                                 const plotOffset = point.options?.offset ?? plot.options.offset ?? 0;
                                 const offsetIndex = index + dataIndexOffset + plotOffset;
 
                                 if (offsetIndex >= 0 && offsetIndex < totalDataLength) {
-                                    const pointColor = point.options?.color || plot.options.color;
+                                    const pointColor = point.options?.color || plot.options.color || SeriesBuilder.DEFAULT_COLOR;
                                     // Only apply if color is valid (not 'na')
                                     const isNaColor =
                                         pointColor === null ||
@@ -748,6 +802,98 @@ export class SeriesBuilder {
                         });
                         break;
 
+                    case 'fill':
+                        // Fill plots reference other plots to fill the area between them
+                        const plot1Key = plot.plot1 ? `${id}::${plot.plot1}` : null;
+                        const plot2Key = plot.plot2 ? `${id}::${plot.plot2}` : null;
+
+                        if (!plot1Key || !plot2Key) {
+                            console.warn(`Fill plot "${plotName}" missing plot1 or plot2 reference`);
+                            break;
+                        }
+
+                        const plot1Data = plotDataArrays.get(plot1Key);
+                        const plot2Data = plotDataArrays.get(plot2Key);
+
+                        if (!plot1Data || !plot2Data) {
+                            console.warn(`Fill plot "${plotName}" references non-existent plots: ${plot.plot1}, ${plot.plot2}`);
+                            break;
+                        }
+
+                        // Parse color to extract opacity
+                        const { color: fillColor, opacity: fillOpacity } = SeriesBuilder.parseColor(plot.options.color || 'rgba(128, 128, 128, 0.2)');
+
+                        // Create fill data with previous values for smooth polygon rendering
+                        const fillDataWithPrev: any[] = [];
+                        for (let i = 0; i < totalDataLength; i++) {
+                            const y1 = plot1Data[i];
+                            const y2 = plot2Data[i];
+                            const prevY1 = i > 0 ? plot1Data[i - 1] : null;
+                            const prevY2 = i > 0 ? plot2Data[i - 1] : null;
+
+                            fillDataWithPrev.push([i, y1, y2, prevY1, prevY2]);
+                        }
+
+                        // Add fill series with smooth area rendering
+                        series.push({
+                            name: seriesName,
+                            type: 'custom',
+                            xAxisIndex: xAxisIndex,
+                            yAxisIndex: yAxisIndex,
+                            z: -5, // Render behind lines but above background
+                            renderItem: (params: any, api: any) => {
+                                const index = params.dataIndex;
+
+                                // Skip first point (no previous to connect to)
+                                if (index === 0) return null;
+
+                                const y1 = api.value(1); // Current upper
+                                const y2 = api.value(2); // Current lower
+                                const prevY1 = api.value(3); // Previous upper
+                                const prevY2 = api.value(4); // Previous lower
+
+                                // Skip if any value is null/NaN
+                                if (
+                                    y1 === null ||
+                                    y2 === null ||
+                                    prevY1 === null ||
+                                    prevY2 === null ||
+                                    isNaN(y1) ||
+                                    isNaN(y2) ||
+                                    isNaN(prevY1) ||
+                                    isNaN(prevY2)
+                                ) {
+                                    return null;
+                                }
+
+                                // Get pixel coordinates for all 4 points
+                                const p1Prev = api.coord([index - 1, prevY1]); // Previous upper
+                                const p1Curr = api.coord([index, y1]); // Current upper
+                                const p2Curr = api.coord([index, y2]); // Current lower
+                                const p2Prev = api.coord([index - 1, prevY2]); // Previous lower
+
+                                // Create a smooth polygon connecting the segments
+                                return {
+                                    type: 'polygon',
+                                    shape: {
+                                        points: [
+                                            p1Prev, // Top-left
+                                            p1Curr, // Top-right
+                                            p2Curr, // Bottom-right
+                                            p2Prev, // Bottom-left
+                                        ],
+                                    },
+                                    style: {
+                                        fill: fillColor,
+                                        opacity: fillOpacity,
+                                    },
+                                    silent: true,
+                                };
+                            },
+                            data: fillDataWithPrev,
+                        });
+                        break;
+
                     case 'line':
                     default:
                         series.push({
@@ -776,7 +922,7 @@ export class SeriesBuilder {
                                         y2: p2[1],
                                     },
                                     style: {
-                                        stroke: colorArray[index] || plot.options.color,
+                                        stroke: colorArray[index] || plot.options.color || SeriesBuilder.DEFAULT_COLOR,
                                         lineWidth: plot.options.linewidth || 1,
                                     },
                                     silent: true,

@@ -1,0 +1,14 @@
+//@version=6
+indicator(shorttitle="BB", title="Simple Bollinger Bands", overlay=true, timeframe="", timeframe_gaps=true)
+length = 20
+src = close
+mult = 2.0
+basis = ta.sma(src, length)
+dev = mult * ta.stdev(src, length)
+upper = basis + dev
+lower = basis - dev
+offset = input.int(0, "Offset", minval = -500, maxval = 500, display = display.data_window)
+plot(basis, "_plot", color=#2962FF, offset = offset)
+plot1 = plot(upper, "Upper", color=#F23645, offset = offset)
+plot2 = plot(lower, "Lower", color=#089981, offset = offset)
+fill(plot1, plot2, title = "Background", color=color.rgb(33, 150, 243, 85))   

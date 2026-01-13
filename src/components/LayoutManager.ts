@@ -490,11 +490,10 @@ export class LayoutManager {
                         // Skip visual-only plot types that should never affect Y-axis scaling
                         // EXCEPTION: shapes with abovebar/belowbar must stay on main Y-axis
                         const visualOnlyStyles = ['background', 'barcolor', 'char'];
-                        
+
                         // Check if this is a shape with price-relative positioning
-                        const isShapeWithPriceLocation = 
-                            plot.options.style === 'shape' && 
-                            (plot.options.location === 'abovebar' || plot.options.location === 'belowbar');
+                        const isShapeWithPriceLocation =
+                            plot.options.style === 'shape' && (plot.options.location === 'abovebar' || plot.options.location === 'belowbar');
 
                         if (visualOnlyStyles.includes(plot.options.style)) {
                             // Assign these to a separate Y-axis so they don't affect price scale
@@ -517,11 +516,13 @@ export class LayoutManager {
                         const values: number[] = [];
 
                         // Extract values for this specific plot
-                        Object.values(plot.data).forEach((value) => {
-                            if (typeof value === 'number' && !isNaN(value) && isFinite(value)) {
-                                values.push(value);
-                            }
-                        });
+                        if (plot.data) {
+                            Object.values(plot.data).forEach((value) => {
+                                if (typeof value === 'number' && !isNaN(value) && isFinite(value)) {
+                                    values.push(value);
+                                }
+                            });
+                        }
 
                         if (values.length > 0) {
                             const plotMin = Math.min(...values);
