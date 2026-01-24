@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.5] - 2026-01-24
+
+### Changed
+
+-   **Code Refactoring for Maintainability**
+    -   Refactored chart renderers architecture to enhance code maintainability and modularity.
+    -   Split large `SeriesBuilder.ts` into focused, single-responsibility modules.
+    -   Created `SeriesRendererFactory.ts` for centralized renderer instantiation.
+    -   Organized renderers into dedicated files: `BackgroundRenderer`, `FillRenderer`, `HistogramRenderer`, `LineRenderer`, `OHLCBarRenderer`, `ScatterRenderer`, `SeriesRenderer`, `ShapeRenderer`, `StepRenderer`.
+    -   Split `Utils.ts` into specialized utility modules: `AxisUtils`, `CanvasUtils`, `ColorUtils`, `ShapeUtils`.
+    -   Improved code organization with better separation of concerns.
+
+### Fixed
+
+-   **Rendering Improvements**: Various rendering tweaks and fixes for better chart display consistency.
+
 ## [0.6.4] - 2026-01-13
 
 ### Added
