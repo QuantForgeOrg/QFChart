@@ -1,4 +1,5 @@
 import { QFChartOptions, Indicator as IndicatorType } from '../types';
+import { AxisUtils } from '../utils/AxisUtils';
 
 export interface PaneConfiguration {
     index: number;
@@ -41,23 +42,6 @@ export class LayoutManager {
 
         // Get Y-axis padding percentage (default 5%)
         const yAxisPaddingPercent = options.yAxisPadding !== undefined ? options.yAxisPadding : 5;
-
-        // Create min/max functions that apply padding
-        const createMinFunction = (paddingPercent: number) => {
-            return (value: any) => {
-                const range = value.max - value.min;
-                const padding = range * (paddingPercent / 100);
-                return value.min - padding;
-            };
-        };
-
-        const createMaxFunction = (paddingPercent: number) => {
-            return (value: any) => {
-                const range = value.max - value.min;
-                const padding = range * (paddingPercent / 100);
-                return value.max + padding;
-            };
-        };
 
         // Identify unique separate panes (indices > 0) and sort them
         const separatePaneIndices = Array.from(indicators.values())
@@ -163,12 +147,18 @@ export class LayoutManager {
 
                 if (i === 0 && maximizeTargetIndex === 0) {
                     // Main pane is maximized, use custom values if provided
-                    yMin = options.yAxisMin !== undefined && options.yAxisMin !== 'auto' ? options.yAxisMin : createMinFunction(yAxisPaddingPercent);
-                    yMax = options.yAxisMax !== undefined && options.yAxisMax !== 'auto' ? options.yAxisMax : createMaxFunction(yAxisPaddingPercent);
+                    yMin =
+                        options.yAxisMin !== undefined && options.yAxisMin !== 'auto'
+                            ? options.yAxisMin
+                            : AxisUtils.createMinFunction(yAxisPaddingPercent);
+                    yMax =
+                        options.yAxisMax !== undefined && options.yAxisMax !== 'auto'
+                            ? options.yAxisMax
+                            : AxisUtils.createMaxFunction(yAxisPaddingPercent);
                 } else {
                     // Separate panes always use dynamic scaling
-                    yMin = createMinFunction(yAxisPaddingPercent);
-                    yMax = createMaxFunction(yAxisPaddingPercent);
+                    yMin = AxisUtils.createMinFunction(yAxisPaddingPercent);
+                    yMax = AxisUtils.createMaxFunction(yAxisPaddingPercent);
                 }
 
                 yAxis.push({
@@ -425,13 +415,13 @@ export class LayoutManager {
         if (options.yAxisMin !== undefined && options.yAxisMin !== 'auto') {
             mainYAxisMin = options.yAxisMin;
         } else {
-            mainYAxisMin = createMinFunction(yAxisPaddingPercent);
+            mainYAxisMin = AxisUtils.createMinFunction(yAxisPaddingPercent);
         }
 
         if (options.yAxisMax !== undefined && options.yAxisMax !== 'auto') {
             mainYAxisMax = options.yAxisMax;
         } else {
-            mainYAxisMax = createMaxFunction(yAxisPaddingPercent);
+            mainYAxisMax = AxisUtils.createMaxFunction(yAxisPaddingPercent);
         }
 
         // Main Y-Axis (for candlesticks)
@@ -558,8 +548,8 @@ export class LayoutManager {
             yAxis.push({
                 position: 'left',
                 scale: true,
-                min: createMinFunction(yAxisPaddingPercent),
-                max: createMaxFunction(yAxisPaddingPercent),
+                min: AxisUtils.createMinFunction(yAxisPaddingPercent),
+                max: AxisUtils.createMaxFunction(yAxisPaddingPercent),
                 gridIndex: 0,
                 show: false, // Hide the axis visual elements
                 splitLine: { show: false },
@@ -574,8 +564,8 @@ export class LayoutManager {
             yAxis.push({
                 position: 'right',
                 scale: true,
-                min: createMinFunction(yAxisPaddingPercent),
-                max: createMaxFunction(yAxisPaddingPercent),
+                min: AxisUtils.createMinFunction(yAxisPaddingPercent),
+                max: AxisUtils.createMaxFunction(yAxisPaddingPercent),
                 gridIndex: i + 1,
                 splitLine: {
                     show: !pane.isCollapsed,
