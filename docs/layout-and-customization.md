@@ -198,10 +198,20 @@ const chart = new QFChart(container, {
 
 Control how values are displayed on the Y-axis scale.
 
+#### Auto-Detection (Default)
+
+By default, QFChart automatically detects the appropriate number of decimal places based on the market data.
+- For assets like BTC (~97,000), it uses 2 decimals.
+- For assets like PUMP (~0.002), it automatically increases precision (e.g., 6-8 decimals) to ensure values are readable.
+
+#### Manual Override
+
+You can override the auto-detection by specifying a fixed number of decimal places or a custom formatter.
+
 ```javascript
-// Option 1: Set fixed decimal places (default is 2)
+// Option 1: Set fixed decimal places (overrides auto-detection)
 const chart = new QFChart(container, {
-    yAxisDecimalPlaces: 2, // Displays "123.45"
+    yAxisDecimalPlaces: 2, // Forces 2 decimals (e.g. "123.45") regardless of price
 });
 
 // Option 2: Custom formatter function
@@ -214,9 +224,9 @@ const chart = new QFChart(container, {
 
 **Use Cases**:
 
--   **Crypto**: Set 8 decimal places for low-value assets (`yAxisDecimalPlaces: 8`)
--   **Forex**: Set 5 decimal places
--   **Stocks**: Set 2 decimal places
+-   **Crypto**: Leave undefined for auto-detection, or set 8 for specific low-sat assets
+-   **Forex**: Set 5 decimal places (`yAxisDecimalPlaces: 5`)
+-   **Stocks**: Set 2 decimal places (`yAxisDecimalPlaces: 2`)
 -   **Volume**: Format large numbers (e.g., "1.5M") using a custom formatter
 
 ## Last Price Line & Countdown

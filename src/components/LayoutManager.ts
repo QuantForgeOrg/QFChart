@@ -1,4 +1,4 @@
-import { QFChartOptions, Indicator as IndicatorType } from '../types';
+import { QFChartOptions, Indicator as IndicatorType, OHLCV } from '../types';
 import { AxisUtils } from '../utils/AxisUtils';
 
 export interface PaneConfiguration {
@@ -176,11 +176,10 @@ export class LayoutManager {
                             if (options.yAxisLabelFormatter) {
                                 return options.yAxisLabelFormatter(value);
                             }
-                            const decimals = options.yAxisDecimalPlaces !== undefined ? options.yAxisDecimalPlaces : 2;
-                            if (typeof value === 'number') {
-                                return value.toFixed(decimals);
-                            }
-                            return String(value);
+                            const decimals = options.yAxisDecimalPlaces !== undefined
+                                ? options.yAxisDecimalPlaces
+                                : AxisUtils.autoDetectDecimals(marketData as OHLCV[]);
+                            return AxisUtils.formatValue(value, decimals);
                         },
                     },
                     splitLine: {
@@ -367,11 +366,10 @@ export class LayoutManager {
                     if (options.yAxisLabelFormatter) {
                         return options.yAxisLabelFormatter(value);
                     }
-                    const decimals = options.yAxisDecimalPlaces !== undefined ? options.yAxisDecimalPlaces : 2;
-                    if (typeof value === 'number') {
-                        return value.toFixed(decimals);
-                    }
-                    return String(value);
+                    const decimals = options.yAxisDecimalPlaces !== undefined
+                        ? options.yAxisDecimalPlaces
+                        : AxisUtils.autoDetectDecimals(marketData as OHLCV[]);
+                    return AxisUtils.formatValue(value, decimals);
                 },
             },
             axisTick: { show: !isMainCollapsed },
@@ -444,11 +442,10 @@ export class LayoutManager {
                     if (options.yAxisLabelFormatter) {
                         return options.yAxisLabelFormatter(value);
                     }
-                    const decimals = options.yAxisDecimalPlaces !== undefined ? options.yAxisDecimalPlaces : 2;
-                    if (typeof value === 'number') {
-                        return value.toFixed(decimals);
-                    }
-                    return String(value);
+                    const decimals = options.yAxisDecimalPlaces !== undefined
+                        ? options.yAxisDecimalPlaces
+                        : AxisUtils.autoDetectDecimals(marketData as OHLCV[]);
+                    return AxisUtils.formatValue(value, decimals);
                 },
             },
         });
@@ -544,12 +541,30 @@ export class LayoutManager {
         // Create Y-axes for incompatible plots
         // nextYAxisIndex already incremented in the loop above, so we know how many axes we need
         const numOverlayAxes = overlayYAxisMap.size > 0 ? nextYAxisIndex - 1 : 0;
+        
+        // Track which overlay axes are for visual-only plots (background, barcolor, etc.)
+        const visualOnlyAxes = new Set<number>();
+        overlayYAxisMap.forEach((yAxisIdx, plotKey) => {
+            // Check if this plot is visual-only by looking at the original indicator
+            indicators.forEach((indicator) => {
+                Object.entries(indicator.plots).forEach(([plotName, plot]) => {
+                    const key = `${indicator.id}::${plotName}`;
+                    if (key === plotKey && ['background', 'barcolor', 'char'].includes(plot.options.style)) {
+                        visualOnlyAxes.add(yAxisIdx);
+                    }
+                });
+            });
+        });
+        
         for (let i = 0; i < numOverlayAxes; i++) {
+            const yAxisIndex = i + 1; // Y-axis indices start at 1 for overlays
+            const isVisualOnly = visualOnlyAxes.has(yAxisIndex);
+            
             yAxis.push({
                 position: 'left',
-                scale: true,
-                min: AxisUtils.createMinFunction(yAxisPaddingPercent),
-                max: AxisUtils.createMaxFunction(yAxisPaddingPercent),
+                scale: !isVisualOnly, // Disable scaling for visual-only plots
+                min: isVisualOnly ? 0 : AxisUtils.createMinFunction(yAxisPaddingPercent), // Fixed range for visual plots
+                max: isVisualOnly ? 1 : AxisUtils.createMaxFunction(yAxisPaddingPercent), // Fixed range for visual plots
                 gridIndex: 0,
                 show: false, // Hide the axis visual elements
                 splitLine: { show: false },
@@ -580,11 +595,10 @@ export class LayoutManager {
                         if (options.yAxisLabelFormatter) {
                             return options.yAxisLabelFormatter(value);
                         }
-                        const decimals = options.yAxisDecimalPlaces !== undefined ? options.yAxisDecimalPlaces : 2;
-                        if (typeof value === 'number') {
-                            return value.toFixed(decimals);
-                        }
-                        return String(value);
+                        const decimals = options.yAxisDecimalPlaces !== undefined
+                            ? options.yAxisDecimalPlaces
+                            : AxisUtils.autoDetectDecimals(marketData as OHLCV[]);
+                        return AxisUtils.formatValue(value, decimals);
                     },
                 },
                 axisLine: { show: !pane.isCollapsed, lineStyle: { color: '#334155' } },

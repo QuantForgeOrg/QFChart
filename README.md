@@ -223,6 +223,7 @@ const chart = new QFChart(container, {
     fontColor: '#cbd5e1',
     fontFamily: 'sans-serif',
     padding: 0.2, // Vertical padding for auto-scaling
+    yAxisDecimalPlaces: undefined, // Auto-detect decimals (default), or set number (e.g. 2)
     dataZoom: {
         visible: true,
         position: 'top',

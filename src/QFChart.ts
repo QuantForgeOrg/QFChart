@@ -8,6 +8,7 @@ import { TooltipFormatter } from './components/TooltipFormatter';
 import { PluginManager } from './components/PluginManager';
 import { DrawingEditor } from './components/DrawingEditor';
 import { EventBus } from './utils/EventBus';
+import { AxisUtils } from './utils/AxisUtils';
 
 export class QFChart implements ChartContext {
     private chart: echarts.ECharts;
@@ -181,14 +182,14 @@ export class QFChart implements ChartContext {
         // Bind global chart/ZRender events to the EventBus
         this.chart.on('dataZoom', (params: any) => {
             this.events.emit('chart:dataZoom', params);
-            
+
             // Auto-hide tooltip when dragging chart if triggerOn is 'click' and position is 'floating'
             const triggerOn = this.options.databox?.triggerOn;
             const position = this.options.databox?.position;
             if (triggerOn === 'click' && position === 'floating') {
                 // Hide tooltip by dispatching a hideTooltip action
                 this.chart.dispatchAction({
-                    type: 'hideTip'
+                    type: 'hideTip',
                 });
             }
         });
@@ -788,12 +789,14 @@ export class QFChart implements ChartContext {
             const price = markLineData.yAxis;
             let priceStr = '';
 
-            // Re-use formatting logic from options if possible, or simple fix
+            // Re-use formatting logic from options if possible, or auto-detect decimals
             if (this.options.yAxisLabelFormatter) {
                 priceStr = this.options.yAxisLabelFormatter(price);
             } else {
-                const decimals = this.options.yAxisDecimalPlaces !== undefined ? this.options.yAxisDecimalPlaces : 2;
-                priceStr = typeof price === 'number' ? price.toFixed(decimals) : price;
+                const decimals = this.options.yAxisDecimalPlaces !== undefined
+                    ? this.options.yAxisDecimalPlaces
+                    : AxisUtils.autoDetectDecimals(this.marketData);
+                priceStr = AxisUtils.formatValue(price, decimals);
             }
 
             const labelText = `${priceStr}\n${timeString}`;
@@ -849,7 +852,7 @@ export class QFChart implements ChartContext {
         } = {}
     ): Indicator {
         // Handle backward compatibility: prefer 'overlay' over 'isOverlay'
-        const isOverlay = options.overlay !== undefined ? options.overlay : (options.isOverlay ?? false);
+        const isOverlay = options.overlay !== undefined ? options.overlay : options.isOverlay ?? false;
         let paneIndex = 0;
         if (!isOverlay) {
             // Find the next available pane index

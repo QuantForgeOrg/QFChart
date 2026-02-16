@@ -39,21 +39,21 @@
 
     var echarts__namespace = /*#__PURE__*/_interopNamespaceDefault(echarts);
 
-    var __defProp$9 = Object.defineProperty;
-    var __defNormalProp$9 = (obj, key, value) => key in obj ? __defProp$9(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-    var __publicField$9 = (obj, key, value) => {
-      __defNormalProp$9(obj, typeof key !== "symbol" ? key + "" : key, value);
+    var __defProp$a = Object.defineProperty;
+    var __defNormalProp$a = (obj, key, value) => key in obj ? __defProp$a(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+    var __publicField$a = (obj, key, value) => {
+      __defNormalProp$a(obj, typeof key !== "symbol" ? key + "" : key, value);
       return value;
     };
     class Indicator {
       constructor(id, plots, paneIndex, options = {}) {
-        __publicField$9(this, "id");
-        __publicField$9(this, "plots");
-        __publicField$9(this, "paneIndex");
-        __publicField$9(this, "height");
-        __publicField$9(this, "collapsed");
-        __publicField$9(this, "titleColor");
-        __publicField$9(this, "controls");
+        __publicField$a(this, "id");
+        __publicField$a(this, "plots");
+        __publicField$a(this, "paneIndex");
+        __publicField$a(this, "height");
+        __publicField$a(this, "collapsed");
+        __publicField$a(this, "titleColor");
+        __publicField$a(this, "controls");
         this.id = id;
         this.plots = plots;
         this.paneIndex = paneIndex;
@@ -108,19 +108,72 @@
           } else {
             const existingPlot = this.plots[plotName];
             const newPlot = plots[plotName];
+            if (!existingPlot.data)
+              return;
             if (newPlot.options) {
               existingPlot.options = { ...existingPlot.options, ...newPlot.options };
             }
             const existingTimeMap = /* @__PURE__ */ new Map();
-            existingPlot.data.forEach((point) => {
+            existingPlot.data?.forEach((point) => {
               existingTimeMap.set(point.time, point);
             });
-            newPlot.data.forEach((point) => {
+            newPlot.data?.forEach((point) => {
               existingTimeMap.set(point.time, point);
             });
             existingPlot.data = Array.from(existingTimeMap.values()).sort((a, b) => a.time - b.time);
           }
         });
+      }
+    }
+
+    class AxisUtils {
+      // Create min/max functions that apply padding
+      static createMinFunction(paddingPercent) {
+        return (value) => {
+          const range = value.max - value.min;
+          const padding = range * (paddingPercent / 100);
+          return value.min - padding;
+        };
+      }
+      static createMaxFunction(paddingPercent) {
+        return (value) => {
+          const range = value.max - value.min;
+          const padding = range * (paddingPercent / 100);
+          return value.max + padding;
+        };
+      }
+      /**
+       * Auto-detect the appropriate number of decimal places for price display
+       * based on actual market data values.
+       *
+       * For prices like BTCUSDC (~97000), returns 2.
+       * For prices like PUMPUSDT (~0.002), returns 6.
+       *
+       * The algorithm examines a representative close price and determines
+       * how many decimals are needed to show meaningful precision.
+       */
+      static autoDetectDecimals(marketData) {
+        if (!marketData || marketData.length === 0)
+          return 2;
+        const price = marketData[marketData.length - 1].close;
+        if (price === 0 || !isFinite(price) || isNaN(price))
+          return 2;
+        const absPrice = Math.abs(price);
+        if (absPrice >= 1)
+          return 2;
+        const leadingZeros = Math.ceil(-Math.log10(absPrice));
+        return Math.min(leadingZeros + 4, 10);
+      }
+      /**
+       * Format a numeric value with the given number of decimal places.
+       * This is the centralized formatting function used by Y-axis labels,
+       * markLine labels, and countdown labels.
+       */
+      static formatValue(value, decimals) {
+        if (typeof value === "number") {
+          return value.toFixed(decimals);
+        }
+        return String(value);
       }
     }
 
@@ -131,20 +184,6 @@
           pixelToPercent = 1 / containerHeight * 100;
         }
         const yAxisPaddingPercent = options.yAxisPadding !== void 0 ? options.yAxisPadding : 5;
-        const createMinFunction = (paddingPercent) => {
-          return (value) => {
-            const range = value.max - value.min;
-            const padding = range * (paddingPercent / 100);
-            return value.min - padding;
-          };
-        };
-        const createMaxFunction = (paddingPercent) => {
-          return (value) => {
-            const range = value.max - value.min;
-            const padding = range * (paddingPercent / 100);
-            return value.max + padding;
-          };
-        };
         const separatePaneIndices = Array.from(indicators.values()).map((ind) => ind.paneIndex).filter((idx) => idx > 0).sort((a, b) => a - b).filter((value, index, self) => self.indexOf(value) === index);
         const hasSeparatePane = separatePaneIndices.length > 0;
         const dzVisible = options.dataZoom?.visible ?? true;
@@ -207,11 +246,11 @@
             let yMin;
             let yMax;
             if (i === 0 && maximizeTargetIndex === 0) {
-              yMin = options.yAxisMin !== void 0 && options.yAxisMin !== "auto" ? options.yAxisMin : createMinFunction(yAxisPaddingPercent);
-              yMax = options.yAxisMax !== void 0 && options.yAxisMax !== "auto" ? options.yAxisMax : createMaxFunction(yAxisPaddingPercent);
+              yMin = options.yAxisMin !== void 0 && options.yAxisMin !== "auto" ? options.yAxisMin : AxisUtils.createMinFunction(yAxisPaddingPercent);
+              yMax = options.yAxisMax !== void 0 && options.yAxisMax !== "auto" ? options.yAxisMax : AxisUtils.createMaxFunction(yAxisPaddingPercent);
             } else {
-              yMin = createMinFunction(yAxisPaddingPercent);
-              yMax = createMaxFunction(yAxisPaddingPercent);
+              yMin = AxisUtils.createMinFunction(yAxisPaddingPercent);
+              yMax = AxisUtils.createMaxFunction(yAxisPaddingPercent);
             }
             yAxis2.push({
               position: "right",
@@ -228,11 +267,8 @@
                   if (options.yAxisLabelFormatter) {
                     return options.yAxisLabelFormatter(value);
                   }
-                  const decimals = options.yAxisDecimalPlaces !== void 0 ? options.yAxisDecimalPlaces : 2;
-                  if (typeof value === "number") {
-                    return value.toFixed(decimals);
-                  }
-                  return String(value);
+                  const decimals = options.yAxisDecimalPlaces !== void 0 ? options.yAxisDecimalPlaces : AxisUtils.autoDetectDecimals(marketData);
+                  return AxisUtils.formatValue(value, decimals);
                 }
               },
               splitLine: {
@@ -381,11 +417,8 @@
               if (options.yAxisLabelFormatter) {
                 return options.yAxisLabelFormatter(value);
               }
-              const decimals = options.yAxisDecimalPlaces !== void 0 ? options.yAxisDecimalPlaces : 2;
-              if (typeof value === "number") {
-                return value.toFixed(decimals);
-              }
-              return String(value);
+              const decimals = options.yAxisDecimalPlaces !== void 0 ? options.yAxisDecimalPlaces : AxisUtils.autoDetectDecimals(marketData);
+              return AxisUtils.formatValue(value, decimals);
             }
           },
           axisTick: { show: !isMainCollapsed },
@@ -425,12 +458,12 @@
         if (options.yAxisMin !== void 0 && options.yAxisMin !== "auto") {
           mainYAxisMin = options.yAxisMin;
         } else {
-          mainYAxisMin = createMinFunction(yAxisPaddingPercent);
+          mainYAxisMin = AxisUtils.createMinFunction(yAxisPaddingPercent);
         }
         if (options.yAxisMax !== void 0 && options.yAxisMax !== "auto") {
           mainYAxisMax = options.yAxisMax;
         } else {
-          mainYAxisMax = createMaxFunction(yAxisPaddingPercent);
+          mainYAxisMax = AxisUtils.createMaxFunction(yAxisPaddingPercent);
         }
         yAxis.push({
           position: "right",
@@ -451,11 +484,8 @@
               if (options.yAxisLabelFormatter) {
                 return options.yAxisLabelFormatter(value);
               }
-              const decimals = options.yAxisDecimalPlaces !== void 0 ? options.yAxisDecimalPlaces : 2;
-              if (typeof value === "number") {
-                return value.toFixed(decimals);
-              }
-              return String(value);
+              const decimals = options.yAxisDecimalPlaces !== void 0 ? options.yAxisDecimalPlaces : AxisUtils.autoDetectDecimals(marketData);
+              return AxisUtils.formatValue(value, decimals);
             }
           }
         });
@@ -516,12 +546,28 @@
           }
         });
         const numOverlayAxes = overlayYAxisMap.size > 0 ? nextYAxisIndex - 1 : 0;
+        const visualOnlyAxes = /* @__PURE__ */ new Set();
+        overlayYAxisMap.forEach((yAxisIdx, plotKey) => {
+          indicators.forEach((indicator) => {
+            Object.entries(indicator.plots).forEach(([plotName, plot]) => {
+              const key = `${indicator.id}::${plotName}`;
+              if (key === plotKey && ["background", "barcolor", "char"].includes(plot.options.style)) {
+                visualOnlyAxes.add(yAxisIdx);
+              }
+            });
+          });
+        });
         for (let i = 0; i < numOverlayAxes; i++) {
+          const yAxisIndex = i + 1;
+          const isVisualOnly = visualOnlyAxes.has(yAxisIndex);
           yAxis.push({
             position: "left",
-            scale: true,
-            min: createMinFunction(yAxisPaddingPercent),
-            max: createMaxFunction(yAxisPaddingPercent),
+            scale: !isVisualOnly,
+            // Disable scaling for visual-only plots
+            min: isVisualOnly ? 0 : AxisUtils.createMinFunction(yAxisPaddingPercent),
+            // Fixed range for visual plots
+            max: isVisualOnly ? 1 : AxisUtils.createMaxFunction(yAxisPaddingPercent),
+            // Fixed range for visual plots
             gridIndex: 0,
             show: false,
             // Hide the axis visual elements
@@ -535,8 +581,8 @@
           yAxis.push({
             position: "right",
             scale: true,
-            min: createMinFunction(yAxisPaddingPercent),
-            max: createMaxFunction(yAxisPaddingPercent),
+            min: AxisUtils.createMinFunction(yAxisPaddingPercent),
+            max: AxisUtils.createMaxFunction(yAxisPaddingPercent),
             gridIndex: i + 1,
             splitLine: {
               show: !pane.isCollapsed,
@@ -551,11 +597,8 @@
                 if (options.yAxisLabelFormatter) {
                   return options.yAxisLabelFormatter(value);
                 }
-                const decimals = options.yAxisDecimalPlaces !== void 0 ? options.yAxisDecimalPlaces : 2;
-                if (typeof value === "number") {
-                  return value.toFixed(decimals);
-                }
-                return String(value);
+                const decimals = options.yAxisDecimalPlaces !== void 0 ? options.yAxisDecimalPlaces : AxisUtils.autoDetectDecimals(marketData);
+                return AxisUtils.formatValue(value, decimals);
               }
             },
             axisLine: { show: !pane.isCollapsed, lineStyle: { color: "#334155" } }
@@ -625,6 +668,100 @@
       }
     }
 
+    class LineRenderer {
+      render(context) {
+        const { seriesName, xAxisIndex, yAxisIndex, dataArray, colorArray, plotOptions } = context;
+        const defaultColor = "#2962ff";
+        return {
+          name: seriesName,
+          type: "custom",
+          xAxisIndex,
+          yAxisIndex,
+          renderItem: (params, api) => {
+            const index = params.dataIndex;
+            if (index === 0)
+              return;
+            const y2 = api.value(1);
+            const y1 = api.value(2);
+            if (y2 === null || isNaN(y2) || y1 === null || isNaN(y1))
+              return;
+            const p1 = api.coord([index - 1, y1]);
+            const p2 = api.coord([index, y2]);
+            return {
+              type: "line",
+              shape: {
+                x1: p1[0],
+                y1: p1[1],
+                x2: p2[0],
+                y2: p2[1]
+              },
+              style: {
+                stroke: colorArray[index] || plotOptions.color || defaultColor,
+                lineWidth: plotOptions.linewidth || 1
+              },
+              silent: true
+            };
+          },
+          // Data format: [index, value, prevValue]
+          data: dataArray.map((val, i) => [i, val, i > 0 ? dataArray[i - 1] : null])
+        };
+      }
+    }
+
+    class StepRenderer {
+      render(context) {
+        const { seriesName, xAxisIndex, yAxisIndex, dataArray, colorArray, plotOptions } = context;
+        const defaultColor = "#2962ff";
+        return {
+          name: seriesName,
+          type: "custom",
+          xAxisIndex,
+          yAxisIndex,
+          renderItem: (params, api) => {
+            const x = api.value(0);
+            const y = api.value(1);
+            if (isNaN(y) || y === null)
+              return;
+            const coords = api.coord([x, y]);
+            const width = api.size([1, 0])[0];
+            return {
+              type: "line",
+              shape: {
+                x1: coords[0] - width / 2,
+                y1: coords[1],
+                x2: coords[0] + width / 2,
+                y2: coords[1]
+              },
+              style: {
+                stroke: colorArray[params.dataIndex] || plotOptions.color || defaultColor,
+                lineWidth: plotOptions.linewidth || 1
+              },
+              silent: true
+            };
+          },
+          data: dataArray.map((val, i) => [i, val])
+        };
+      }
+    }
+
+    class HistogramRenderer {
+      render(context) {
+        const { seriesName, xAxisIndex, yAxisIndex, dataArray, colorArray, plotOptions } = context;
+        const defaultColor = "#2962ff";
+        return {
+          name: seriesName,
+          type: "bar",
+          xAxisIndex,
+          yAxisIndex,
+          data: dataArray.map((val, i) => ({
+            value: val,
+            itemStyle: colorArray[i] ? { color: colorArray[i] } : void 0
+          })),
+          itemStyle: { color: plotOptions.color || defaultColor }
+        };
+      }
+    }
+
     const imageCache = /* @__PURE__ */ new Map();
     function textToBase64Image(text, color = "#00da3c", fontSize = "64px") {
       if (typeof document === "undefined")
@@ -650,109 +787,202 @@
       return "";
     }
 
-    var __defProp$8 = Object.defineProperty;
-    var __defNormalProp$8 = (obj, key, value) => key in obj ? __defProp$8(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
-    var __publicField$8 = (obj, key, value) => {
-      __defNormalProp$8(obj, typeof key !== "symbol" ? key + "" : key, value);
-      return value;
-    };
-    const _SeriesBuilder = class _SeriesBuilder {
-      /**
-       * Parse color string and extract opacity
-       * Supports: hex (#RRGGBB), named colors (green, red), rgba(r,g,b,a), rgb(r,g,b)
-       */
-      static parseColor(colorStr) {
-        if (!colorStr) {
-          return { color: "#888888", opacity: 0.2 };
-        }
-        const rgbaMatch = colorStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
-        if (rgbaMatch) {
-          const r = rgbaMatch[1];
-          const g = rgbaMatch[2];
-          const b = rgbaMatch[3];
-          const a = rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1;
+    class ScatterRenderer {
+      render(context) {
+        const { seriesName, xAxisIndex, yAxisIndex, dataArray, colorArray, plotOptions } = context;
+        const defaultColor = "#2962ff";
+        const style = plotOptions.style;
+        if (style === "char") {
           return {
-            color: `rgb(${r},${g},${b})`,
-            opacity: a
-          };
-        }
-        return {
-          color: colorStr,
-          opacity: 0.3
-        };
-      }
-      static buildCandlestickSeries(marketData, options, totalLength) {
-        const upColor = options.upColor || "#00da3c";
-        const downColor = options.downColor || "#ec0000";
-        const data = marketData.map((d) => [d.open, d.close, d.low, d.high]);
-        if (totalLength && totalLength > data.length) {
-          const padding = totalLength - data.length;
-          for (let i = 0; i < padding; i++) {
-            data.push(null);
-          }
-        }
-        let markLine = void 0;
-        if (options.lastPriceLine?.visible !== false && marketData.length > 0) {
-          const lastBar = marketData[marketData.length - 1];
-          const lastClose = lastBar.close;
-          const isUp = lastBar.close >= lastBar.open;
-          const lineColor = options.lastPriceLine?.color || (isUp ? upColor : downColor);
-          let lineStyleType = options.lastPriceLine?.lineStyle || "dashed";
-          if (lineStyleType.startsWith("linestyle_")) {
-            lineStyleType = lineStyleType.replace("linestyle_", "");
-          }
-          markLine = {
-            symbol: ["none", "none"],
-            data: [
-              {
-                yAxis: lastClose,
-                label: {
-                  show: true,
-                  position: "end",
-                  // Right side
-                  formatter: (params) => {
-                    if (options.yAxisLabelFormatter) {
-                      return options.yAxisLabelFormatter(params.value);
-                    }
-                    const decimals = options.yAxisDecimalPlaces !== void 0 ? options.yAxisDecimalPlaces : 2;
-                    return typeof params.value === "number" ? params.value.toFixed(decimals) : params.value;
-                  },
-                  color: "#fff",
-                  backgroundColor: lineColor,
-                  padding: [2, 4],
-                  borderRadius: 2,
-                  fontSize: 11,
-                  fontWeight: "bold"
-                },
-                lineStyle: {
-                  color: lineColor,
-                  type: lineStyleType,
-                  width: 1,
-                  opacity: 0.8
-                }
-              }
-            ],
-            animation: false,
+            name: seriesName,
+            type: "scatter",
+            xAxisIndex,
+            yAxisIndex,
+            symbolSize: 0,
+            // Invisible
+            data: dataArray.map((val, i) => ({
+              value: [i, val],
+              itemStyle: { opacity: 0 }
+            })),
             silent: true
-            // Disable interaction
+            // No interaction
           };
         }
+        const scatterData = dataArray.map((val, i) => {
+          if (val === null)
+            return null;
+          const pointColor = colorArray[i] || plotOptions.color || defaultColor;
+          const item = {
+            value: [i, val],
+            itemStyle: { color: pointColor }
+          };
+          if (style === "cross") {
+            item.symbol = `image://${textToBase64Image("+", pointColor, "24px")}`;
+            item.symbolSize = 16;
+          } else {
+            item.symbol = "circle";
+            item.symbolSize = 6;
+          }
+          return item;
+        }).filter((item) => item !== null);
         return {
-          type: "candlestick",
-          name: options.title || "Market",
-          data,
-          itemStyle: {
-            color: upColor,
-            color0: downColor,
-            borderColor: upColor,
-            borderColor0: downColor
-          },
-          markLine,
-          xAxisIndex: 0,
-          yAxisIndex: 0,
-          z: 5
+          name: seriesName,
+          type: "scatter",
+          xAxisIndex,
+          yAxisIndex,
+          data: scatterData
         };
       }
+    }
+
+    class OHLCBarRenderer {
+      render(context) {
+        const { seriesName, xAxisIndex, yAxisIndex, dataArray, colorArray, optionsArray, plotOptions } = context;
+        const defaultColor = "#2962ff";
+        const isCandle = plotOptions.style === "candle";
+        const ohlcData = dataArray.map((val, i) => {
+          if (val === null || !Array.isArray(val) || val.length !== 4)
+            return null;
+          const [open, high, low, close] = val;
+          const pointOpts = optionsArray[i] || {};
+          const color = pointOpts.color || colorArray[i] || plotOptions.color || defaultColor;
+          const wickColor = pointOpts.wickcolor || plotOptions.wickcolor || color;
+          const borderColor = pointOpts.bordercolor || plotOptions.bordercolor || wickColor;
+          return [i, open, close, low, high, color, wickColor, borderColor];
+        }).filter((item) => item !== null);
+        return {
+          name: seriesName,
+          type: "custom",
+          xAxisIndex,
+          yAxisIndex,
+          renderItem: (params, api) => {
+            const xValue = api.value(0);
+            const openValue = api.value(1);
+            const closeValue = api.value(2);
+            const lowValue = api.value(3);
+            const highValue = api.value(4);
+            const color = api.value(5);
+            const wickColor = api.value(6);
+            const borderColor = api.value(7);
+            if (isNaN(openValue) || isNaN(closeValue) || isNaN(lowValue) || isNaN(highValue)) {
+              return null;
+            }
+            const xPos = api.coord([xValue, 0])[0];
+            const openPos = api.coord([xValue, openValue])[1];
+            const closePos = api.coord([xValue, closeValue])[1];
+            const lowPos = api.coord([xValue, lowValue])[1];
+            const highPos = api.coord([xValue, highValue])[1];
+            const barWidth = api.size([1, 0])[0] * 0.6;
+            if (isCandle) {
+              const bodyTop = Math.min(openPos, closePos);
+              const bodyBottom = Math.max(openPos, closePos);
+              const bodyHeight = Math.abs(closePos - openPos);
+              return {
+                type: "group",
+                children: [
+                  // Upper wick
+                  {
+                    type: "line",
+                    shape: {
+                      x1: xPos,
+                      y1: highPos,
+                      x2: xPos,
+                      y2: bodyTop
+                    },
+                    style: {
+                      stroke: wickColor,
+                      lineWidth: 1
+                    }
+                  },
+                  // Lower wick
+                  {
+                    type: "line",
+                    shape: {
+                      x1: xPos,
+                      y1: bodyBottom,
+                      x2: xPos,
+                      y2: lowPos
+                    },
+                    style: {
+                      stroke: wickColor,
+                      lineWidth: 1
+                    }
+                  },
+                  // Body
+                  {
+                    type: "rect",
+                    shape: {
+                      x: xPos - barWidth / 2,
+                      y: bodyTop,
+                      width: barWidth,
+                      height: bodyHeight || 1
+                      // Minimum height for doji
+                    },
+                    style: {
+                      fill: color,
+                      stroke: borderColor,
+                      lineWidth: 1
+                    }
+                  }
+                ]
+              };
+            } else {
+              const tickWidth = barWidth * 0.5;
+              return {
+                type: "group",
+                children: [
+                  // Vertical line (low to high)
+                  {
+                    type: "line",
+                    shape: {
+                      x1: xPos,
+                      y1: lowPos,
+                      x2: xPos,
+                      y2: highPos
+                    },
+                    style: {
+                      stroke: color,
+                      lineWidth: 1
+                    }
+                  },
+                  // Open tick (left)
+                  {
+                    type: "line",
+                    shape: {
+                      x1: xPos - tickWidth,
+                      y1: openPos,
+                      x2: xPos,
+                      y2: openPos
+                    },
+                    style: {
+                      stroke: color,
+                      lineWidth: 1
+                    }
+                  },
+                  // Close tick (right)
+                  {
+                    type: "line",
+                    shape: {
+                      x1: xPos,
+                      y1: closePos,
+                      x2: xPos + tickWidth,
+                      y2: closePos
+                    },
+                    style: {
+                      stroke: color,
+                      lineWidth: 1
+                    }
+                  }
+                ]
+              };
+            }
+          },
+          data: ohlcData
+        };
+      }
+    }
+
+    class ShapeUtils {
       static getShapeSymbol(shape) {
         switch (shape) {
           case "arrowdown":
@@ -838,6 +1068,345 @@
             return { position: "top", distance: 5 };
         }
       }
+    }
+
+    class ShapeRenderer {
+      render(context) {
+        const { seriesName, xAxisIndex, yAxisIndex, dataArray, colorArray, optionsArray, plotOptions, candlestickData } = context;
+        const defaultColor = "#2962ff";
+        const shapeData = dataArray.map((val, i) => {
+          const pointOpts = optionsArray[i] || {};
+          const globalOpts = plotOptions;
+          const location = pointOpts.location || globalOpts.location || "absolute";
+          if (location !== "absolute" && !val) {
+            return null;
+          }
+          if (val === null || val === void 0) {
+            return null;
+          }
+          const color = pointOpts.color || globalOpts.color || defaultColor;
+          const shape = pointOpts.shape || globalOpts.shape || "circle";
+          const size = pointOpts.size || globalOpts.size || "normal";
+          const text = pointOpts.text || globalOpts.text;
+          const textColor = pointOpts.textcolor || globalOpts.textcolor || "white";
+          const width = pointOpts.width || globalOpts.width;
+          const height = pointOpts.height || globalOpts.height;
+          let yValue = val;
+          let symbolOffset = [0, 0];
+          if (location === "abovebar") {
+            if (candlestickData && candlestickData[i]) {
+              yValue = candlestickData[i].high;
+            }
+            symbolOffset = [0, "-150%"];
+          } else if (location === "belowbar") {
+            if (candlestickData && candlestickData[i]) {
+              yValue = candlestickData[i].low;
+            }
+            symbolOffset = [0, "150%"];
+          } else if (location === "top") {
+            yValue = val;
+            symbolOffset = [0, 0];
+          } else if (location === "bottom") {
+            yValue = val;
+            symbolOffset = [0, 0];
+          }
+          const symbol = ShapeUtils.getShapeSymbol(shape);
+          const symbolSize = ShapeUtils.getShapeSize(size, width, height);
+          const rotate = ShapeUtils.getShapeRotation(shape);
+          let finalSize = symbolSize;
+          if (shape.includes("label")) {
+            if (Array.isArray(symbolSize)) {
+              finalSize = [symbolSize[0] * 2.5, symbolSize[1] * 2.5];
+            } else {
+              finalSize = symbolSize * 2.5;
+            }
+          }
+          const labelConfig = ShapeUtils.getLabelConfig(shape, location);
+          const item = {
+            value: [i, yValue],
+            symbol,
+            symbolSize: finalSize,
+            symbolRotate: rotate,
+            symbolOffset,
+            itemStyle: {
+              color
+            },
+            label: {
+              show: !!text,
+              position: labelConfig.position,
+              distance: labelConfig.distance,
+              formatter: text,
+              color: textColor,
+              fontSize: 10,
+              fontWeight: "bold"
+            }
+          };
+          return item;
+        }).filter((item) => item !== null);
+        return {
+          name: seriesName,
+          type: "scatter",
+          xAxisIndex,
+          yAxisIndex,
+          data: shapeData
+        };
+      }
+    }
+
+    class BackgroundRenderer {
+      render(context) {
+        const { seriesName, xAxisIndex, yAxisIndex, dataArray, colorArray } = context;
+        return {
+          name: seriesName,
+          type: "custom",
+          xAxisIndex,
+          yAxisIndex,
+          z: -10,
+          renderItem: (params, api) => {
+            const xVal = api.value(0);
+            if (isNaN(xVal))
+              return;
+            const start = api.coord([xVal, 0.5]);
+            const size = api.size([1, 0]);
+            const width = size[0];
+            const sys = params.coordSys;
+            const x = start[0] - width / 2;
+            const barColor = colorArray[params.dataIndex];
+            const val = api.value(1);
+            if (!barColor || val === null || val === void 0 || isNaN(val))
+              return;
+            return {
+              type: "rect",
+              shape: {
+                x,
+                y: sys.y,
+                width,
+                height: sys.height
+              },
+              style: {
+                fill: barColor,
+                opacity: 0.3
+              },
+              silent: true
+            };
+          },
+          // Normalize data values to 0.5 (middle of [0,1] range) to prevent Y-axis scaling issues
+          // The actual value is only used to check if the background should render (non-null/non-NaN)
+          data: dataArray.map((val, i) => [i, val !== null && val !== void 0 && !isNaN(val) ? 0.5 : null])
+        };
+      }
+    }
+
+    class ColorUtils {
+      /**
+       * Parse color string and extract opacity
+       * Supports: hex (#RRGGBB), named colors (green, red), rgba(r,g,b,a), rgb(r,g,b)
+       */
+      static parseColor(colorStr) {
+        if (!colorStr) {
+          return { color: "#888888", opacity: 0.2 };
+        }
+        const rgbaMatch = colorStr.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/);
+        if (rgbaMatch) {
+          const r = rgbaMatch[1];
+          const g = rgbaMatch[2];
+          const b = rgbaMatch[3];
+          const a = rgbaMatch[4] ? parseFloat(rgbaMatch[4]) : 1;
+          return {
+            color: `rgb(${r},${g},${b})`,
+            opacity: a
+          };
+        }
+        return {
+          color: colorStr,
+          opacity: 0.3
+        };
+      }
+    }
+
+    class FillRenderer {
+      render(context) {
+        const { seriesName, xAxisIndex, yAxisIndex, plotOptions, plotDataArrays, indicatorId, plotName } = context;
+        const totalDataLength = context.dataArray.length;
+        const plot1Key = plotOptions.plot1 ? `${indicatorId}::${plotOptions.plot1}` : null;
+        const plot2Key = plotOptions.plot2 ? `${indicatorId}::${plotOptions.plot2}` : null;
+        if (!plot1Key || !plot2Key) {
+          console.warn(`Fill plot "${plotName}" missing plot1 or plot2 reference`);
+          return null;
+        }
+        const plot1Data = plotDataArrays?.get(plot1Key);
+        const plot2Data = plotDataArrays?.get(plot2Key);
+        if (!plot1Data || !plot2Data) {
+          console.warn(`Fill plot "${plotName}" references non-existent plots: ${plotOptions.plot1}, ${plotOptions.plot2}`);
+          return null;
+        }
+        const { color: fillColor, opacity: fillOpacity } = ColorUtils.parseColor(plotOptions.color || "rgba(128, 128, 128, 0.2)");
+        const fillDataWithPrev = [];
+        for (let i = 0; i < totalDataLength; i++) {
+          const y1 = plot1Data[i];
+          const y2 = plot2Data[i];
+          const prevY1 = i > 0 ? plot1Data[i - 1] : null;
+          const prevY2 = i > 0 ? plot2Data[i - 1] : null;
+          fillDataWithPrev.push([i, y1, y2, prevY1, prevY2]);
+        }
+        return {
+          name: seriesName,
+          type: "custom",
+          xAxisIndex,
+          yAxisIndex,
+          z: -5,
+          // Render behind lines but above background
+          renderItem: (params, api) => {
+            const index = params.dataIndex;
+            if (index === 0)
+              return null;
+            const y1 = api.value(1);
+            const y2 = api.value(2);
+            const prevY1 = api.value(3);
+            const prevY2 = api.value(4);
+            if (y1 === null || y2 === null || prevY1 === null || prevY2 === null || isNaN(y1) || isNaN(y2) || isNaN(prevY1) || isNaN(prevY2)) {
+              return null;
+            }
+            const p1Prev = api.coord([index - 1, prevY1]);
+            const p1Curr = api.coord([index, y1]);
+            const p2Curr = api.coord([index, y2]);
+            const p2Prev = api.coord([index - 1, prevY2]);
+            return {
+              type: "polygon",
+              shape: {
+                points: [
+                  p1Prev,
+                  // Top-left
+                  p1Curr,
+                  // Top-right
+                  p2Curr,
+                  // Bottom-right
+                  p2Prev
+                  // Bottom-left
+                ]
+              },
+              style: {
+                fill: fillColor,
+                opacity: fillOpacity
+              },
+              silent: true
+            };
+          },
+          data: fillDataWithPrev
+        };
+      }
+    }
+
+    var __defProp$9 = Object.defineProperty;
+    var __defNormalProp$9 = (obj, key, value) => key in obj ? __defProp$9(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+    var __publicField$9 = (obj, key, value) => {
+      __defNormalProp$9(obj, typeof key !== "symbol" ? key + "" : key, value);
+      return value;
+    };
+    const _SeriesRendererFactory = class _SeriesRendererFactory {
+      static register(style, renderer) {
+        this.renderers.set(style, renderer);
+      }
+      static get(style) {
+        return this.renderers.get(style) || this.renderers.get("line");
+      }
+    };
+    __publicField$9(_SeriesRendererFactory, "renderers", /* @__PURE__ */ new Map());
+    _SeriesRendererFactory.register("line", new LineRenderer());
+    _SeriesRendererFactory.register("step", new StepRenderer());
+    _SeriesRendererFactory.register("histogram", new HistogramRenderer());
+    _SeriesRendererFactory.register("columns", new HistogramRenderer());
+    _SeriesRendererFactory.register("circles", new ScatterRenderer());
+    _SeriesRendererFactory.register("cross", new ScatterRenderer());
+    _SeriesRendererFactory.register("char", new ScatterRenderer());
+    _SeriesRendererFactory.register("bar", new OHLCBarRenderer());
+    _SeriesRendererFactory.register("candle", new OHLCBarRenderer());
+    _SeriesRendererFactory.register("shape", new ShapeRenderer());
+    _SeriesRendererFactory.register("background", new BackgroundRenderer());
+    _SeriesRendererFactory.register("fill", new FillRenderer());
+    let SeriesRendererFactory = _SeriesRendererFactory;
+
+    var __defProp$8 = Object.defineProperty;
+    var __defNormalProp$8 = (obj, key, value) => key in obj ? __defProp$8(obj, key, { enumerable: true, configurable: true, writable: true, value }) : obj[key] = value;
+    var __publicField$8 = (obj, key, value) => {
+      __defNormalProp$8(obj, typeof key !== "symbol" ? key + "" : key, value);
+      return value;
+    };
+    const _SeriesBuilder = class _SeriesBuilder {
+      static buildCandlestickSeries(marketData, options, totalLength) {
+        const upColor = options.upColor || "#00da3c";
+        const downColor = options.downColor || "#ec0000";
+        const data = marketData.map((d) => [d.open, d.close, d.low, d.high]);
+        if (totalLength && totalLength > data.length) {
+          const padding = totalLength - data.length;
+          for (let i = 0; i < padding; i++) {
+            data.push(null);
+          }
+        }
+        let markLine = void 0;
+        if (options.lastPriceLine?.visible !== false && marketData.length > 0) {
+          const lastBar = marketData[marketData.length - 1];
+          const lastClose = lastBar.close;
+          const isUp = lastBar.close >= lastBar.open;
+          const lineColor = options.lastPriceLine?.color || (isUp ? upColor : downColor);
+          let lineStyleType = options.lastPriceLine?.lineStyle || "dashed";
+          if (lineStyleType.startsWith("linestyle_")) {
+            lineStyleType = lineStyleType.replace("linestyle_", "");
+          }
+          const decimals = options.yAxisDecimalPlaces !== void 0 ? options.yAxisDecimalPlaces : AxisUtils.autoDetectDecimals(marketData);
+          markLine = {
+            symbol: ["none", "none"],
+            precision: decimals,
+            // Ensure line position is precise enough for small values
+            data: [
+              {
+                yAxis: lastClose,
+                label: {
+                  show: true,
+                  position: "end",
+                  // Right side
+                  formatter: (params) => {
+                    if (options.yAxisLabelFormatter) {
+                      return options.yAxisLabelFormatter(params.value);
+                    }
+                    return AxisUtils.formatValue(params.value, decimals);
+                  },
+                  color: "#fff",
+                  backgroundColor: lineColor,
+                  padding: [2, 4],
+                  borderRadius: 2,
+                  fontSize: 11,
+                  fontWeight: "bold"
+                },
+                lineStyle: {
+                  color: lineColor,
+                  type: lineStyleType,
+                  width: 1,
+                  opacity: 0.8
+                }
+              }
+            ],
+            animation: false,
+            silent: true
+            // Disable interaction
+          };
+        }
+        return {
+          type: "candlestick",
+          name: options.title || "Market",
+          data,
+          itemStyle: {
+            color: upColor,
+            color0: downColor,
+            borderColor: upColor,
+            borderColor0: downColor
+          },
+          markLine,
+          xAxisIndex: 0,
+          yAxisIndex: 0,
+          z: 5
+        };
+      }
       static buildIndicatorSeries(indicators, timeToIndex, paneLayout, totalDataLength, dataIndexOffset = 0, candlestickData, overlayYAxisMap, separatePaneYAxisOffset = 1) {
         const series = [];
         const barColors = new Array(totalDataLength).fill(null);
@@ -862,7 +1431,7 @@
             let xAxisIndex = 0;
             let yAxisIndex = 0;
             const plotOverlay = plot.options.overlay;
-            const isPlotOverlay = plotOverlay !== void 0 ? plotOverlay : indicator.paneIndex === 0;
+            const isPlotOverlay = indicator.paneIndex === 0 || plotOverlay === true;
             if (isPlotOverlay) {
               xAxisIndex = 0;
               if (overlayYAxisMap && overlayYAxisMap.has(seriesName)) {
@@ -902,473 +1471,39 @@
             if (plot.options?.style?.startsWith("style_")) {
               plot.options.style = plot.options.style.replace("style_", "");
             }
-            switch (plot.options.style) {
-              case "histogram":
-              case "columns":
-                series.push({
-                  name: seriesName,
-                  type: "bar",
-                  xAxisIndex,
-                  yAxisIndex,
-                  data: dataArray.map((val, i) => ({
-                    value: val,
-                    itemStyle: colorArray[i] ? { color: colorArray[i] } : void 0
-                  })),
-                  itemStyle: { color: plot.options.color || _SeriesBuilder.DEFAULT_COLOR }
-                });
-                break;
-              case "circles":
-              case "cross":
-                const scatterData = dataArray.map((val, i) => {
-                  if (val === null)
-                    return null;
-                  const pointColor = colorArray[i] || plot.options.color || _SeriesBuilder.DEFAULT_COLOR;
-                  const item = {
-                    value: [i, val],
-                    itemStyle: { color: pointColor }
-                  };
-                  if (plot.options.style === "cross") {
-                    item.symbol = `image://${textToBase64Image("+", pointColor, "24px")}`;
-                    item.symbolSize = 16;
-                  } else {
-                    item.symbol = "circle";
-                    item.symbolSize = 6;
-                  }
-                  return item;
-                }).filter((item) => item !== null);
-                series.push({
-                  name: seriesName,
-                  type: "scatter",
-                  xAxisIndex,
-                  yAxisIndex,
-                  data: scatterData
-                });
-                break;
-              case "bar":
-              case "candle":
-                const ohlcData = dataArray.map((val, i) => {
-                  if (val === null || !Array.isArray(val) || val.length !== 4)
-                    return null;
-                  const [open, high, low, close] = val;
-                  const pointOpts = optionsArray[i] || {};
-                  const color = pointOpts.color || colorArray[i] || plot.options.color || _SeriesBuilder.DEFAULT_COLOR;
-                  const wickColor = pointOpts.wickcolor || plot.options.wickcolor || color;
-                  const borderColor = pointOpts.bordercolor || plot.options.bordercolor || wickColor;
-                  return [i, open, close, low, high, color, wickColor, borderColor];
-                }).filter((item) => item !== null);
-                series.push({
-                  name: seriesName,
-                  type: "custom",
-                  xAxisIndex,
-                  yAxisIndex,
-                  renderItem: (params, api) => {
-                    const xValue = api.value(0);
-                    const openValue = api.value(1);
-                    const closeValue = api.value(2);
-                    const lowValue = api.value(3);
-                    const highValue = api.value(4);
-                    const color = api.value(5);
-                    const wickColor = api.value(6);
-                    const borderColor = api.value(7);
-                    if (isNaN(openValue) || isNaN(closeValue) || isNaN(lowValue) || isNaN(highValue)) {
-                      return null;
-                    }
-                    const xPos = api.coord([xValue, 0])[0];
-                    const openPos = api.coord([xValue, openValue])[1];
-                    const closePos = api.coord([xValue, closeValue])[1];
-                    const lowPos = api.coord([xValue, lowValue])[1];
-                    const highPos = api.coord([xValue, highValue])[1];
-                    const barWidth = api.size([1, 0])[0] * 0.6;
-                    if (plot.options.style === "candle") {
-                      const bodyTop = Math.min(openPos, closePos);
-                      const bodyBottom = Math.max(openPos, closePos);
-                      const bodyHeight = Math.abs(closePos - openPos);
-                      return {
-                        type: "group",
-                        children: [
-                          // Upper wick
-                          {
-                            type: "line",
-                            shape: {
-                              x1: xPos,
-                              y1: highPos,
-                              x2: xPos,
-                              y2: bodyTop
-                            },
-                            style: {
-                              stroke: wickColor,
-                              lineWidth: 1
-                            }
-                          },
-                          // Lower wick
-                          {
-                            type: "line",
-                            shape: {
-                              x1: xPos,
-                              y1: bodyBottom,
-                              x2: xPos,
-                              y2: lowPos
-                            },
-                            style: {
-                              stroke: wickColor,
-                              lineWidth: 1
-                            }
-                          },
-                          // Body
-                          {
-                            type: "rect",
-                            shape: {
-                              x: xPos - barWidth / 2,
-                              y: bodyTop,
-                              width: barWidth,
-                              height: bodyHeight || 1
-                              // Minimum height for doji
-                            },
-                            style: {
-                              fill: color,
-                              stroke: borderColor,
-                              lineWidth: 1
-                            }
-                          }
-                        ]
-                      };
-                    } else {
-                      const tickWidth = barWidth * 0.5;
-                      return {
-                        type: "group",
-                        children: [
-                          // Vertical line (low to high)
-                          {
-                            type: "line",
-                            shape: {
-                              x1: xPos,
-                              y1: lowPos,
-                              x2: xPos,
-                              y2: highPos
-                            },
-                            style: {
-                              stroke: color,
-                              lineWidth: 1
-                            }
-                          },
-                          // Open tick (left)
-                          {
-                            type: "line",
-                            shape: {
-                              x1: xPos - tickWidth,
-                              y1: openPos,
-                              x2: xPos,
-                              y2: openPos
-                            },
-                            style: {
-                              stroke: color,
-                              lineWidth: 1
-                            }
-                          },
-                          // Close tick (right)
-                          {
-                            type: "line",
-                            shape: {
-                              x1: xPos,
-                              y1: closePos,
-                              x2: xPos + tickWidth,
-                              y2: closePos
-                            },
-                            style: {
-                              stroke: color,
-                              lineWidth: 1
-                            }
-                          }
-                        ]
-                      };
-                    }
-                  },
-                  data: ohlcData
-                });
-                break;
-              case "shape":
-                const shapeData = dataArray.map((val, i) => {
-                  const pointOpts = optionsArray[i] || {};
-                  const globalOpts = plot.options;
-                  const location = pointOpts.location || globalOpts.location || "absolute";
-                  if (location !== "absolute" && !val) {
-                    return null;
-                  }
-                  if (val === null || val === void 0) {
-                    return null;
-                  }
-                  const color = pointOpts.color || globalOpts.color || _SeriesBuilder.DEFAULT_COLOR;
-                  const shape = pointOpts.shape || globalOpts.shape || "circle";
-                  const size = pointOpts.size || globalOpts.size || "normal";
-                  const text = pointOpts.text || globalOpts.text;
-                  const textColor = pointOpts.textcolor || globalOpts.textcolor || "white";
-                  const width = pointOpts.width || globalOpts.width;
-                  const height = pointOpts.height || globalOpts.height;
-                  let yValue = val;
-                  let symbolOffset = [0, 0];
-                  if (location === "abovebar") {
-                    if (candlestickData && candlestickData[i]) {
-                      yValue = candlestickData[i].high;
-                    }
-                    symbolOffset = [0, "-150%"];
-                  } else if (location === "belowbar") {
-                    if (candlestickData && candlestickData[i]) {
-                      yValue = candlestickData[i].low;
-                    }
-                    symbolOffset = [0, "150%"];
-                  } else if (location === "top") {
-                    yValue = val;
-                    symbolOffset = [0, 0];
-                  } else if (location === "bottom") {
-                    yValue = val;
-                    symbolOffset = [0, 0];
-                  }
-                  const symbol = _SeriesBuilder.getShapeSymbol(shape);
-                  const symbolSize = _SeriesBuilder.getShapeSize(size, width, height);
-                  const rotate = _SeriesBuilder.getShapeRotation(shape);
-                  let finalSize = symbolSize;
-                  if (shape.includes("label")) {
-                    if (Array.isArray(symbolSize)) {
-                      finalSize = [symbolSize[0] * 2.5, symbolSize[1] * 2.5];
-                    } else {
-                      finalSize = symbolSize * 2.5;
+            if (plot.options.style === "barcolor") {
+              plot.data?.forEach((point) => {
+                const index = timeToIndex.get(point.time);
+                if (index !== void 0) {
+                  const plotOffset = point.options?.offset ?? plot.options.offset ?? 0;
+                  const offsetIndex = index + dataIndexOffset + plotOffset;
+                  if (offsetIndex >= 0 && offsetIndex < totalDataLength) {
+                    const pointColor = point.options?.color || plot.options.color || _SeriesBuilder.DEFAULT_COLOR;
+                    const isNaColor = pointColor === null || pointColor === "na" || pointColor === "NaN" || typeof pointColor === "number" && isNaN(pointColor);
+                    if (!isNaColor && point.value !== null && point.value !== void 0) {
+                      barColors[offsetIndex] = pointColor;
                     }
                   }
-                  const labelConfig = _SeriesBuilder.getLabelConfig(shape, location);
-                  const item = {
-                    value: [i, yValue],
-                    symbol,
-                    symbolSize: finalSize,
-                    symbolRotate: rotate,
-                    symbolOffset,
-                    itemStyle: {
-                      color
-                    },
-                    label: {
-                      show: !!text,
-                      position: labelConfig.position,
-                      distance: labelConfig.distance,
-                      formatter: text,
-                      color: textColor,
-                      fontSize: 10,
-                      fontWeight: "bold"
-                    }
-                  };
-                  return item;
-                }).filter((item) => item !== null);
-                series.push({
-                  name: seriesName,
-                  type: "scatter",
-                  xAxisIndex,
-                  yAxisIndex,
-                  data: shapeData
-                });
-                break;
-              case "background":
-                series.push({
-                  name: seriesName,
-                  type: "custom",
-                  xAxisIndex,
-                  yAxisIndex,
-                  z: -10,
-                  renderItem: (params, api) => {
-                    const xVal = api.value(0);
-                    if (isNaN(xVal))
-                      return;
-                    const start = api.coord([xVal, 0]);
-                    const size = api.size([1, 0]);
-                    const width = size[0];
-                    const sys = params.coordSys;
-                    const x = start[0] - width / 2;
-                    const barColor = colorArray[params.dataIndex];
-                    const val = api.value(1);
-                    if (!barColor || val === null || val === void 0 || isNaN(val))
-                      return;
-                    return {
-                      type: "rect",
-                      shape: {
-                        x,
-                        y: sys.y,
-                        width,
-                        height: sys.height
-                      },
-                      style: {
-                        fill: barColor,
-                        opacity: 0.3
-                      },
-                      silent: true
-                    };
-                  },
-                  data: dataArray.map((val, i) => [i, val])
-                });
-                break;
-              case "step":
-                series.push({
-                  name: seriesName,
-                  type: "custom",
-                  xAxisIndex,
-                  yAxisIndex,
-                  renderItem: (params, api) => {
-                    const x = api.value(0);
-                    const y = api.value(1);
-                    if (isNaN(y) || y === null)
-                      return;
-                    const coords = api.coord([x, y]);
-                    const width = api.size([1, 0])[0];
-                    return {
-                      type: "line",
-                      shape: {
-                        x1: coords[0] - width / 2,
-                        y1: coords[1],
-                        x2: coords[0] + width / 2,
-                        y2: coords[1]
-                      },
-                      style: {
-                        stroke: colorArray[params.dataIndex] || plot.options.color || _SeriesBuilder.DEFAULT_COLOR,
-                        lineWidth: plot.options.linewidth || 1
-                      },
-                      silent: true
-                    };
-                  },
-                  data: dataArray.map((val, i) => [i, val])
-                });
-                break;
-              case "barcolor":
-                plot.data?.forEach((point) => {
-                  const index = timeToIndex.get(point.time);
-                  if (index !== void 0) {
-                    const plotOffset = point.options?.offset ?? plot.options.offset ?? 0;
-                    const offsetIndex = index + dataIndexOffset + plotOffset;
-                    if (offsetIndex >= 0 && offsetIndex < totalDataLength) {
-                      const pointColor = point.options?.color || plot.options.color || _SeriesBuilder.DEFAULT_COLOR;
-                      const isNaColor = pointColor === null || pointColor === "na" || pointColor === "NaN" || typeof pointColor === "number" && isNaN(pointColor);
-                      if (!isNaColor && point.value !== null && point.value !== void 0) {
-                        barColors[offsetIndex] = pointColor;
-                      }
-                    }
-                  }
-                });
-                break;
-              case "char":
-                series.push({
-                  name: seriesName,
-                  type: "scatter",
-                  xAxisIndex,
-                  yAxisIndex,
-                  symbolSize: 0,
-                  // Invisible
-                  data: dataArray.map((val, i) => ({
-                    value: [i, val],
-                    itemStyle: { opacity: 0 }
-                  })),
-                  silent: true
-                  // No interaction
-                });
-                break;
-              case "fill":
-                const plot1Key = plot.plot1 ? `${id}::${plot.plot1}` : null;
-                const plot2Key = plot.plot2 ? `${id}::${plot.plot2}` : null;
-                if (!plot1Key || !plot2Key) {
-                  console.warn(`Fill plot "${plotName}" missing plot1 or plot2 reference`);
-                  break;
                 }
-                const plot1Data = plotDataArrays.get(plot1Key);
-                const plot2Data = plotDataArrays.get(plot2Key);
-                if (!plot1Data || !plot2Data) {
-                  console.warn(`Fill plot "${plotName}" references non-existent plots: ${plot.plot1}, ${plot.plot2}`);
-                  break;
-                }
-                const { color: fillColor, opacity: fillOpacity } = _SeriesBuilder.parseColor(plot.options.color || "rgba(128, 128, 128, 0.2)");
-                const fillDataWithPrev = [];
-                for (let i = 0; i < totalDataLength; i++) {
-                  const y1 = plot1Data[i];
-                  const y2 = plot2Data[i];
-                  const prevY1 = i > 0 ? plot1Data[i - 1] : null;
-                  const prevY2 = i > 0 ? plot2Data[i - 1] : null;
-                  fillDataWithPrev.push([i, y1, y2, prevY1, prevY2]);
-                }
-                series.push({
-                  name: seriesName,
-                  type: "custom",
-                  xAxisIndex,
-                  yAxisIndex,
-                  z: -5,
-                  // Render behind lines but above background
-                  renderItem: (params, api) => {
-                    const index = params.dataIndex;
-                    if (index === 0)
-                      return null;
-                    const y1 = api.value(1);
-                    const y2 = api.value(2);
-                    const prevY1 = api.value(3);
-                    const prevY2 = api.value(4);
-                    if (y1 === null || y2 === null || prevY1 === null || prevY2 === null || isNaN(y1) || isNaN(y2) || isNaN(prevY1) || isNaN(prevY2)) {
-                      return null;
-                    }
-                    const p1Prev = api.coord([index - 1, prevY1]);
-                    const p1Curr = api.coord([index, y1]);
-                    const p2Curr = api.coord([index, y2]);
-                    const p2Prev = api.coord([index - 1, prevY2]);
-                    return {
-                      type: "polygon",
-                      shape: {
-                        points: [
-                          p1Prev,
-                          // Top-left
-                          p1Curr,
-                          // Top-right
-                          p2Curr,
-                          // Bottom-right
-                          p2Prev
-                          // Bottom-left
-                        ]
-                      },
-                      style: {
-                        fill: fillColor,
-                        opacity: fillOpacity
-                      },
-                      silent: true
-                    };
-                  },
-                  data: fillDataWithPrev
-                });
-                break;
-              case "line":
-              default:
-                series.push({
-                  name: seriesName,
-                  type: "custom",
-                  xAxisIndex,
-                  yAxisIndex,
-                  renderItem: (params, api) => {
-                    const index = params.dataIndex;
-                    if (index === 0)
-                      return;
-                    const y2 = api.value(1);
-                    const y1 = api.value(2);
-                    if (y2 === null || isNaN(y2) || y1 === null || isNaN(y1))
-                      return;
-                    const p1 = api.coord([index - 1, y1]);
-                    const p2 = api.coord([index, y2]);
-                    return {
-                      type: "line",
-                      shape: {
-                        x1: p1[0],
-                        y1: p1[1],
-                        x2: p2[0],
-                        y2: p2[1]
-                      },
-                      style: {
-                        stroke: colorArray[index] || plot.options.color || _SeriesBuilder.DEFAULT_COLOR,
-                        lineWidth: plot.options.linewidth || 1
-                      },
-                      silent: true
-                    };
-                  },
-                  // Data format: [index, value, prevValue]
-                  data: dataArray.map((val, i) => [i, val, i > 0 ? dataArray[i - 1] : null])
-                });
-                break;
+              });
+              return;
+            }
+            const renderer = SeriesRendererFactory.get(plot.options.style);
+            const seriesConfig = renderer.render({
+              seriesName,
+              xAxisIndex,
+              yAxisIndex,
+              dataArray,
+              colorArray,
+              optionsArray,
+              plotOptions: plot.options,
+              candlestickData,
+              plotDataArrays,
+              indicatorId: id,
+              plotName
+            });
+            if (seriesConfig) {
+              series.push(seriesConfig);
             }
           });
         });
@@ -2661,8 +2796,8 @@
           if (this.options.yAxisLabelFormatter) {
             priceStr = this.options.yAxisLabelFormatter(price);
           } else {
-            const decimals = this.options.yAxisDecimalPlaces !== void 0 ? this.options.yAxisDecimalPlaces : 2;
-            priceStr = typeof price === "number" ? price.toFixed(decimals) : price;
+            const decimals = this.options.yAxisDecimalPlaces !== void 0 ? this.options.yAxisDecimalPlaces : AxisUtils.autoDetectDecimals(this.marketData);
+            priceStr = AxisUtils.formatValue(price, decimals);
           }
           const labelText = `${priceStr}
 ${timeString}`;

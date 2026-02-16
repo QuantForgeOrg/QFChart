@@ -87,7 +87,7 @@ export interface QFChartOptions {
     yAxisMin?: number | 'auto'; // Fixed minimum value for main Y-axis, or 'auto' for dynamic
     yAxisMax?: number | 'auto'; // Fixed maximum value for main Y-axis, or 'auto' for dynamic
     yAxisLabelFormatter?: (value: number) => string; // Custom formatter function for Y-axis labels
-    yAxisDecimalPlaces?: number; // Number of decimal places for Y-axis labels (default: 2)
+    yAxisDecimalPlaces?: number; // Number of decimal places for Y-axis labels. If undefined, auto-detected from data.
     lastPriceLine?: {
         // Configuration for the horizontal line showing the last price
         visible?: boolean;
