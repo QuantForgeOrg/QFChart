@@ -7937,6 +7937,9 @@
     createContextIdentifier() {
       return this.createIdentifier(CONTEXT_NAME);
     },
+    createLocalContextIdentifier() {
+      return this.createIdentifier("$$");
+    },
     // Create $.kind.name
     createContextVariableReference(kind, name) {
       const context = this.createContextIdentifier();
@@ -7944,9 +7947,27 @@
       const nameId = this.createIdentifier(name);
       return this.createMemberExpression(this.createMemberExpression(context, kindId, false), nameId, false);
     },
+    // Create $$.kind.name
+    createLocalContextVariableReference(kind, name) {
+      const context = this.createLocalContextIdentifier();
+      const kindId = this.createIdentifier(kind);
+      const nameId = this.createIdentifier(name);
+      return this.createMemberExpression(this.createMemberExpression(context, kindId, false), nameId, false);
+    },
+    // Create $.kind[dynamicKey]
+    createDynamicContextVariableReference(kind, dynamicKey) {
+      const context = this.createContextIdentifier();
+      const kindId = this.createIdentifier(kind);
+      return this.createMemberExpression(this.createMemberExpression(context, kindId, false), dynamicKey, true);
+    },
     // Create $.get($.kind.name, 0)
     createContextVariableAccess0(kind, name) {
       const varRef = this.createContextVariableReference(kind, name);
+      return this.createGetCall(varRef, 0);
+    },
+    // Create $.get($.kind[dynamicKey], 0)
+    createDynamicContextVariableAccess0(kind, dynamicKey) {
+      const varRef = this.createDynamicContextVariableReference(kind, dynamicKey);
       return this.createGetCall(varRef, 0);
     },
     createArrayAccess(object, index) {
@@ -7998,9 +8019,10 @@
       const setMethod = this.createMemberExpression(this.createContextIdentifier(), this.createIdentifier("set"), false);
       return this.createCallExpression(setMethod, [target, value]);
     },
-    // Create $.math.__eq(left, right)
+    // Create $.pine.math.__eq(left, right)
     createMathEqCall(left, right) {
-      const mathObj = this.createMemberExpression(this.createContextIdentifier(), this.createIdentifier("math"), false);
+      const pineObj = this.createMemberExpression(this.createContextIdentifier(), this.createIdentifier("pine"), false);
+      const mathObj = this.createMemberExpression(pineObj, this.createIdentifier("math"), false);
       const eqMethod = this.createMemberExpression(mathObj, this.createIdentifier("__eq"), false);
       return this.createCallExpression(eqMethod, [left, right]);
     },
@@ -8527,13 +8549,26 @@ ${code}
     type: "Identifier",
     name: "undefined"
   };
+  function createScopedVariableReference(name, scopeManager) {
+    const [scopedName, kind] = scopeManager.getVariable(name);
+    if (scopedName.match(/^fn\d+_/) && name !== "$$") {
+      const [localCtxName] = scopeManager.getVariable("$$");
+      if (localCtxName) {
+        return ASTFactory.createLocalContextVariableReference(kind, scopedName);
+      }
+    }
+    return ASTFactory.createContextVariableReference(kind, scopedName);
+  }
+  function createScopedVariableAccess(name, scopeManager) {
+    const varRef = createScopedVariableReference(name, scopeManager);
+    return ASTFactory.createGetCall(varRef, 0);
+  }
   function transformArrayIndex(node, scopeManager) {
     if (node.computed && node.property.type === "Identifier") {
       if (scopeManager.isLoopVariable(node.property.name)) {
         if (node.object.type === "Identifier" && !scopeManager.isLoopVariable(node.object.name)) {
           if (!scopeManager.isContextBound(node.object.name)) {
-            const [scopedName, kind] = scopeManager.getVariable(node.object.name);
-            const contextVarRef = ASTFactory.createContextVariableReference(kind, scopedName);
+            const contextVarRef = createScopedVariableReference(node.object.name, scopeManager);
             const getCall = ASTFactory.createGetCall(contextVarRef, node.property);
             Object.assign(node, getCall);
             node._indexTransformed = true;
@@ -8542,8 +8577,7 @@ ${code}
         return;
       }
       if (!scopeManager.isContextBound(node.property.name)) {
-        const [scopedName, kind] = scopeManager.getVariable(node.property.name);
-        node.property = ASTFactory.createContextVariableReference(kind, scopedName);
+        node.property = createScopedVariableReference(node.property.name, scopeManager);
         node.property = ASTFactory.createGetCall(node.property, 0);
       }
     }
@@ -8552,8 +8586,7 @@ ${code}
         return;
       }
       if (!scopeManager.isContextBound(node.object.name)) {
-        const [scopedName, kind] = scopeManager.getVariable(node.object.name);
-        node.object = ASTFactory.createContextVariableReference(kind, scopedName);
+        node.object = createScopedVariableReference(node.object.name, scopeManager);
       }
       if (node.property.type === "MemberExpression") {
         const memberNode = node.property;
@@ -8618,21 +8651,25 @@ ${code}
         if (isFunctionCall) {
           return;
         }
+        if (node.parent && node.parent.type === "CallExpression" && node.parent.callee && node.parent.callee.type === "MemberExpression" && node.parent.callee.object && node.parent.callee.object.name === CONTEXT_NAME && node.parent.callee.property.name === "call" && node.parent.arguments[0] === node) {
+          return;
+        }
         if (scopeManager.isLocalSeriesVar(node.name)) {
           return;
         }
         if (scopeManager.isContextBound(node.name) && !scopeManager.isRootParam(node.name)) {
           return;
         }
-        const [scopedName2, kind2] = scopeManager.getVariable(node.name);
-        const memberExpr2 = ASTFactory.createContextVariableReference(kind2, scopedName2);
+        const memberExpr2 = createScopedVariableReference(node.name, scopeManager);
         Object.assign(node, memberExpr2);
         return;
       }
       const isContextBoundVar = scopeManager.isContextBound(node.name) && !scopeManager.isRootParam(node.name);
       if (isContextBoundVar) {
         const isFunctionArg = node.parent && node.parent.type === "CallExpression" && node.parent.arguments.includes(node);
-        if (!isFunctionArg) {
+        const isSwitchDiscriminant = node.parent && node.parent.type === "SwitchStatement" && node.parent.discriminant === node;
+        const isSwitchCaseTest = node.parent && node.parent.type === "SwitchCase" && node.parent.test === node;
+        if (!isFunctionArg && !isSwitchDiscriminant && !isSwitchCaseTest) {
           return;
         }
       }
@@ -8652,7 +8689,7 @@ ${code}
         if (scopedName === node.name && !scopeManager.isContextBound(node.name)) {
           return;
         }
-        memberExpr = ASTFactory.createContextVariableReference(kind, scopedName);
+        memberExpr = createScopedVariableReference(node.name, scopeManager);
       }
       if (!hasArrayAccess) {
         const accessExpr = ASTFactory.createGetCall(memberExpr, 0);
@@ -8699,7 +8736,7 @@ ${code}
       transformArrayIndex(memberNode, scopeManager);
       memberNode._indexTransformed = true;
     }
-    const isContextMemberAccess = memberNode.object && memberNode.object.type === "MemberExpression" && memberNode.object.object && memberNode.object.object.type === "MemberExpression" && memberNode.object.object.object && memberNode.object.object.object.name === CONTEXT_NAME;
+    const isContextMemberAccess = memberNode.object && memberNode.object.type === "MemberExpression" && memberNode.object.object && memberNode.object.object.type === "MemberExpression" && memberNode.object.object.object && (memberNode.object.object.object.name === CONTEXT_NAME || memberNode.object.object.object.name === "$$");
     const isContextBoundIdentifier = memberNode.object && memberNode.object.type === "Identifier" && scopeManager.isContextBound(memberNode.object.name);
     if (memberNode.computed && (isContextMemberAccess || isContextBoundIdentifier)) {
       if (memberNode.parent && memberNode.parent.type === "AssignmentExpression" && memberNode.parent.left === memberNode) {
@@ -8736,12 +8773,12 @@ ${code}
         return node;
       }
       if (isUserVariable) {
-        return ASTFactory.createContextVariableReference(kind, scopedName);
+        return createScopedVariableReference(node.name, scopeManager);
       }
       if (scopedName === node.name && !scopeManager.isContextBound(node.name)) {
         return node;
       }
-      return ASTFactory.createContextVariableReference(kind, scopedName);
+      return createScopedVariableReference(node.name, scopeManager);
     }
     return node;
   }
@@ -8952,8 +8989,7 @@ ${code}
             if (scopeManager.isContextBound(element.name) && !scopeManager.isRootParam(element.name)) {
               return element;
             }
-            const [scopedName, kind] = scopeManager.getVariable(element.name);
-            return ASTFactory.createContextVariableAccess0(kind, scopedName);
+            return createScopedVariableAccess(element.name, scopeManager);
           }
           return element;
         });
@@ -9026,14 +9062,13 @@ ${code}
               computed: false
             };
           }
-          const [scopedName, kind] = scopeManager.getVariable(prop.value.name);
           return {
             type: "Property",
             key: {
               type: "Identifier",
               name: prop.key.name
             },
-            value: ASTFactory.createContextVariableReference(kind, scopedName),
+            value: createScopedVariableReference(prop.value.name, scopeManager),
             kind: "init",
             method: false,
             shorthand: false,
@@ -9117,13 +9152,15 @@ ${code}
       if (namespace2 === "ta") {
         if (scopeManager.getCurrentScopeType() === "fn") {
           const staticId = scopeManager.getNextTACallId();
-          const [scopedName, kind] = scopeManager.getVariable("_callId");
+          const [localCtxName] = scopeManager.getVariable("$$");
           let leftOperand;
-          if (scopedName !== "_callId") {
-            const contextVar = ASTFactory.createContextVariableReference(kind, scopedName);
-            leftOperand = ASTFactory.createGetCall(contextVar, 0);
+          if (localCtxName) {
+            leftOperand = ASTFactory.createMemberExpression(
+              ASTFactory.createLocalContextIdentifier(),
+              ASTFactory.createIdentifier("id")
+            );
           } else {
-            leftOperand = ASTFactory.createIdentifier("_callId");
+            leftOperand = ASTFactory.createLiteral("");
           }
           const callIdArg = {
             type: "BinaryExpression",
@@ -9237,8 +9274,7 @@ ${code}
   function transformAssignmentExpression(node, scopeManager) {
     let targetVarRef = null;
     if (node.left.type === "Identifier") {
-      const [varName, kind] = scopeManager.getVariable(node.left.name);
-      targetVarRef = ASTFactory.createContextVariableReference(kind, varName);
+      targetVarRef = createScopedVariableReference(node.left.name, scopeManager);
     } else if (node.left.type === "MemberExpression" && node.left.computed) {
       if (node.left.object.type === "Identifier") {
         const name = node.left.object.name;
@@ -9247,7 +9283,7 @@ ${code}
         const isContextBound = scopeManager.isContextBound(name);
         if ((isRenamed || isContextBound) && !scopeManager.isLoopVariable(name)) {
           if (node.left.property.type === "Literal" && node.left.property.value === 0) {
-            targetVarRef = ASTFactory.createContextVariableReference(kind, varName);
+            targetVarRef = createScopedVariableReference(name, scopeManager);
           }
         }
       }
@@ -9257,7 +9293,7 @@ ${code}
         const [varName, kind] = scopeManager.getVariable(name);
         const isRenamed = varName !== name;
         if (isRenamed && !scopeManager.isLoopVariable(name)) {
-          const contextVarRef = ASTFactory.createContextVariableReference(kind, varName);
+          const contextVarRef = createScopedVariableReference(name, scopeManager);
           const getCall = ASTFactory.createGetCall(contextVarRef, 0);
           node.left.object = getCall;
         }
@@ -9326,6 +9362,7 @@ ${code}
     }
   }
   function transformVariableDeclaration(varNode, scopeManager) {
+    if (varNode._skipTransformation) return;
     varNode.declarations.forEach((decl) => {
       if (decl.init.name == "na") {
         decl.init.name = "NaN";
@@ -9368,7 +9405,7 @@ ${code}
           }
         });
       }
-      const newName = scopeManager.addVariable(decl.id.name, varNode.kind);
+      scopeManager.addVariable(decl.id.name, varNode.kind);
       const kind = varNode.kind;
       const isArrayPatternVar = scopeManager.isArrayPatternElement(decl.id.name);
       if (decl.init && !isArrowFunction && !isArrayPatternVar) {
@@ -9440,7 +9477,7 @@ ${code}
           );
         }
       }
-      const targetVarRef = ASTFactory.createContextVariableReference(kind, newName);
+      const targetVarRef = createScopedVariableReference(decl.id.name, scopeManager);
       const isArrayInit = !isArrayPatternVar && decl.init && decl.init.type === "MemberExpression" && decl.init.computed && decl.init.property && (decl.init.property.type === "Literal" || decl.init.property.type === "MemberExpression");
       if (decl.init?.property?.type === "MemberExpression") {
         if (!decl.init.property._indexTransformed) {
@@ -9467,8 +9504,7 @@ ${code}
       const assignmentExpr = ASTFactory.createExpressionStatement(ASTFactory.createAssignmentExpression(targetVarRef, rightSide));
       if (isArrayPatternVar) {
         const tempVarName = decl.init.object.name;
-        const [scopedTempName, tempKind] = scopeManager.getVariable(tempVarName);
-        const tempVarRef = ASTFactory.createContextVariableReference(tempKind, scopedTempName);
+        const tempVarRef = createScopedVariableReference(tempVarName, scopeManager);
         const arrayIndex = decl.init.property.value;
         const getCall = ASTFactory.createGetCall(tempVarRef, 0);
         const arrayAccess = {
@@ -9488,9 +9524,6 @@ ${code}
       if (isArrowFunction) {
         scopeManager.pushScope("fn");
         recursive(decl.init.body, scopeManager, {
-          BlockStatement(node, state, c) {
-            node.body.forEach((stmt) => c(stmt, state));
-          },
           IfStatement(node, state, c) {
             state.pushScope("if");
             c(node.consequent, state);
@@ -9509,6 +9542,40 @@ ${code}
           },
           AssignmentExpression(node, state) {
             transformAssignmentExpression(node, state);
+          },
+          SwitchStatement(node, state, c) {
+            node.discriminant.parent = node;
+            c(node.discriminant, state);
+            node.cases.forEach((caseNode) => {
+              caseNode.parent = node;
+              c(caseNode, state);
+            });
+          },
+          SwitchCase(node, state, c) {
+            if (node.test) {
+              node.test.parent = node;
+              c(node.test, state);
+            }
+            const newConsequent = [];
+            node.consequent.forEach((stmt) => {
+              state.enterHoistingScope();
+              c(stmt, state);
+              const hoistedStmts = state.exitHoistingScope();
+              newConsequent.push(...hoistedStmts);
+              newConsequent.push(stmt);
+            });
+            node.consequent = newConsequent;
+          },
+          BlockStatement(node, state, c) {
+            const newBody = [];
+            node.body.forEach((stmt) => {
+              state.enterHoistingScope();
+              c(stmt, state);
+              const hoistedStmts = state.exitHoistingScope();
+              newBody.push(...hoistedStmts);
+              newBody.push(stmt);
+            });
+            node.body = newBody;
           }
         });
         scopeManager.popScope();
@@ -9631,8 +9698,7 @@ ${code}
             if (scopeManager.isContextBound(element.name) && !scopeManager.isRootParam(element.name)) {
               return ASTFactory.createGetCall(element, 0);
             }
-            const [scopedName, kind] = scopeManager.getVariable(element.name);
-            return ASTFactory.createContextVariableAccess0(kind, scopedName);
+            return createScopedVariableAccess(element.name, scopeManager);
           } else if (element.type === "MemberExpression") {
             const isContextVarRef = element.object && element.object.type === "MemberExpression" && element.object.object && element.object.object.type === "Identifier" && element.object.object.name === "$" && element.object.property && ["const", "let", "var", "params"].includes(element.object.property.name);
             if (isContextVarRef) {
@@ -9650,29 +9716,17 @@ ${code}
           type: "ArrayExpression",
           elements: [node.argument]
         };
-      } else if (node.argument.type === "BinaryExpression") {
-        recursive(node.argument, scopeManager, {
-          Identifier(node2, state) {
-            transformIdentifier(node2, state);
-            if (node2.type === "Identifier") {
-              addArrayAccess(node2);
-            }
-          },
-          MemberExpression(node2) {
-            transformMemberExpression(node2, "", scopeManager);
-          }
-        });
       } else if (node.argument.type === "ObjectExpression") {
         node.argument.properties = node.argument.properties.map((prop) => {
           if (prop.shorthand) {
             if (scopeManager.isContextBound(prop.value.name)) {
               return prop;
             }
-            const [scopedName, kind] = scopeManager.getVariable(prop.value.name);
+            scopeManager.getVariable(prop.value.name);
             return {
               type: "Property",
               key: ASTFactory.createIdentifier(prop.key.name),
-              value: ASTFactory.createContextVariableReference(kind, scopedName),
+              value: createScopedVariableReference(prop.value.name, scopeManager),
               kind: "init",
               method: false,
               shorthand: false,
@@ -9681,8 +9735,7 @@ ${code}
           }
           if (prop.value && prop.value.type === "Identifier") {
             if (scopeManager.isContextBound(prop.value.name) && !scopeManager.isRootParam(prop.value.name)) ; else if (!scopeManager.isContextBound(prop.value.name)) {
-              const [scopedName, kind] = scopeManager.getVariable(prop.value.name);
-              prop.value = ASTFactory.createContextVariableReference(kind, scopedName);
+              prop.value = createScopedVariableReference(prop.value.name, scopeManager);
             }
           }
           return prop;
@@ -9717,6 +9770,9 @@ ${code}
             },
             // c is the callback function for recursion (acorn-walk)
             CallExpression(node2, state, c) {
+              if (node2.callee.type === "ArrowFunctionExpression" || node2.callee.type === "FunctionExpression") {
+                c(node2.callee, state);
+              }
               transformCallExpression(node2, state);
               if (node2.type === "CallExpression") {
                 node2.arguments.forEach((arg) => c(arg, state));
@@ -9725,6 +9781,40 @@ ${code}
             BinaryExpression(node2, state, c) {
               c(node2.left, state);
               c(node2.right, state);
+            },
+            SwitchStatement(node2, state, c) {
+              node2.discriminant.parent = node2;
+              c(node2.discriminant, state);
+              node2.cases.forEach((caseNode) => {
+                caseNode.parent = node2;
+                c(caseNode, state);
+              });
+            },
+            SwitchCase(node2, state, c) {
+              if (node2.test) {
+                node2.test.parent = node2;
+                c(node2.test, state);
+              }
+              const newConsequent = [];
+              node2.consequent.forEach((stmt) => {
+                state.enterHoistingScope();
+                c(stmt, state);
+                const hoistedStmts = state.exitHoistingScope();
+                newConsequent.push(...hoistedStmts);
+                newConsequent.push(stmt);
+              });
+              node2.consequent = newConsequent;
+            },
+            BlockStatement(node2, state, c) {
+              const newBody = [];
+              node2.body.forEach((stmt) => {
+                state.enterHoistingScope();
+                c(stmt, state);
+                const hoistedStmts = state.exitHoistingScope();
+                newBody.push(...hoistedStmts);
+                newBody.push(stmt);
+              });
+              node2.body = newBody;
             }
           });
         }
@@ -9738,12 +9828,14 @@ ${code}
   }
   function transformFunctionDeclaration(node, scopeManager, c) {
     const callIdDecl = ASTFactory.createVariableDeclaration(
-      "_callId",
+      "$$",
       ASTFactory.createCallExpression(
-        ASTFactory.createMemberExpression(ASTFactory.createContextIdentifier(), ASTFactory.createIdentifier("peekId")),
+        ASTFactory.createMemberExpression(ASTFactory.createContextIdentifier(), ASTFactory.createIdentifier("peekCtx")),
         []
       )
     );
+    callIdDecl._skipTransformation = true;
+    scopeManager.addLoopVariable("$$", "$$");
     if (node.body && node.body.type === "BlockStatement") {
       node.body.body.unshift(callIdDecl);
       scopeManager.pushScope("fn");
@@ -9840,6 +9932,29 @@ ${code}
       },
       IfStatement(node, state, c) {
         transformIfStatement(node, state, c);
+      },
+      SwitchStatement(node, state, c) {
+        node.discriminant.parent = node;
+        c(node.discriminant, state);
+        node.cases.forEach((caseNode) => {
+          caseNode.parent = node;
+          c(caseNode, state);
+        });
+      },
+      SwitchCase(node, state, c) {
+        if (node.test) {
+          node.test.parent = node;
+          c(node.test, state);
+        }
+        const newConsequent = [];
+        node.consequent.forEach((stmt) => {
+          state.enterHoistingScope();
+          c(stmt, state);
+          const hoistedStmts = state.exitHoistingScope();
+          newConsequent.push(...hoistedStmts);
+          newConsequent.push(stmt);
+        });
+        node.consequent = newConsequent;
       },
       AwaitExpression(node, state, c) {
         if (node.argument) {
@@ -10045,7 +10160,7 @@ ${code}
           break;
         }
       }
-      if (this.peek() === "\n" || this.peek() === "\0") {
+      if (this.peek() === "\n" || this.peek() === "\r" || this.peek() === "\0") {
         return;
       }
       indent += Math.floor(spaceCount / 4);
@@ -10152,6 +10267,27 @@ ${code}
           }
         } else {
           break;
+        }
+      }
+      if (this.pos < this.source.length) {
+        const ch = this.peek();
+        if (ch === "e" || ch === "E") {
+          const nextCh = this.peek(1);
+          if (this.isDigit(nextCh)) {
+            value += this.advance();
+            while (this.pos < this.source.length && this.isDigit(this.peek())) {
+              value += this.advance();
+            }
+          } else if (nextCh === "+" || nextCh === "-") {
+            const nextNextCh = this.peek(2);
+            if (this.isDigit(nextNextCh)) {
+              value += this.advance();
+              value += this.advance();
+              while (this.pos < this.source.length && this.isDigit(this.peek())) {
+                value += this.advance();
+              }
+            }
+          }
         }
       }
       this.addToken(TokenType.NUMBER, parseFloat(value));
@@ -10531,8 +10667,33 @@ ${code}
       }
       return this.advance();
     }
-    skipNewlines() {
+    // Match a token, optionally ignoring NEWLINE and INDENT (for line continuation)
+    matchEx(type, value = null, allowLineContinuation = false) {
+      if (!allowLineContinuation) {
+        return this.match(type, value);
+      }
+      let offset = 0;
+      let token = this.peek(offset);
+      if (token.type === TokenType.NEWLINE) {
+        offset++;
+        token = this.peek(offset);
+        if (token.type === TokenType.INDENT) {
+          offset++;
+          token = this.peek(offset);
+        }
+      }
+      if (token.type !== type) return false;
+      if (value !== null && token.value !== value) return false;
+      for (let i = 0; i < offset; i++) {
+        this.advance();
+      }
+      return true;
+    }
+    skipNewlines(allowIndent = false) {
       while (this.match(TokenType.NEWLINE)) {
+        this.advance();
+      }
+      if (allowIndent && this.match(TokenType.INDENT)) {
         this.advance();
       }
     }
@@ -10541,6 +10702,10 @@ ${code}
       const body = [];
       while (!this.match(TokenType.EOF)) {
         this.skipNewlines();
+        if (this.match(TokenType.DEDENT)) {
+          this.advance();
+          continue;
+        }
         if (this.match(TokenType.EOF)) break;
         const stmt = this.parseStatement();
         if (stmt) body.push(stmt);
@@ -10591,7 +10756,7 @@ ${code}
           const op = this.peek().value;
           if (["=", ":=", "+=", "-=", "*=", "/=", "%="].includes(op)) {
             this.advance();
-            this.skipNewlines();
+            this.skipNewlines(true);
             const right = this.parseExpression();
             if (op === "=" && expr.type === "Identifier") {
               stmt = new VariableDeclaration([new VariableDeclarator(expr, right)], VariableDeclarationKind.LET);
@@ -10707,7 +10872,7 @@ ${code}
         throw new Error(`Expected identifier after ${kind} at ${this.peek().line}:${this.peek().column}`);
       }
       this.expect(TokenType.OPERATOR, "=");
-      this.skipNewlines();
+      this.skipNewlines(true);
       const init = this.parseExpression();
       const id = new Identifier(name);
       if (varType) {
@@ -10723,7 +10888,7 @@ ${code}
       }
       const name = this.expect(TokenType.IDENTIFIER).value;
       this.expect(TokenType.OPERATOR, "=");
-      this.skipNewlines();
+      this.skipNewlines(true);
       const init = this.parseExpression();
       const id = new Identifier(name);
       id.varType = varType;
@@ -10887,7 +11052,7 @@ ${code}
           const op = this.peek().value;
           if (["=", ":=", "+=", "-=", "*=", "/=", "%="].includes(op)) {
             this.advance();
-            this.skipNewlines();
+            this.skipNewlines(true);
             const right = this.parseExpression();
             if (op === "=" && expr.type === "Identifier") {
               sequenceItems.push(new VariableDeclaration([new VariableDeclarator(expr, right)], VariableDeclarationKind.LET));
@@ -11015,16 +11180,29 @@ ${code}
         const stmt = this.parseStatement();
         return new BlockStatement(stmt ? [stmt] : []);
       }
+      const blockIndent = this.peek().indent;
       this.advance();
       const statements = [];
-      while (!this.match(TokenType.DEDENT) && !this.match(TokenType.EOF)) {
+      while (!this.match(TokenType.EOF)) {
         this.skipNewlines();
-        if (this.match(TokenType.DEDENT)) break;
+        if (this.match(TokenType.DEDENT)) {
+          const dedentLevel = this.peek().indent;
+          if (dedentLevel < blockIndent) {
+            break;
+          } else {
+            this.advance();
+            continue;
+          }
+        }
+        if (this.match(TokenType.EOF)) break;
         const stmt = this.parseStatement();
         if (stmt) statements.push(stmt);
       }
       if (this.match(TokenType.DEDENT)) {
-        this.advance();
+        const dedentLevel = this.peek().indent;
+        if (dedentLevel < blockIndent) {
+          this.advance();
+        }
       }
       return new BlockStatement(statements);
     }
@@ -11064,7 +11242,7 @@ ${code}
       this.expect(TokenType.RBRACKET);
       this.skipNewlines();
       this.expect(TokenType.OPERATOR, "=");
-      this.skipNewlines();
+      this.skipNewlines(true);
       const init = this.parseExpression();
       return new VariableDeclaration([new VariableDeclarator(new ArrayPattern(elements), init)], VariableDeclarationKind.CONST);
     }
@@ -11074,12 +11252,16 @@ ${code}
     }
     parseTernary() {
       let expr = this.parseLogicalOr();
-      if (this.match(TokenType.OPERATOR, "?")) {
+      if (this.matchEx(TokenType.OPERATOR, "?", true)) {
         this.advance();
-        this.skipNewlines();
+        this.skipNewlines(true);
         const consequent = this.parseExpression();
-        this.expect(TokenType.COLON);
-        this.skipNewlines();
+        if (this.matchEx(TokenType.COLON, null, true)) {
+          this.advance();
+        } else {
+          this.expect(TokenType.COLON);
+        }
+        this.skipNewlines(true);
         const alternate = this.parseExpression();
         return new ConditionalExpression(expr, consequent, alternate);
       }
@@ -11087,9 +11269,9 @@ ${code}
     }
     parseLogicalOr() {
       let left = this.parseLogicalAnd();
-      while (this.match(TokenType.KEYWORD, "or") || this.match(TokenType.OPERATOR) && this.peek().value === "||") {
+      while (this.matchEx(TokenType.KEYWORD, "or", true) || this.matchEx(TokenType.OPERATOR, null, true) && this.peek().value === "||") {
         this.advance();
-        this.skipNewlines();
+        this.skipNewlines(true);
         const right = this.parseLogicalAnd();
         left = new BinaryExpression("||", left, right);
       }
@@ -11097,7 +11279,7 @@ ${code}
     }
     parseLogicalAnd() {
       let left = this.parseEquality();
-      while (this.match(TokenType.KEYWORD, "and") || this.match(TokenType.OPERATOR) && this.peek().value === "&&") {
+      while (this.matchEx(TokenType.KEYWORD, "and", true) || this.matchEx(TokenType.OPERATOR, null, true) && this.peek().value === "&&") {
         this.advance();
         this.skipNewlines();
         const right = this.parseEquality();
@@ -11107,11 +11289,11 @@ ${code}
     }
     parseEquality() {
       let left = this.parseComparison();
-      while (this.match(TokenType.OPERATOR)) {
+      while (this.matchEx(TokenType.OPERATOR, null, true)) {
         const op = this.peek().value;
         if (!["==", "!="].includes(op)) break;
         this.advance();
-        this.skipNewlines();
+        this.skipNewlines(true);
         const right = this.parseComparison();
         left = new BinaryExpression(op, left, right);
       }
@@ -11119,7 +11301,7 @@ ${code}
     }
     parseComparison() {
       let left = this.parseAdditive();
-      while (this.match(TokenType.OPERATOR)) {
+      while (this.matchEx(TokenType.OPERATOR, null, true)) {
         const op = this.peek().value;
         if (!["<", ">", "<=", ">="].includes(op)) break;
         this.advance();
@@ -11131,11 +11313,11 @@ ${code}
     }
     parseAdditive() {
       let left = this.parseMultiplicative();
-      while (this.match(TokenType.OPERATOR)) {
+      while (this.matchEx(TokenType.OPERATOR, null, true)) {
         const op = this.peek().value;
         if (!["+", "-"].includes(op)) break;
         this.advance();
-        this.skipNewlines();
+        this.skipNewlines(true);
         const right = this.parseMultiplicative();
         left = new BinaryExpression(op, left, right);
       }
@@ -11143,11 +11325,11 @@ ${code}
     }
     parseMultiplicative() {
       let left = this.parseUnary();
-      while (this.match(TokenType.OPERATOR)) {
+      while (this.matchEx(TokenType.OPERATOR, null, true)) {
         const op = this.peek().value;
         if (!["*", "/", "%"].includes(op)) break;
         this.advance();
-        this.skipNewlines();
+        this.skipNewlines(true);
         const right = this.parseUnary();
         left = new BinaryExpression(op, left, right);
       }
@@ -12453,27 +12635,37 @@ ${code}
       }
       this.write("}");
     }
-    // Generate SwitchExpression (convert to ternary chain)
+    // Generate SwitchExpression (convert to IIFE with switch statement)
     generateSwitchExpression(node) {
-      this.write("(");
-      for (let i = 0; i < node.cases.length; i++) {
-        const c = node.cases[i];
+      this.write("(() => {\n");
+      this.indent++;
+      this.write(this.indentStr.repeat(this.indent));
+      this.write("switch (");
+      this.generateExpression(node.discriminant);
+      this.write(") {\n");
+      this.indent++;
+      for (const c of node.cases) {
+        this.write(this.indentStr.repeat(this.indent));
         if (c.test) {
-          this.generateExpression(node.discriminant);
-          this.write(" == ");
+          this.write("case ");
           this.generateExpression(c.test);
-          this.write(" ? ");
-          this.generateExpression(c.consequent);
-          this.write(" : ");
+          this.write(":\n");
         } else {
-          this.generateExpression(c.consequent);
+          this.write("default:\n");
         }
+        this.indent++;
+        this.write(this.indentStr.repeat(this.indent));
+        this.write("return ");
+        this.generateExpression(c.consequent);
+        this.write(";\n");
+        this.indent--;
       }
-      const hasDefault = node.cases.some((c) => !c.test);
-      if (!hasDefault) {
-        this.write("undefined");
-      }
-      this.write(")");
+      this.indent--;
+      this.write(this.indentStr.repeat(this.indent));
+      this.write("}\n");
+      this.indent--;
+      this.write(this.indentStr.repeat(this.indent));
+      this.write("})()");
     }
     // Generate SequenceExpression
     generateSequenceExpression(node) {
@@ -15768,8 +15960,17 @@ ${code}
   }
 
   function round(context) {
-    return (source) => {
-      return Math.round(Series.from(source).get(0));
+    return (source, precision) => {
+      const value = Series.from(source).get(0);
+      if (precision === void 0 || precision === null) {
+        return Math.round(value);
+      }
+      const precisionValue = Series.from(precision).get(0);
+      if (precisionValue === 0) {
+        return Math.round(value);
+      }
+      const multiplier = Math.pow(10, precisionValue);
+      return Math.round(value * multiplier) / multiplier;
     };
   }
 
@@ -15822,6 +16023,26 @@ ${code}
     };
   }
 
+  function todegrees(context) {
+    return (radians) => {
+      const value = Series.from(radians).get(0);
+      if (value === null || value === void 0 || Number.isNaN(value)) {
+        return NaN;
+      }
+      return value * (180 / Math.PI);
+    };
+  }
+
+  function toradians(context) {
+    return (degrees) => {
+      const value = Series.from(degrees).get(0);
+      if (value === null || value === void 0 || Number.isNaN(value)) {
+        return NaN;
+      }
+      return value * (Math.PI / 180);
+    };
+  }
+
   function __eq(context) {
     return (a, b) => {
       const valA = Series.from(a).get(0);
@@ -15867,6 +16088,8 @@ ${code}
     sqrt,
     sum,
     tan,
+    todegrees,
+    toradians,
     __eq
   };
   class PineMath {
@@ -15901,6 +16124,8 @@ ${code}
       __publicField$6(this, "sqrt");
       __publicField$6(this, "sum");
       __publicField$6(this, "tan");
+      __publicField$6(this, "todegrees");
+      __publicField$6(this, "toradians");
       __publicField$6(this, "__eq");
       Object.entries(methods$2).forEach(([name, factory]) => {
         this[name] = factory(context);
@@ -17082,7 +17307,7 @@ ${code}
       const period = Series.from(_period).get(0);
       const halfPeriod = Math.floor(period / 2);
       const sqrtPeriod = Math.floor(Math.sqrt(period));
-      const wmaFn = context.ta.wma;
+      const wmaFn = context.pine.ta.wma;
       const wma1 = wmaFn(source, halfPeriod, _callId ? `${_callId}_wma1` : void 0);
       const wma2 = wmaFn(source, period, _callId ? `${_callId}_wma2` : void 0);
       if (isNaN(wma1) || isNaN(wma2)) {
@@ -17463,15 +17688,15 @@ ${code}
       const fastEmaId = `${baseId}_fast`;
       const slowEmaId = `${baseId}_slow`;
       const signalEmaId = `${baseId}_signal`;
-      const fastMA = context.ta.ema(source, fastLength, fastEmaId);
-      const slowMA = context.ta.ema(source, slowLength, slowEmaId);
+      const fastMA = context.pine.ta.ema(source, fastLength, fastEmaId);
+      const slowMA = context.pine.ta.ema(source, slowLength, slowEmaId);
       let macdLine = NaN;
       if (!isNaN(fastMA) && !isNaN(slowMA)) {
         macdLine = fastMA - slowMA;
       }
       let signalLine = NaN;
       if (!isNaN(macdLine)) {
-        signalLine = context.ta.ema(macdLine, signalLength, signalEmaId);
+        signalLine = context.pine.ta.ema(macdLine, signalLength, signalEmaId);
       }
       let histLine = NaN;
       if (!isNaN(macdLine) && !isNaN(signalLine)) {
@@ -17630,7 +17855,7 @@ ${code}
   function mom(context) {
     return (source, _length, _callId) => {
       const length = Series.from(_length).get(0);
-      return context.ta.change(source, length, _callId);
+      return context.pine.ta.change(source, length, _callId);
     };
   }
 
@@ -18310,22 +18535,47 @@ ${code}
         }
         state.lastIdx = context.idx;
       }
-      const currentValue = Series.from(source).get(0) || 0;
+      const currentValue = Series.from(source).get(0);
       const window = [...state.prevWindow];
-      let sum = state.prevSum;
       window.unshift(currentValue);
-      sum += currentValue;
-      if (window.length < period) {
-        state.currentWindow = window;
-        state.currentSum = sum;
-        return NaN;
-      }
       if (window.length > period) {
-        const oldValue = window.pop();
-        sum -= oldValue;
+        window.pop();
+      }
+      let sum;
+      const isCurrentInvalid = currentValue === void 0 || currentValue === null || Number.isNaN(currentValue);
+      const isPrevSumInvalid = Number.isNaN(state.prevSum);
+      let useFastPath = !isPrevSumInvalid && !isCurrentInvalid;
+      if (useFastPath) {
+        let tempSum = state.prevSum + currentValue;
+        if (state.prevWindow.length >= period) {
+          const popped = state.prevWindow[state.prevWindow.length - 1];
+          if (popped === void 0 || popped === null || Number.isNaN(popped)) {
+            useFastPath = false;
+          } else {
+            tempSum -= popped;
+          }
+        }
+        if (useFastPath) {
+          sum = tempSum;
+        }
+      }
+      if (!useFastPath) {
+        sum = 0;
+        let hasNaN = false;
+        for (const v of window) {
+          if (v === void 0 || v === null || Number.isNaN(v)) {
+            hasNaN = true;
+            break;
+          }
+          sum += v;
+        }
+        if (hasNaN) sum = NaN;
       }
       state.currentWindow = window;
       state.currentSum = sum;
+      if (window.length < period) {
+        return NaN;
+      }
       const sma2 = sum / period;
       return context.precision(sma2);
     };
@@ -19947,6 +20197,7 @@ ${code}
       __publicField$3(this, "const", {});
       __publicField$3(this, "var", {});
       __publicField$3(this, "let", {});
+      __publicField$3(this, "lctx", /* @__PURE__ */ new Map());
       __publicField$3(this, "result");
       __publicField$3(this, "plots", {});
       __publicField$3(this, "marketData");
@@ -20211,6 +20462,25 @@ ${code}
      */
     peekId() {
       return this._callStack.length > 0 ? this._callStack[this._callStack.length - 1] : "";
+    }
+    /**
+     * Returns the local context object for the current call ID.
+     * Creates it if it doesn't exist.
+     */
+    peekCtx() {
+      const id = this.peekId();
+      if (!id) return this;
+      let ctx = this.lctx.get(id);
+      if (!ctx) {
+        ctx = {
+          id,
+          let: {},
+          const: {},
+          var: {}
+        };
+        this.lctx.set(id, ctx);
+      }
+      return ctx;
     }
     /**
      * Calls a function with a specific call ID context
@@ -20710,15 +20980,22 @@ ${code}
         context.data.closeTime.data.pop();
       }
       const contextVarNames = ["const", "var", "let", "params"];
-      for (let ctxVarName of contextVarNames) {
-        for (let key in context[ctxVarName]) {
-          const item = context[ctxVarName][key];
-          if (item instanceof Series) {
-            item.data.pop();
-          } else if (Array.isArray(item)) {
-            item.pop();
+      const rollbackVariables = (container) => {
+        for (let ctxVarName of contextVarNames) {
+          if (!container[ctxVarName]) continue;
+          for (let key in container[ctxVarName]) {
+            const item = container[ctxVarName][key];
+            if (item instanceof Series) {
+              item.data.pop();
+            } else if (Array.isArray(item)) {
+              item.pop();
+            }
           }
         }
+      };
+      rollbackVariables(context);
+      if (context.lctx) {
+        context.lctx.forEach((lctx) => rollbackVariables(lctx));
       }
     }
     /**
@@ -20804,17 +21081,24 @@ ${code}
           }
           context.result.push(result);
         }
-        for (let ctxVarName of contextVarNames) {
-          for (let key in context[ctxVarName]) {
-            const item = context[ctxVarName][key];
-            if (item instanceof Series) {
-              const val = item.get(0);
-              item.data.push(val);
-            } else if (Array.isArray(item)) {
-              const val = item[item.length - 1];
-              item.push(val);
+        const shiftVariables = (container) => {
+          for (let ctxVarName of contextVarNames) {
+            if (!container[ctxVarName]) continue;
+            for (let key in container[ctxVarName]) {
+              const item = container[ctxVarName][key];
+              if (item instanceof Series) {
+                const val = item.get(0);
+                item.data.push(val);
+              } else if (Array.isArray(item)) {
+                const val = item[item.length - 1];
+                item.push(val);
+              }
             }
           }
+        };
+        shiftVariables(context);
+        if (context.lctx) {
+          context.lctx.forEach((lctx) => shiftVariables(lctx));
         }
       }
     }
@@ -20989,6 +21273,32 @@ ${code}
         return [];
       }
     }
+    async getMarketDataBackwards(tickerId, timeframe, limit, endTime) {
+      let remaining = limit;
+      let allData = [];
+      let currentEndTime = endTime;
+      let iterations = 0;
+      const maxIterations = Math.ceil(limit / 1e3) + 5;
+      while (remaining > 0 && iterations < maxIterations) {
+        iterations++;
+        const fetchSize = Math.min(remaining, 1e3);
+        const data = await this.getMarketData(
+          tickerId,
+          timeframe,
+          fetchSize,
+          void 0,
+          currentEndTime
+        );
+        if (data.length === 0) break;
+        allData = data.concat(allData);
+        remaining -= data.length;
+        currentEndTime = data[0].openTime - 1;
+        if (data.length < fetchSize) {
+          break;
+        }
+      }
+      return allData;
+    }
     async getMarketData(tickerId, timeframe, limit, sDate, eDate) {
       try {
         const shouldCache = eDate !== void 0;
@@ -21005,11 +21315,17 @@ ${code}
           return [];
         }
         const needsPagination = this.shouldPaginate(timeframe, limit, sDate, eDate);
-        if (needsPagination && sDate && eDate) {
-          const allData = await this.getMarketDataInterval(tickerId, timeframe, sDate, eDate);
-          const result2 = limit ? allData.slice(0, limit) : allData;
-          this.cacheManager.set(cacheParams, result2);
-          return result2;
+        if (needsPagination) {
+          if (sDate && eDate) {
+            const allData = await this.getMarketDataInterval(tickerId, timeframe, sDate, eDate);
+            const result2 = limit ? allData.slice(0, limit) : allData;
+            this.cacheManager.set(cacheParams, result2);
+            return result2;
+          } else if (limit && limit > 1e3) {
+            const result2 = await this.getMarketDataBackwards(tickerId, timeframe, limit, eDate);
+            this.cacheManager.set(cacheParams, result2);
+            return result2;
+          }
         }
         const baseUrl = await this.getBaseUrl();
         let url = `${baseUrl}/klines?symbol=${tickerId}&interval=${interval}`;

@@ -1,6 +1,7 @@
 import { OHLCV, Indicator as IndicatorType, QFChartOptions, IndicatorPlot, IndicatorStyle } from '../types';
 import { PaneConfiguration } from './LayoutManager';
 import { SeriesRendererFactory } from './SeriesRendererFactory';
+import { AxisUtils } from '../utils/AxisUtils';
 
 export class SeriesBuilder {
     private static readonly DEFAULT_COLOR = '#2962ff';
@@ -32,8 +33,13 @@ export class SeriesBuilder {
             if (lineStyleType.startsWith('linestyle_')) {
                 lineStyleType = lineStyleType.replace('linestyle_', '') as any;
             }
+            const decimals = options.yAxisDecimalPlaces !== undefined
+                ? options.yAxisDecimalPlaces
+                : AxisUtils.autoDetectDecimals(marketData);
+
             markLine = {
                 symbol: ['none', 'none'],
+                precision: decimals, // Ensure line position is precise enough for small values
                 data: [
                     {
                         yAxis: lastClose,
@@ -45,8 +51,7 @@ export class SeriesBuilder {
                                 if (options.yAxisLabelFormatter) {
                                     return options.yAxisLabelFormatter(params.value);
                                 }
-                                const decimals = options.yAxisDecimalPlaces !== undefined ? options.yAxisDecimalPlaces : 2;
-                                return typeof params.value === 'number' ? params.value.toFixed(decimals) : params.value;
+                                return AxisUtils.formatValue(params.value, decimals);
                             },
                             color: '#fff',
                             backgroundColor: lineColor,
@@ -125,8 +130,11 @@ export class SeriesBuilder {
                 let yAxisIndex = 0;
 
                 // Check plot-level overlay setting (overrides indicator-level setting)
+                // IMPORTANT: If indicator is overlay (paneIndex === 0), treat all plots as overlays
+                // This allows visual-only plots (background, barcolor) to have separate Y-axes while
+                // still being on the main chart pane
                 const plotOverlay = plot.options.overlay;
-                const isPlotOverlay = plotOverlay !== undefined ? plotOverlay : indicator.paneIndex === 0;
+                const isPlotOverlay = indicator.paneIndex === 0 || plotOverlay === true;
 
                 if (isPlotOverlay) {
                     // Plot should be on main chart (overlay)
