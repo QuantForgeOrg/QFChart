@@ -7,6 +7,7 @@ import { OHLCBarRenderer } from './renderers/OHLCBarRenderer';
 import { ShapeRenderer } from './renderers/ShapeRenderer';
 import { BackgroundRenderer } from './renderers/BackgroundRenderer';
 import { FillRenderer } from './renderers/FillRenderer';
+import { LabelRenderer } from './renderers/LabelRenderer';
 
 export class SeriesRendererFactory {
     private static renderers: Map<string, SeriesRenderer> = new Map();
@@ -24,6 +25,7 @@ export class SeriesRendererFactory {
         this.register('shape', new ShapeRenderer());
         this.register('background', new BackgroundRenderer());
         this.register('fill', new FillRenderer());
+        this.register('label', new LabelRenderer());
     }
 
     public static register(style: string, renderer: SeriesRenderer) {
