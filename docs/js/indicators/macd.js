@@ -32,6 +32,7 @@ const macdIndicator = (context) => {
         title: 'Histogram',
         style: 'histogram',
         color: histColor,
+        overlay: true,
     });
 
     plot(macd, 'MACD', { title: 'MACD', color: '#2962FF' });
