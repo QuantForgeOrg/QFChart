@@ -1,6 +1,6 @@
 {
     "name": "@qfo/qfchart",
-    "version": "0.6.6",
+    "version": "0.6.7",
     "description": "Professional financial charting library built on Apache ECharts with candlestick charts, technical indicators, and interactive drawing tools",
     "keywords": [
         "chart",

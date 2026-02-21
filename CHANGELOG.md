@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.7] - 2026-02-21
+
+### Added
+
+- **Labels Support**: Added support for labels on the chart (pull request #13).
+    - Implemented `LabelRenderer` for rendering label elements.
+    - Enables display of label annotations aligned with Pine Script `label.*` namespace output.
+
 ## [0.6.6] - 2026-02-15
 
 ### Fixed
