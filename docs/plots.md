@@ -927,7 +927,7 @@ color: 'rgb(255, 87, 34)'
 
 **Behavior:**
 
--   Fill renders at `z: -5` (behind lines, above background)
+-   Fill renders at `z: 1` (behind plot lines and candles, above grid background)
 -   Creates smooth, continuous area fill between lines (like TradingView's Bollinger Bands)
 -   Each segment is rendered as a polygon connecting consecutive points for smooth transitions
 -   Automatically handles gaps in data - no fill is rendered where data is missing
@@ -1146,6 +1146,7 @@ function onNewBar(bar, indicators) {
 
 ## See Also
 
+-   [Drawing Objects](/drawing-objects) - Labels, lines, and linefills for annotations and overlays
 -   [API Reference](/api) - Detailed method documentation
 -   [Layout & Customization](/layout) - Pane sizing and layout options
 -   [Plugins](/plugins) - Interactive tools and extensions

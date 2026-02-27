@@ -30,12 +30,20 @@ export class ShapeUtils {
                 return 'path://M6 2v20h2v-8h12l-2-6 2-6h-12z';
 
             case 'labeldown':
-                // Bubble pointing down: Rounded rect with a triangle at bottom
-                return 'path://M4 2h16a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-6l-2 4l-2 -4h-6a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2z';
+                // Bubble pointing down: rect with small triangle at bottom center
+                return 'path://M2 1h20a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-8l-2 3-2-3h-8a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1z';
+
+            case 'labelleft':
+                // Bubble with small pointer on the left side (pointing left)
+                return 'path://M0 10l3-3v-5a1 1 0 0 1 1-1h18a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1h-18a1 1 0 0 1-1-1v-5z';
+
+            case 'labelright':
+                // Bubble with small pointer on the right side (pointing right)
+                return 'path://M24 10l-3-3v-5a1 1 0 0 0-1-1h-18a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h18a1 1 0 0 0 1-1v-5z';
 
             case 'labelup':
-                // Bubble pointing up: Rounded rect with triangle at top
-                return 'path://M12 2l2 4h6a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-16a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h6z';
+                // Bubble pointing up: small triangle at top, rect below
+                return 'path://M12 1l2 3h8a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-20a1 1 0 0 1-1-1v-14a1 1 0 0 1 1-1h8z';
 
             case 'square':
                 return 'rect';

@@ -91,7 +91,7 @@ options: {
 
 ## Notes
 
--   Fill plots render at `z: -5`, meaning they appear **behind** lines but **above** background plots
+-   Fill plots render at `z: 1`, meaning they appear **behind** plot lines (z=2) and candles (z=5) but **above** the grid background (z=0)
 -   Fill plots do NOT have a `data` array - they derive their data from the referenced plots
 -   The fill is rendered as smooth polygons connecting consecutive points (like TradingView's Bollinger Bands)
 -   Gaps in either line are automatically handled - no fill is rendered for those segments

@@ -236,7 +236,8 @@ export class SeriesBuilder {
                     candlestickData,
                     plotDataArrays,
                     indicatorId: id,
-                    plotName: plotName
+                    plotName: plotName,
+                    dataIndexOffset,
                 });
 
                 if (seriesConfig) {

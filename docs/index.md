@@ -143,6 +143,12 @@ QFChart supports multiple plot styles for rendering technical indicators: `line`
 
 For detailed information about plot styles, options, and examples, see the [Plotting System Documentation](/plots).
 
+#### Drawing Objects
+
+QFChart also supports drawing objects for annotations and overlays: **labels** (text with bubble/shape markers), **lines** (trend lines, support/resistance levels), and **linefills** (filled areas between two lines). These use reserved plot keys (`__labels__`, `__lines__`, `__linefills__`) and can be combined with regular plot styles.
+
+For detailed information about drawing objects, see the [Drawing Objects Documentation](/drawing-objects).
+
 ### 5. Real-time Updates (Optional)
 
 For real-time data feeds (e.g., WebSocket), use `updateData()` for optimal performance:
