@@ -99,6 +99,7 @@ export class DrawingLineRenderer implements SeriesRenderer {
             data: lineData,
             z: 15,
             silent: true,
+            emphasis: { disabled: true },
         };
     }
 
