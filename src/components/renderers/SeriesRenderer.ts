@@ -13,6 +13,7 @@ export interface RenderContext {
     indicatorId?: string;
     plotName?: string;
     indicator?: any; // Reference to parent indicator object if needed
+    dataIndexOffset?: number; // Padding offset for converting bar_index to ECharts index
 }
 
 export interface SeriesRenderer {

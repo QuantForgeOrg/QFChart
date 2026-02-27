@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.8] - 2026-02-27 - Drawing Lines, Linefills & Label Improvements
+
+### Added
+
+- **Drawing Line Renderer (`DrawingLineRenderer`)**: New renderer for Pine Script `line.*` drawing objects. Renders lines between two `(x, y)` coordinates with support for line styles (solid, dashed, dotted), extend modes (left, right, both), configurable width and color. Handles `bar_index`-based coordinates with proper `dataIndexOffset` alignment.
+- **Linefill Renderer (`LinefillRenderer`)**: New renderer for `linefill.new()` that fills the area between two line objects as a 4-corner polygon. Supports line extend modes, color/opacity, and proper z-level ordering (z=10, between candles and drawing lines).
+- **Documentation**: Added comprehensive Drawing Objects documentation page covering labels, lines, and linefills with data format examples, coordinate system explanation, and z-level ordering reference.
+
+### Fixed
+
+- **Label Renderer Improvements**: Fixed and improved label rendering with better value resolution and positioning.
+- **FillRenderer Z-Level**: Changed fill z-level from `-5` to `1` — fills are now visible on the main chart pane (previously rendered behind the grid background).
+- **Sparse Array Aggregation**: Drawing lines now store all objects in a single array entry to prevent multiple `var` lines (same timestamp) from overwriting each other.
+- **Padding Offset Alignment**: Drawing line and linefill renderers correctly apply `dataIndexOffset` for `bar_index`-based coordinates, fixing ~60-bar misalignment with candles.
+
 ## [0.6.7] - 2026-02-21
 
 ### Added

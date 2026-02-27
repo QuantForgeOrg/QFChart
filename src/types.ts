@@ -34,7 +34,8 @@ export type IndicatorStyle =
     | 'candle'
     | 'barcolor'
     | 'fill'
-    | 'label';
+    | 'label'
+    | 'drawing_line';
 
 export interface IndicatorOptions {
     style: IndicatorStyle;

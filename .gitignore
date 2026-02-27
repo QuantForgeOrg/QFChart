@@ -140,3 +140,5 @@ vite.config.ts.timestamp-*
 
 _experiments/
 .external
+CLAUDE.md 
+MEMORY.md

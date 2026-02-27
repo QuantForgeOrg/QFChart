@@ -43,7 +43,7 @@ export class FillRenderer implements SeriesRenderer {
             type: 'custom',
             xAxisIndex: xAxisIndex,
             yAxisIndex: yAxisIndex,
-            z: -5, // Render behind lines but above background
+            z: 1, // Behind plot lines (z=2) and candles (z=5), above grid background
             renderItem: (params: any, api: any) => {
                 const index = params.dataIndex;
 
