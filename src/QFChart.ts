@@ -9,6 +9,7 @@ import { PluginManager } from './components/PluginManager';
 import { DrawingEditor } from './components/DrawingEditor';
 import { EventBus } from './utils/EventBus';
 import { AxisUtils } from './utils/AxisUtils';
+import { TableOverlayRenderer } from './components/TableOverlayRenderer';
 
 export class QFChart implements ChartContext {
     private chart: echarts.ECharts;
@@ -86,6 +87,8 @@ export class QFChart implements ChartContext {
     private leftSidebar: HTMLElement;
     private rightSidebar: HTMLElement;
     private chartContainer: HTMLElement;
+    private overlayContainer: HTMLElement;
+    private _lastTables: any[] = [];
 
     constructor(container: HTMLElement, options: QFChartOptions = {}) {
         this.rootContainer = container;
@@ -176,6 +179,13 @@ export class QFChart implements ChartContext {
         this.layoutContainer.appendChild(this.rightSidebar);
 
         this.chart = echarts.init(this.chartContainer);
+
+        // Overlay container for table rendering (positioned above ECharts canvas)
+        this.chartContainer.style.position = 'relative';
+        this.overlayContainer = document.createElement('div');
+        this.overlayContainer.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:100;overflow:hidden;';
+        this.chartContainer.appendChild(this.overlayContainer);
+
         this.pluginManager = new PluginManager(this, this.toolbarContainer);
         this.drawingEditor = new DrawingEditor(this);
 
@@ -727,6 +737,23 @@ export class QFChart implements ChartContext {
         // Merge the update (don't replace entire config)
         this.chart.setOption(updateOption, { notMerge: false });
 
+        // Re-render table overlays (indicators may have updated table data)
+        const allTables: any[] = [];
+        this.indicators.forEach((indicator) => {
+            Object.values(indicator.plots).forEach((plot: any) => {
+                if (plot.options?.style === 'table') {
+                    plot.data?.forEach((entry: any) => {
+                        const tables = Array.isArray(entry.value) ? entry.value : [entry.value];
+                        tables.forEach((t: any) => {
+                            if (t && !t._deleted) allTables.push(t);
+                        });
+                    });
+                }
+            });
+        });
+        this._lastTables = allTables;
+        this._renderTableOverlays();
+
         // Update countdown if needed
         this.startCountdown();
     }
@@ -926,6 +953,12 @@ export class QFChart implements ChartContext {
 
     public resize(): void {
         this.chart.resize();
+        this._renderTableOverlays();
+    }
+
+    private _renderTableOverlays(): void {
+        const gridRect = (this.chart.getModel() as any).getComponent('grid', 0)?.coordinateSystem?.getRect();
+        TableOverlayRenderer.render(this.overlayContainer, this._lastTables, gridRect);
     }
 
     public destroy(): void {
@@ -1385,6 +1418,20 @@ export class QFChart implements ChartContext {
             return `<div style="min-width: 200px;">${html}</div>`;
         };
 
+        // 6. Extract and render table overlays from indicator plots
+        const allTables: any[] = [];
+        this.indicators.forEach((indicator) => {
+            Object.values(indicator.plots).forEach((plot: any) => {
+                if (plot.options?.style === 'table') {
+                    plot.data?.forEach((entry: any) => {
+                        const tables = Array.isArray(entry.value) ? entry.value : [entry.value];
+                        tables.forEach((t: any) => {
+                            if (t && !t._deleted) allTables.push(t);
+                        });
+                    });
+                }
+            });
+        });
         const option: any = {
             backgroundColor: this.options.backgroundColor,
             animation: false,
@@ -1430,5 +1477,9 @@ export class QFChart implements ChartContext {
         };
 
         this.chart.setOption(option, true); // true = not merge, replace.
+
+        // Render table overlays AFTER setOption so we can query the computed grid rect
+        this._lastTables = allTables;
+        this._renderTableOverlays();
     }
 }
