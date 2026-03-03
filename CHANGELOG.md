@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] - 2026-02-27 - Box, Polyline & Table Renderers, Render Clipping
+
+### Added
+
+- **Box Renderer (`BoxRenderer`)**: New renderer for Pine Script `box.*` drawing objects. Renders filled rectangles defined by two corners `(left, top)` → `(right, bottom)` with configurable fill color, border color/width/style, optional text, and extend mode. Supports 8-digit hex colors (`#RRGGBBAA`) by converting them to `rgba()` for ECharts canvas compatibility.
+- **Polyline Renderer (`PolylineRenderer`)**: New renderer for Pine Script `polyline.*` drawing objects. Renders multi-point connected paths from an array of `chart.point` objects, with support for straight or curved segments, optional closed shapes, and fill color.
+- **Table Renderer (`TableOverlayRenderer`)**: New HTML-based renderer for Pine Script `table.*` drawing objects. Tables are positioned as DOM overlays anchored to fixed positions (`top_left`, `bottom_center`, etc.) rather than data coordinates. Supports cell text, background/text/border colors, full opacity control, and Pine Script's "last table at each position wins" behavior.
+
+### Fixed
+
+- **Render Clipping**: Fixed custom series rendering for drawing objects (lines, linefills, boxes, polylines) to properly clip to the chart grid area, preventing overflow outside the plot bounds. Updated `LayoutManager` to expose the grid rect for clipping and rewrote clipping logic across all affected renderers.
+- **Constants Compliance**: Aligned string constants for label styles, line styles, shape types, and size presets across renderers (`LabelRenderer`, `ShapeRenderer`, `ShapeUtils`, `DrawingLineRenderer`, `LinefillRenderer`) to match PineTS constant names. This ensures PineTS output renders correctly without manual constant conversion.
+
 ## [0.6.8] - 2026-02-27 - Drawing Lines, Linefills & Label Improvements
 
 ### Added
