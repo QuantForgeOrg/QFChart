@@ -11,6 +11,7 @@ import { LabelRenderer } from './renderers/LabelRenderer';
 import { DrawingLineRenderer } from './renderers/DrawingLineRenderer';
 import { LinefillRenderer } from './renderers/LinefillRenderer';
 import { PolylineRenderer } from './renderers/PolylineRenderer';
+import { BoxRenderer } from './renderers/BoxRenderer';
 
 export class SeriesRendererFactory {
     private static renderers: Map<string, SeriesRenderer> = new Map();
@@ -32,6 +33,7 @@ export class SeriesRendererFactory {
         this.register('drawing_line', new DrawingLineRenderer());
         this.register('linefill', new LinefillRenderer());
         this.register('drawing_polyline', new PolylineRenderer());
+        this.register('drawing_box', new BoxRenderer());
     }
 
     public static register(style: string, renderer: SeriesRenderer) {
