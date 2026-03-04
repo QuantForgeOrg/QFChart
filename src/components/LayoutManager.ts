@@ -100,7 +100,7 @@ export class LayoutManager {
             // Add 'inside' zoom only if zoomOnTouch is enabled (default true)
             const zoomOnTouch = options.dataZoom?.zoomOnTouch ?? true;
             if (zoomOnTouch) {
-                dataZoom.push({ type: 'inside', xAxisIndex: 'all', start: dzStart, end: dzEnd });
+                dataZoom.push({ type: 'inside', xAxisIndex: 'all', start: dzStart, end: dzEnd, filterMode: 'weakFilter' });
             }
 
             // Need to know total panes to iterate
@@ -480,7 +480,7 @@ export class LayoutManager {
 
                         // Check if this is a shape with price-relative positioning
                         const isShapeWithPriceLocation =
-                            plot.options.style === 'shape' && (plot.options.location === 'abovebar' || plot.options.location === 'belowbar');
+                            plot.options.style === 'shape' && (plot.options.location === 'abovebar' || plot.options.location === 'AboveBar' || plot.options.location === 'belowbar' || plot.options.location === 'BelowBar');
 
                         if (visualOnlyStyles.includes(plot.options.style)) {
                             // Assign these to a separate Y-axis so they don't affect price scale
@@ -616,6 +616,7 @@ export class LayoutManager {
                     xAxisIndex: allXAxisIndices,
                     start: dzStart,
                     end: dzEnd,
+                    filterMode: 'weakFilter',
                 });
             }
 
@@ -630,6 +631,7 @@ export class LayoutManager {
                     borderColor: '#334155',
                     textStyle: { color: '#cbd5e1' },
                     brushSelect: false,
+                    filterMode: 'weakFilter',
                 });
             } else {
                 dataZoom.push({
@@ -642,6 +644,7 @@ export class LayoutManager {
                     borderColor: '#334155',
                     textStyle: { color: '#cbd5e1' },
                     brushSelect: false,
+                    filterMode: 'weakFilter',
                 });
             }
         }

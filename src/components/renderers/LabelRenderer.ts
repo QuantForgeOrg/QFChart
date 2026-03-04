@@ -37,18 +37,18 @@ export class LabelRenderer implements SeriesRenderer {
                 const shape = this.styleToShape(styleRaw);
 
                 // Determine X position using label's own x coordinate
-                const xPos = lbl.xloc === 'bar_index' ? (lbl.x + offset) : lbl.x;
+                const xPos = (lbl.xloc === 'bar_index' || lbl.xloc === 'bi') ? (lbl.x + offset) : lbl.x;
 
                 // Determine Y value based on yloc
                 let yValue = lbl.y;
                 let symbolOffset: (string | number)[] = [0, 0];
 
-                if (yloc === 'abovebar') {
+                if (yloc === 'abovebar' || yloc === 'AboveBar' || yloc === 'ab') {
                     if (candlestickData && candlestickData[xPos]) {
                         yValue = candlestickData[xPos].high;
                     }
                     symbolOffset = [0, '-150%'];
-                } else if (yloc === 'belowbar') {
+                } else if (yloc === 'belowbar' || yloc === 'BelowBar' || yloc === 'bl') {
                     if (candlestickData && candlestickData[xPos]) {
                         yValue = candlestickData[xPos].low;
                     }
@@ -64,7 +64,8 @@ export class LabelRenderer implements SeriesRenderer {
 
                 // Dynamically size the bubble to fit text content
                 let finalSize: number | number[];
-                const isBubble = shape === 'labeldown' || shape === 'labelup' ||
+                const isBubble = shape === 'labeldown' || shape === 'shape_label_down' ||
+                    shape === 'labelup' || shape === 'shape_label_up' ||
                     shape === 'labelleft' || shape === 'labelright';
                 // Track label text offset for centering text within the body
                 // (excluding the pointer area)
@@ -150,8 +151,8 @@ export class LabelRenderer implements SeriesRenderer {
                         fontSize: fontSize,
                         fontWeight: 'bold',
                         align: isInsideLabel ? 'center'
-                            : textalign === 'align_left' ? 'left'
-                            : textalign === 'align_right' ? 'right'
+                            : (textalign === 'align_left' || textalign === 'left') ? 'left'
+                            : (textalign === 'align_right' || textalign === 'right') ? 'right'
                             : 'center',
                         verticalAlign: 'middle',
                         padding: [2, 6],
@@ -247,10 +248,10 @@ export class LabelRenderer implements SeriesRenderer {
             case 'text_outline':
             case 'none':
                 // Text only, positioned based on yloc
-                return yloc === 'abovebar' ? 'top' : yloc === 'belowbar' ? 'bottom' : 'top';
+                return (yloc === 'abovebar' || yloc === 'AboveBar' || yloc === 'ab') ? 'top' : (yloc === 'belowbar' || yloc === 'BelowBar' || yloc === 'bl') ? 'bottom' : 'top';
             default:
                 // For simple shapes (circle, diamond, etc.), text goes outside
-                return yloc === 'belowbar' ? 'bottom' : 'top';
+                return (yloc === 'belowbar' || yloc === 'BelowBar' || yloc === 'bl') ? 'bottom' : 'top';
         }
     }
 

@@ -223,6 +223,11 @@ export class SeriesBuilder {
                     return; // Skip rendering a series for barcolor
                 }
 
+                // Tables are rendered as DOM overlays, not ECharts series
+                if (plot.options.style === 'table') {
+                    return;
+                }
+
                 // Use Factory to get appropriate renderer
                 const renderer = SeriesRendererFactory.get(plot.options.style);
                 const seriesConfig = renderer.render({

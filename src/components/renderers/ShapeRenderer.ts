@@ -15,7 +15,7 @@ export class ShapeRenderer implements SeriesRenderer {
 
                 // For location="absolute", always draw the shape (ignore value)
                 // For other locations, only draw if value is truthy (TradingView behavior)
-                if (location !== 'absolute' && !val) {
+                if (location !== 'absolute' && location !== 'Absolute' && !val) {
                     return null;
                 }
 
@@ -41,19 +41,19 @@ export class ShapeRenderer implements SeriesRenderer {
                 let yValue = val; // Default to absolute value
                 let symbolOffset: (string | number)[] = [0, 0];
 
-                if (location === 'abovebar') {
+                if (location === 'abovebar' || location === 'AboveBar' || location === 'ab') {
                     // Shape above the candle
                     if (candlestickData && candlestickData[i]) {
                         yValue = candlestickData[i].high;
                     }
                     symbolOffset = [0, '-150%']; // Shift up
-                } else if (location === 'belowbar') {
+                } else if (location === 'belowbar' || location === 'BelowBar' || location === 'bl') {
                     // Shape below the candle
                     if (candlestickData && candlestickData[i]) {
                         yValue = candlestickData[i].low;
                     }
                     symbolOffset = [0, '150%']; // Shift down
-                } else if (location === 'top') {
+                } else if (location === 'top' || location === 'Top') {
                     // Shape at top of chart - we need to use a very high value
                     // This would require knowing the y-axis max, which we don't have here easily
                     // For now, use a placeholder approach - might need to calculate from data
@@ -62,7 +62,7 @@ export class ShapeRenderer implements SeriesRenderer {
                     // Simplified: use coordinate system max (will need enhancement)
                     yValue = val; // For now, keep absolute - would need axis max
                     symbolOffset = [0, 0];
-                } else if (location === 'bottom') {
+                } else if (location === 'bottom' || location === 'Bottom') {
                     // Shape at bottom of chart
                     yValue = val; // For now, keep absolute - would need axis min
                     symbolOffset = [0, 0];

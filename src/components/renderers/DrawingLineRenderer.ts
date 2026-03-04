@@ -18,7 +18,6 @@ export class DrawingLineRenderer implements SeriesRenderer {
         // (since multiple objects at the same bar would overwrite each other in the
         // sparse array). Handle both array-of-objects and single-object entries.
         const lineObjects: any[] = [];
-        const lineData: number[][] = [];
 
         for (let i = 0; i < dataArray.length; i++) {
             const val = dataArray[i];
@@ -28,16 +27,30 @@ export class DrawingLineRenderer implements SeriesRenderer {
             for (const ln of items) {
                 if (ln && typeof ln === 'object' && !ln._deleted) {
                     lineObjects.push(ln);
-                    // Apply padding offset for bar_index-based coordinates
-                    const xOff = ln.xloc === 'bar_index' ? offset : 0;
-                    lineData.push([ln.x1 + xOff, ln.y1, ln.x2 + xOff, ln.y2]);
                 }
             }
         }
 
-        if (lineData.length === 0) {
+        if (lineObjects.length === 0) {
             return { name: seriesName, type: 'custom', xAxisIndex, yAxisIndex, data: [], silent: true };
         }
+
+        // Compute y-range for axis scaling
+        let yMin = Infinity, yMax = -Infinity;
+        for (const ln of lineObjects) {
+            if (ln.y1 < yMin) yMin = ln.y1;
+            if (ln.y1 > yMax) yMax = ln.y1;
+            if (ln.y2 < yMin) yMin = ln.y2;
+            if (ln.y2 > yMax) yMax = ln.y2;
+        }
+
+        // Use a SINGLE data entry spanning the full x-range so renderItem is always called.
+        // ECharts filters a data item only when ALL its x-dimensions are on the same side
+        // of the visible window.  With dims 0=0 and 1=lastBar the item always straddles
+        // the viewport, so renderItem fires exactly once regardless of scroll position.
+        // Dims 2/3 are yMin/yMax for axis scaling.
+        const totalBars = (context.candlestickData?.length || 0) + offset;
+        const lastBarIndex = Math.max(0, totalBars - 1);
 
         return {
             name: seriesName,
@@ -45,58 +58,51 @@ export class DrawingLineRenderer implements SeriesRenderer {
             xAxisIndex,
             yAxisIndex,
             renderItem: (params: any, api: any) => {
-                const idx = params.dataIndex;
-                const ln = lineObjects[idx];
-                if (!ln || ln._deleted) return;
-
-                const x1 = api.value(0);
-                const y1 = api.value(1);
-                const x2 = api.value(2);
-                const y2 = api.value(3);
-
-                let p1 = api.coord([x1, y1]);
-                let p2 = api.coord([x2, y2]);
-
-                // Handle extend (none | left | right | both)
-                const extend = ln.extend || 'none';
-                if (extend !== 'none') {
-                    const cs = params.coordSys;
-                    const left = cs.x;
-                    const right = cs.x + cs.width;
-                    const top = cs.y;
-                    const bottom = cs.y + cs.height;
-                    [p1, p2] = this.extendLine(p1, p2, extend, left, right, top, bottom);
-                }
-
                 const children: any[] = [];
-                const color = ln.color || defaultColor;
-                const lineWidth = ln.width || 1;
 
-                // Main line segment
-                children.push({
-                    type: 'line',
-                    shape: { x1: p1[0], y1: p1[1], x2: p2[0], y2: p2[1] },
-                    style: {
-                        stroke: color,
-                        lineWidth: lineWidth,
-                        lineDash: this.getDashPattern(ln.style),
-                    },
-                });
+                for (const ln of lineObjects) {
+                    if (ln._deleted) continue;
+                    const xOff = (ln.xloc === 'bar_index' || ln.xloc === 'bi') ? offset : 0;
 
-                // Arrow heads based on style
-                const style = ln.style || 'style_solid';
-                if (style === 'style_arrow_left' || style === 'style_arrow_both') {
-                    const arrow = this.arrowHead(p2, p1, lineWidth, color);
-                    if (arrow) children.push(arrow);
-                }
-                if (style === 'style_arrow_right' || style === 'style_arrow_both') {
-                    const arrow = this.arrowHead(p1, p2, lineWidth, color);
-                    if (arrow) children.push(arrow);
+                    let p1 = api.coord([ln.x1 + xOff, ln.y1]);
+                    let p2 = api.coord([ln.x2 + xOff, ln.y2]);
+
+                    // Handle extend (none | left | right | both)
+                    const extend = ln.extend || 'none';
+                    if (extend !== 'none') {
+                        const cs = params.coordSys;
+                        [p1, p2] = this.extendLine(p1, p2, extend, cs.x, cs.x + cs.width, cs.y, cs.y + cs.height);
+                    }
+
+                    const color = ln.color || defaultColor;
+                    const lineWidth = ln.width || 1;
+
+                    children.push({
+                        type: 'line',
+                        shape: { x1: p1[0], y1: p1[1], x2: p2[0], y2: p2[1] },
+                        style: {
+                            stroke: color,
+                            lineWidth,
+                            lineDash: this.getDashPattern(ln.style),
+                        },
+                    });
+
+                    const style = ln.style || 'style_solid';
+                    if (style === 'style_arrow_left' || style === 'style_arrow_both') {
+                        const arrow = this.arrowHead(p2, p1, lineWidth, color);
+                        if (arrow) children.push(arrow);
+                    }
+                    if (style === 'style_arrow_right' || style === 'style_arrow_both') {
+                        const arrow = this.arrowHead(p1, p2, lineWidth, color);
+                        if (arrow) children.push(arrow);
+                    }
                 }
 
                 return { type: 'group', children };
             },
-            data: lineData,
+            data: [[0, lastBarIndex, yMin, yMax]],
+            clip: true,
+            encode: { x: [0, 1], y: [2, 3] },
             z: 15,
             silent: true,
             emphasis: { disabled: true },
