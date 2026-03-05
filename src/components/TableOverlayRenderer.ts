@@ -30,10 +30,13 @@ export class TableOverlayRenderer {
 
     /**
      * Clear all existing table overlays and render new ones.
-     * @param gridRect The ECharts grid rect {x, y, width, height} in pixels,
-     *                 representing the actual plot area within the container.
+     * @param getGridRect Function that returns the ECharts grid rect for a given pane index.
      */
-    static render(container: HTMLElement, tables: any[], gridRect?: { x: number; y: number; width: number; height: number }): void {
+    static render(
+        container: HTMLElement,
+        tables: any[],
+        getGridRect?: (paneIndex: number) => { x: number; y: number; width: number; height: number } | undefined,
+    ): void {
         TableOverlayRenderer.clearAll(container);
 
         // Pine Script: only the last table at each position is displayed
@@ -45,6 +48,8 @@ export class TableOverlayRenderer {
         }
 
         byPosition.forEach((tbl) => {
+            const paneIndex = tbl._paneIndex ?? 0;
+            const gridRect = getGridRect ? getGridRect(paneIndex) : undefined;
             const el = TableOverlayRenderer.buildTable(tbl);
             TableOverlayRenderer.positionTable(el, tbl.position, gridRect);
             container.appendChild(el);
@@ -75,11 +80,14 @@ export class TableOverlayRenderer {
         }
 
         // Frame (outer border)
-        if (tbl.frame_width > 0 && tbl.frame_color) {
+        const frameWidth = tbl.frame_width ?? 0;
+        if (frameWidth > 0 && tbl.frame_color) {
             const { color: fc } = TableOverlayRenderer.safeParseColor(tbl.frame_color);
-            table.style.border = `${tbl.frame_width}px solid ${fc}`;
-        } else if (tbl.frame_width > 0) {
-            table.style.border = `${tbl.frame_width}px solid #999`;
+            table.style.border = `${frameWidth}px solid ${fc}`;
+        } else if (frameWidth > 0) {
+            table.style.border = `${frameWidth}px solid #999`;
+        } else {
+            table.style.border = 'none';
         }
 
         // Build merge lookup: for each cell, determine colspan/rowspan
@@ -102,6 +110,15 @@ export class TableOverlayRenderer {
                 }
             }
         }
+
+        // Cell border settings
+        const borderWidth = tbl.border_width ?? 0;
+        const hasCellBorders = borderWidth > 0;
+        const borderColorStr = hasCellBorders
+            ? (tbl.border_color
+                ? TableOverlayRenderer.safeParseColor(tbl.border_color).color
+                : '#999')
+            : '';
 
         // Build rows
         const rows = tbl.rows || 0;
@@ -126,11 +143,10 @@ export class TableOverlayRenderer {
                 }
 
                 // Cell borders
-                if (tbl.border_width > 0) {
-                    const bc = tbl.border_color
-                        ? TableOverlayRenderer.safeParseColor(tbl.border_color).color
-                        : '#999';
-                    td.style.border = `${tbl.border_width}px solid ${bc}`;
+                if (hasCellBorders) {
+                    td.style.border = `${borderWidth}px solid ${borderColorStr}`;
+                } else {
+                    td.style.border = 'none';
                 }
 
                 // Get cell data

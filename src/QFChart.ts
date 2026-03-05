@@ -745,7 +745,11 @@ export class QFChart implements ChartContext {
                     plot.data?.forEach((entry: any) => {
                         const tables = Array.isArray(entry.value) ? entry.value : [entry.value];
                         tables.forEach((t: any) => {
-                            if (t && !t._deleted) allTables.push(t);
+                            if (t && !t._deleted) {
+                                // Tag table with its indicator's pane for correct positioning
+                                t._paneIndex = (t.force_overlay) ? 0 : indicator.paneIndex;
+                                allTables.push(t);
+                            }
                         });
                     });
                 }
@@ -957,8 +961,10 @@ export class QFChart implements ChartContext {
     }
 
     private _renderTableOverlays(): void {
-        const gridRect = (this.chart.getModel() as any).getComponent('grid', 0)?.coordinateSystem?.getRect();
-        TableOverlayRenderer.render(this.overlayContainer, this._lastTables, gridRect);
+        const model = this.chart.getModel() as any;
+        const getGridRect = (paneIndex: number) =>
+            model.getComponent('grid', paneIndex)?.coordinateSystem?.getRect();
+        TableOverlayRenderer.render(this.overlayContainer, this._lastTables, getGridRect);
     }
 
     public destroy(): void {
@@ -1427,7 +1433,11 @@ export class QFChart implements ChartContext {
                     plot.data?.forEach((entry: any) => {
                         const tables = Array.isArray(entry.value) ? entry.value : [entry.value];
                         tables.forEach((t: any) => {
-                            if (t && !t._deleted) allTables.push(t);
+                            if (t && !t._deleted) {
+                                // Tag table with its indicator's pane for correct positioning
+                                t._paneIndex = (t.force_overlay) ? 0 : indicator.paneIndex;
+                                allTables.push(t);
+                            }
                         });
                     });
                 }
