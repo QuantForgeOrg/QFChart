@@ -129,6 +129,8 @@ export class PolylineRenderer implements SeriesRenderer {
             data: [[0, lastBarIndex, yMin, yMax]],
             clip: true,
             encode: { x: [0, 1], y: [2, 3] },
+            // Prevent ECharts visual system from overriding element colors with palette
+            itemStyle: { color: 'transparent', borderColor: 'transparent' },
             z: 12,
             silent: true,
             emphasis: { disabled: true },

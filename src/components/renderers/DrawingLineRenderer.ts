@@ -67,9 +67,9 @@ export class DrawingLineRenderer implements SeriesRenderer {
                     let p1 = api.coord([ln.x1 + xOff, ln.y1]);
                     let p2 = api.coord([ln.x2 + xOff, ln.y2]);
 
-                    // Handle extend (none | left | right | both)
+                    // Handle extend (none/n | left/l | right/r | both/b)
                     const extend = ln.extend || 'none';
-                    if (extend !== 'none') {
+                    if (extend !== 'none' && extend !== 'n') {
                         const cs = params.coordSys;
                         [p1, p2] = this.extendLine(p1, p2, extend, cs.x, cs.x + cs.width, cs.y, cs.y + cs.height);
                     }
@@ -81,6 +81,7 @@ export class DrawingLineRenderer implements SeriesRenderer {
                         type: 'line',
                         shape: { x1: p1[0], y1: p1[1], x2: p2[0], y2: p2[1] },
                         style: {
+                            fill: 'none',
                             stroke: color,
                             lineWidth,
                             lineDash: this.getDashPattern(ln.style),
@@ -103,6 +104,8 @@ export class DrawingLineRenderer implements SeriesRenderer {
             data: [[0, lastBarIndex, yMin, yMax]],
             clip: true,
             encode: { x: [0, 1], y: [2, 3] },
+            // Prevent ECharts visual system from overriding element colors with palette
+            itemStyle: { color: 'transparent', borderColor: 'transparent' },
             z: 15,
             silent: true,
             emphasis: { disabled: true },
@@ -151,10 +154,10 @@ export class DrawingLineRenderer implements SeriesRenderer {
         let newP1 = p1;
         let newP2 = p2;
 
-        if (extend === 'right' || extend === 'both') {
+        if (extend === 'right' || extend === 'r' || extend === 'both' || extend === 'b') {
             newP2 = extendPoint(p1, [dx, dy]);
         }
-        if (extend === 'left' || extend === 'both') {
+        if (extend === 'left' || extend === 'l' || extend === 'both' || extend === 'b') {
             newP1 = extendPoint(p2, [-dx, -dy]);
         }
 

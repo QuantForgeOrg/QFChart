@@ -87,16 +87,16 @@ export class BoxRenderer implements SeriesRenderer {
                     let w = pBottomRight[0] - pTopLeft[0];
                     let h = pBottomRight[1] - pTopLeft[1];
 
-                    // Handle extend (horizontal borders)
+                    // Handle extend (none/n | left/l | right/r | both/b)
                     const extend = bx.extend || 'none';
-                    if (extend !== 'none') {
+                    if (extend !== 'none' && extend !== 'n') {
                         const cs = params.coordSys;
-                        if (extend === 'left' || extend === 'both') {
+                        if (extend === 'left' || extend === 'l' || extend === 'both' || extend === 'b') {
                             x = cs.x;
-                            w = (extend === 'both') ? cs.width : (pBottomRight[0] - cs.x);
+                            w = (extend === 'both' || extend === 'b') ? cs.width : (pBottomRight[0] - cs.x);
                         }
-                        if (extend === 'right' || extend === 'both') {
-                            if (extend === 'right') {
+                        if (extend === 'right' || extend === 'r' || extend === 'both' || extend === 'b') {
+                            if (extend === 'right' || extend === 'r') {
                                 w = cs.x + cs.width - pTopLeft[0];
                             }
                         }
@@ -111,9 +111,14 @@ export class BoxRenderer implements SeriesRenderer {
                     });
 
                     // Border rect (on top of fill)
-                    const borderColor = normalizeColor(bx.border_color) || '#2962ff';
+                    // border_color = na means no border (na resolves to NaN or undefined)
+                    const rawBorderColor = bx.border_color;
+                    const isNaBorder = rawBorderColor === null || rawBorderColor === undefined ||
+                        (typeof rawBorderColor === 'number' && isNaN(rawBorderColor)) ||
+                        rawBorderColor === 'na' || rawBorderColor === 'NaN';
+                    const borderColor = isNaBorder ? null : (normalizeColor(rawBorderColor) || '#2962ff');
                     const borderWidth = bx.border_width ?? 1;
-                    if (borderWidth > 0) {
+                    if (borderWidth > 0 && borderColor) {
                         children.push({
                             type: 'rect',
                             shape: { x, y, width: w, height: h },
@@ -153,6 +158,8 @@ export class BoxRenderer implements SeriesRenderer {
             data: [[0, lastBarIndex, yMin, yMax]],
             clip: true,
             encode: { x: [0, 1], y: [2, 3] },
+            // Prevent ECharts visual system from overriding element colors with palette
+            itemStyle: { color: 'transparent', borderColor: 'transparent' },
             z: 14,
             silent: true,
             emphasis: { disabled: true },
