@@ -1391,6 +1391,7 @@ export class QFChart implements ChartContext {
                     }
                 },
                 data: drawings.map((d) => [d.points[0].timeIndex, d.points[0].value, d.points[1].timeIndex, d.points[1].value]),
+                encode: { x: [0, 2], y: [1, 3] },
                 z: 100,
                 silent: false,
             });

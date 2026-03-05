@@ -171,19 +171,23 @@ export class SeriesBuilder {
                             let value = point.value;
                             const pointColor = point.options?.color;
 
-                            // TradingView compatibility: if color is 'na' (NaN, null, or "na"), break the line
+                            // TradingView compatibility: if color is 'na' (NaN, null, undefined, or "na"), break the line
+                            // When the options object explicitly has a 'color' key set to undefined,
+                            // this means PineTS evaluated the color expression to na (hidden segment).
+                            const hasExplicitColorKey = point.options != null && 'color' in point.options;
                             const isNaColor =
                                 pointColor === null ||
                                 pointColor === 'na' ||
                                 pointColor === 'NaN' ||
-                                (typeof pointColor === 'number' && isNaN(pointColor));
+                                (typeof pointColor === 'number' && isNaN(pointColor)) ||
+                                (hasExplicitColorKey && pointColor === undefined);
 
                             if (isNaColor) {
                                 value = null;
                             }
 
                             dataArray[offsetIndex] = value;
-                            colorArray[offsetIndex] = pointColor || plot.options.color || SeriesBuilder.DEFAULT_COLOR;
+                            colorArray[offsetIndex] = isNaColor ? null : (pointColor || plot.options.color || SeriesBuilder.DEFAULT_COLOR);
                             optionsArray[offsetIndex] = point.options || {};
                         }
                     }
