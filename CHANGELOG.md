@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.1] - 2026-03-04 - Rendering Hotfixes
+
+### Fixed
+
+- **Plot Color `undefined` Treated as `na`**: Fixed a bug where PineTS emits `{ color: undefined }` (an options object with an explicit but `undefined` color key) to signal a hidden/na segment. Previously this was not detected as a line break — the color key existed but its value was `undefined`, which passed through the `null`/`'na'`/`'NaN'` checks unnoticed. The fix adds an `'color' in point.options` presence check so any explicitly-set `undefined` color is treated as `na`, correctly breaking the line/segment at that point.
+- **Drawing Tools Clipping**: Fixed a secondary clipping issue in interactive drawing tools (trend lines, Fibonacci, etc.) that was introduced by the v0.7.0 render clipping refactor.
+
 ## [0.7.0] - 2026-02-27 - Box, Polyline & Table Renderers, Render Clipping
 
 ### Added
