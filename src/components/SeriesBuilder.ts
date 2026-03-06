@@ -133,7 +133,24 @@ export class SeriesBuilder {
                 // IMPORTANT: If indicator is overlay (paneIndex === 0), treat all plots as overlays
                 // This allows visual-only plots (background, barcolor) to have separate Y-axes while
                 // still being on the main chart pane
-                const plotOverlay = plot.options.overlay;
+                let plotOverlay = plot.options.overlay;
+
+                // Fill plots inherit overlay from their referenced plots.
+                // If both referenced plots are overlay, the fill should render on the
+                // overlay pane too — otherwise its price-scale data stretches the
+                // indicator sub-pane's y-axis to extreme ranges.
+                if (plot.options.style === 'fill' && plotOverlay === undefined) {
+                    const p1Name = plot.options.plot1;
+                    const p2Name = plot.options.plot2;
+                    if (p1Name && p2Name) {
+                        const p1 = indicator.plots[p1Name];
+                        const p2 = indicator.plots[p2Name];
+                        if (p1?.options?.overlay === true && p2?.options?.overlay === true) {
+                            plotOverlay = true;
+                        }
+                    }
+                }
+
                 const isPlotOverlay = indicator.paneIndex === 0 || plotOverlay === true;
 
                 if (isPlotOverlay) {

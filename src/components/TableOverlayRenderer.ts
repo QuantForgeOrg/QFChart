@@ -30,10 +30,13 @@ export class TableOverlayRenderer {
 
     /**
      * Clear all existing table overlays and render new ones.
-     * @param gridRect The ECharts grid rect {x, y, width, height} in pixels,
-     *                 representing the actual plot area within the container.
+     * @param getGridRect Function that returns the ECharts grid rect for a given pane index.
      */
-    static render(container: HTMLElement, tables: any[], gridRect?: { x: number; y: number; width: number; height: number }): void {
+    static render(
+        container: HTMLElement,
+        tables: any[],
+        getGridRect?: (paneIndex: number) => { x: number; y: number; width: number; height: number } | undefined,
+    ): void {
         TableOverlayRenderer.clearAll(container);
 
         // Pine Script: only the last table at each position is displayed
@@ -45,6 +48,8 @@ export class TableOverlayRenderer {
         }
 
         byPosition.forEach((tbl) => {
+            const paneIndex = tbl._paneIndex ?? 0;
+            const gridRect = getGridRect ? getGridRect(paneIndex) : undefined;
             const el = TableOverlayRenderer.buildTable(tbl);
             TableOverlayRenderer.positionTable(el, tbl.position, gridRect);
             container.appendChild(el);
@@ -59,9 +64,18 @@ export class TableOverlayRenderer {
 
     private static buildTable(tbl: any): HTMLElement {
         const table = document.createElement('table');
-        table.style.borderCollapse = 'separate';
-        table.style.borderSpacing = '0';
-        table.style.pointerEvents = 'auto';
+        const borderWidth = tbl.border_width ?? 0;
+        const frameWidth = tbl.frame_width ?? 0;
+        // Use collapse when no visible borders — prevents sub-pixel hairlines between cells.
+        // Use separate when visible borders are present — so each cell's border is drawn independently.
+        const hasVisibleBorders = (borderWidth > 0 && !!tbl.border_color) || (frameWidth > 0 && !!tbl.frame_color);
+        if (hasVisibleBorders) {
+            table.style.borderCollapse = 'separate';
+            table.style.borderSpacing = '0';
+        } else {
+            table.style.borderCollapse = 'collapse';
+        }
+        table.style.pointerEvents = 'none';
         table.style.fontSize = '14px';
         table.style.lineHeight = '1.4';
         table.style.fontFamily = 'sans-serif';
@@ -75,11 +89,13 @@ export class TableOverlayRenderer {
         }
 
         // Frame (outer border)
-        if (tbl.frame_width > 0 && tbl.frame_color) {
+        // Pine Script default frame_color is "no color" (transparent), so only
+        // draw frame when an explicit color is provided.
+        if (frameWidth > 0 && tbl.frame_color) {
             const { color: fc } = TableOverlayRenderer.safeParseColor(tbl.frame_color);
-            table.style.border = `${tbl.frame_width}px solid ${fc}`;
-        } else if (tbl.frame_width > 0) {
-            table.style.border = `${tbl.frame_width}px solid #999`;
+            table.style.border = `${frameWidth}px solid ${fc}`;
+        } else {
+            table.style.border = 'none';
         }
 
         // Build merge lookup: for each cell, determine colspan/rowspan
@@ -102,6 +118,14 @@ export class TableOverlayRenderer {
                 }
             }
         }
+
+        // Cell border settings
+        // Pine Script default border_color is "no color" (transparent), so only
+        // draw cell borders when an explicit color is provided.
+        const hasCellBorders = borderWidth > 0 && !!tbl.border_color;
+        const borderColorStr = hasCellBorders
+            ? TableOverlayRenderer.safeParseColor(tbl.border_color).color
+            : '';
 
         // Build rows
         const rows = tbl.rows || 0;
@@ -126,11 +150,10 @@ export class TableOverlayRenderer {
                 }
 
                 // Cell borders
-                if (tbl.border_width > 0) {
-                    const bc = tbl.border_color
-                        ? TableOverlayRenderer.safeParseColor(tbl.border_color).color
-                        : '#999';
-                    td.style.border = `${tbl.border_width}px solid ${bc}`;
+                if (hasCellBorders) {
+                    td.style.border = `${borderWidth}px solid ${borderColorStr}`;
+                } else {
+                    td.style.border = 'none';
                 }
 
                 // Get cell data

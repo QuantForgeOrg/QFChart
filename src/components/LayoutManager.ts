@@ -14,6 +14,12 @@ export interface PaneConfiguration {
     };
 }
 
+export interface PaneBoundary {
+    yPercent: number;           // Y position in %, center of the gap between panes
+    aboveId: string | 'main';   // pane above (main chart or indicator id)
+    belowId: string;            // indicator id below
+}
+
 export interface LayoutResult {
     grid: any[];
     xAxis: any[];
@@ -23,6 +29,7 @@ export interface LayoutResult {
     mainPaneHeight: number;
     mainPaneTop: number;
     pixelToPercent: number;
+    paneBoundaries: PaneBoundary[];
 }
 
 export class LayoutManager {
@@ -32,7 +39,8 @@ export class LayoutManager {
         options: QFChartOptions,
         isMainCollapsed: boolean = false,
         maximizedPaneId: string | null = null,
-        marketData?: import('../types').OHLCV[]
+        marketData?: import('../types').OHLCV[],
+        mainHeightOverride?: number
     ): LayoutResult & { overlayYAxisMap: Map<string, number>; separatePaneYAxisOffset: number } {
         // Calculate pixelToPercent early for maximized logic
         let pixelToPercent = 0;
@@ -283,7 +291,10 @@ export class LayoutManager {
             const totalAvailable = chartAreaBottom - mainPaneTop;
             mainHeightVal = totalAvailable - totalBottomSpace;
 
-            if (isMainCollapsed) {
+            // Apply user-dragged main height override
+            if (mainHeightOverride !== undefined && mainHeightOverride > 0 && !isMainCollapsed) {
+                mainHeightVal = mainHeightOverride;
+            } else if (isMainCollapsed) {
                 mainHeightVal = 3;
             } else {
                 // Safety check: ensure main chart has at least some space (e.g. 20%)
@@ -312,6 +323,25 @@ export class LayoutManager {
             mainHeightVal = chartAreaBottom - mainPaneTop;
             if (isMainCollapsed) {
                 mainHeightVal = 3;
+            }
+        }
+
+        // --- Build pane boundaries for drag-resize ---
+        const paneBoundaries: PaneBoundary[] = [];
+        if (paneConfigs.length > 0) {
+            // Boundary between main chart and first indicator
+            paneBoundaries.push({
+                yPercent: mainPaneTop + mainHeightVal + gapPercent / 2,
+                aboveId: 'main',
+                belowId: paneConfigs[0].indicatorId || '',
+            });
+            // Boundaries between consecutive indicators
+            for (let i = 0; i < paneConfigs.length - 1; i++) {
+                paneBoundaries.push({
+                    yPercent: paneConfigs[i].top + paneConfigs[i].height + gapPercent / 2,
+                    aboveId: paneConfigs[i].indicatorId || '',
+                    belowId: paneConfigs[i + 1].indicatorId || '',
+                });
             }
         }
 
@@ -658,6 +688,7 @@ export class LayoutManager {
             mainPaneHeight: mainHeightVal,
             mainPaneTop,
             pixelToPercent,
+            paneBoundaries,
             overlayYAxisMap,
             separatePaneYAxisOffset,
         };
@@ -677,6 +708,7 @@ export class LayoutManager {
             mainPaneHeight: 0,
             mainPaneTop: 0,
             pixelToPercent: 0,
+            paneBoundaries: [],
         } as any;
     }
 }

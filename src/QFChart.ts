@@ -1,7 +1,7 @@
 import * as echarts from 'echarts';
 import { OHLCV, IndicatorPlot, QFChartOptions, Indicator as IndicatorInterface, ChartContext, Plugin } from './types';
 import { Indicator } from './components/Indicator';
-import { LayoutManager } from './components/LayoutManager';
+import { LayoutManager, LayoutResult, PaneBoundary } from './components/LayoutManager';
 import { SeriesBuilder } from './components/SeriesBuilder';
 import { GraphicBuilder } from './components/GraphicBuilder';
 import { TooltipFormatter } from './components/TooltipFormatter';
@@ -89,6 +89,18 @@ export class QFChart implements ChartContext {
     private chartContainer: HTMLElement;
     private overlayContainer: HTMLElement;
     private _lastTables: any[] = [];
+
+    // Pane drag-resize state
+    private _lastLayout: (LayoutResult & { overlayYAxisMap: Map<string, number>; separatePaneYAxisOffset: number }) | null = null;
+    private _mainHeightOverride: number | null = null;
+    private _paneDragState: {
+        startY: number;
+        aboveId: string | 'main';
+        belowId: string;
+        startAboveHeight: number;
+        startBelowHeight: number;
+    } | null = null;
+    private _paneResizeRafId: number | null = null;
 
     constructor(container: HTMLElement, options: QFChartOptions = {}) {
         this.rootContainer = container;
@@ -206,17 +218,23 @@ export class QFChart implements ChartContext {
         // @ts-ignore - ECharts event handler type mismatch
         this.chart.on('finished', (params: any) => this.events.emit('chart:updated', params)); // General chart update
         // @ts-ignore - ECharts ZRender event handler type mismatch
-        this.chart.getZr().on('mousedown', (params: any) => this.events.emit('mouse:down', params));
+        this.chart.getZr().on('mousedown', (params: any) => { if (!this._paneDragState) this.events.emit('mouse:down', params); });
         // @ts-ignore - ECharts ZRender event handler type mismatch
-        this.chart.getZr().on('mousemove', (params: any) => this.events.emit('mouse:move', params));
+        this.chart.getZr().on('mousemove', (params: any) => { if (!this._paneDragState) this.events.emit('mouse:move', params); });
         // @ts-ignore - ECharts ZRender event handler type mismatch
         this.chart.getZr().on('mouseup', (params: any) => this.events.emit('mouse:up', params));
         // @ts-ignore - ECharts ZRender event handler type mismatch
-        this.chart.getZr().on('click', (params: any) => this.events.emit('mouse:click', params));
+        this.chart.getZr().on('click', (params: any) => { if (!this._paneDragState) this.events.emit('mouse:click', params); });
 
         const zr = this.chart.getZr();
         const originalSetCursorStyle = zr.setCursorStyle;
+        const self = this;
         zr.setCursorStyle = function (cursorStyle: string) {
+            // During pane drag, force row-resize cursor
+            if (self._paneDragState) {
+                originalSetCursorStyle.call(this, 'row-resize');
+                return;
+            }
             // Change 'grab' (default roam cursor) to  'crosshair' (more suitable for candlestick chart)
             if (cursorStyle === 'grab') {
                 cursorStyle = 'crosshair';
@@ -227,6 +245,9 @@ export class QFChart implements ChartContext {
 
         // Bind Drawing Events
         this.bindDrawingEvents();
+
+        // Bind pane border drag-resize
+        this.bindPaneResizeEvents();
 
         window.addEventListener('resize', this.resize.bind(this));
 
@@ -251,6 +272,133 @@ export class QFChart implements ChartContext {
     private onFullscreenChange = () => {
         this.render();
     };
+
+    // ── Pane border drag-resize ────────────────────────────────
+    private bindPaneResizeEvents(): void {
+        const MIN_MAIN = 10;   // minimum main pane height %
+        const MIN_INDICATOR = 5; // minimum indicator pane height %
+        const HIT_ZONE = 6;   // hit-zone in pixels (±3px from boundary center)
+
+        const zr = this.chart.getZr();
+
+        /** Find a boundary near the mouse Y position (pixels). */
+        const findBoundary = (mouseY: number): PaneBoundary | null => {
+            if (!this._lastLayout || this._lastLayout.paneBoundaries.length === 0) return null;
+            if (this.maximizedPaneId) return null; // no resize when maximized
+            const containerH = this.chart.getHeight();
+            if (containerH <= 0) return null;
+
+            for (const b of this._lastLayout.paneBoundaries) {
+                const bY = (b.yPercent / 100) * containerH;
+                if (Math.abs(mouseY - bY) <= HIT_ZONE) {
+                    // Don't allow resizing collapsed panes
+                    if (b.aboveId === 'main' && this.isMainCollapsed) continue;
+                    const belowInd = this.indicators.get(b.belowId);
+                    if (belowInd?.collapsed) continue;
+                    if (b.aboveId !== 'main') {
+                        const aboveInd = this.indicators.get(b.aboveId);
+                        if (aboveInd?.collapsed) continue;
+                    }
+                    return b;
+                }
+            }
+            return null;
+        };
+
+        /** Get current height of a pane. */
+        const getPaneHeight = (id: string | 'main'): number => {
+            if (id === 'main') {
+                return this._lastLayout?.mainPaneHeight ?? 50;
+            }
+            const ind = this.indicators.get(id);
+            return ind?.height ?? 15;
+        };
+
+        // --- ZR event handlers ---
+
+        zr.on('mousemove', (e: any) => {
+            if (this._paneDragState) {
+                // Active drag: compute new heights
+                const deltaY = e.offsetY - this._paneDragState.startY;
+                const containerH = this.chart.getHeight();
+                if (containerH <= 0) return;
+                const deltaPct = (deltaY / containerH) * 100;
+
+                const minAbove = this._paneDragState.aboveId === 'main' ? MIN_MAIN : MIN_INDICATOR;
+                const minBelow = MIN_INDICATOR;
+
+                let newAbove = this._paneDragState.startAboveHeight + deltaPct;
+                let newBelow = this._paneDragState.startBelowHeight - deltaPct;
+
+                // Clamp
+                if (newAbove < minAbove) {
+                    newAbove = minAbove;
+                    newBelow = this._paneDragState.startAboveHeight + this._paneDragState.startBelowHeight - minAbove;
+                }
+                if (newBelow < minBelow) {
+                    newBelow = minBelow;
+                    newAbove = this._paneDragState.startAboveHeight + this._paneDragState.startBelowHeight - minBelow;
+                }
+
+                // Apply heights
+                if (this._paneDragState.aboveId === 'main') {
+                    this._mainHeightOverride = newAbove;
+                } else {
+                    const aboveInd = this.indicators.get(this._paneDragState.aboveId);
+                    if (aboveInd) aboveInd.height = newAbove;
+                }
+                const belowInd = this.indicators.get(this._paneDragState.belowId);
+                if (belowInd) belowInd.height = newBelow;
+
+                // Throttle re-render via rAF
+                if (!this._paneResizeRafId) {
+                    this._paneResizeRafId = requestAnimationFrame(() => {
+                        this._paneResizeRafId = null;
+                        this.render();
+                    });
+                }
+
+                // Force row-resize cursor
+                zr.setCursorStyle('row-resize');
+                e.stop?.();
+                return;
+            }
+
+            // Not dragging: check hover over boundary
+            const boundary = findBoundary(e.offsetY);
+            if (boundary) {
+                zr.setCursorStyle('row-resize');
+            }
+        });
+
+        zr.on('mousedown', (e: any) => {
+            const boundary = findBoundary(e.offsetY);
+            if (!boundary) return;
+
+            // Start drag
+            this._paneDragState = {
+                startY: e.offsetY,
+                aboveId: boundary.aboveId,
+                belowId: boundary.belowId,
+                startAboveHeight: getPaneHeight(boundary.aboveId),
+                startBelowHeight: getPaneHeight(boundary.belowId),
+            };
+
+            zr.setCursorStyle('row-resize');
+            e.stop?.();
+        });
+
+        zr.on('mouseup', () => {
+            if (this._paneDragState) {
+                this._paneDragState = null;
+                if (this._paneResizeRafId) {
+                    cancelAnimationFrame(this._paneResizeRafId);
+                    this._paneResizeRafId = null;
+                }
+                this.render();
+            }
+        });
+    }
 
     private bindDrawingEvents() {
         let hideTimeout: any = null;
@@ -669,8 +817,10 @@ export class QFChart implements ChartContext {
             this.options,
             this.isMainCollapsed,
             this.maximizedPaneId,
-            this.marketData
+            this.marketData,
+            this._mainHeightOverride ?? undefined,
         );
+        this._lastLayout = layout;
 
         // Pass full padded candlestick data for shape positioning
         // But SeriesBuilder expects 'OHLCV[]', while paddedCandlestickData is array of arrays [open,close,low,high]
@@ -745,7 +895,11 @@ export class QFChart implements ChartContext {
                     plot.data?.forEach((entry: any) => {
                         const tables = Array.isArray(entry.value) ? entry.value : [entry.value];
                         tables.forEach((t: any) => {
-                            if (t && !t._deleted) allTables.push(t);
+                            if (t && !t._deleted) {
+                                // Tag table with its indicator's pane for correct positioning
+                                t._paneIndex = (t.force_overlay) ? 0 : indicator.paneIndex;
+                                allTables.push(t);
+                            }
                         });
                     });
                 }
@@ -957,8 +1111,10 @@ export class QFChart implements ChartContext {
     }
 
     private _renderTableOverlays(): void {
-        const gridRect = (this.chart.getModel() as any).getComponent('grid', 0)?.coordinateSystem?.getRect();
-        TableOverlayRenderer.render(this.overlayContainer, this._lastTables, gridRect);
+        const model = this.chart.getModel() as any;
+        const getGridRect = (paneIndex: number) =>
+            model.getComponent('grid', paneIndex)?.coordinateSystem?.getRect();
+        TableOverlayRenderer.render(this.overlayContainer, this._lastTables, getGridRect);
     }
 
     public destroy(): void {
@@ -1040,8 +1196,10 @@ export class QFChart implements ChartContext {
             this.options,
             this.isMainCollapsed,
             this.maximizedPaneId,
-            this.marketData
+            this.marketData,
+            this._mainHeightOverride ?? undefined,
         );
+        this._lastLayout = layout;
 
         // Convert user-provided dataZoom start/end to account for padding
         // User's start/end refer to real data (0% = start of real data, 100% = end of real data)
@@ -1427,7 +1585,11 @@ export class QFChart implements ChartContext {
                     plot.data?.forEach((entry: any) => {
                         const tables = Array.isArray(entry.value) ? entry.value : [entry.value];
                         tables.forEach((t: any) => {
-                            if (t && !t._deleted) allTables.push(t);
+                            if (t && !t._deleted) {
+                                // Tag table with its indicator's pane for correct positioning
+                                t._paneIndex = (t.force_overlay) ? 0 : indicator.paneIndex;
+                                allTables.push(t);
+                            }
                         });
                     });
                 }

@@ -50,20 +50,13 @@ export class BoxRenderer implements SeriesRenderer {
             return { name: seriesName, type: 'custom', xAxisIndex, yAxisIndex, data: [], silent: true };
         }
 
-        // Compute y-range for axis scaling
-        let yMin = Infinity, yMax = -Infinity;
-        for (const bx of boxObjects) {
-            if (bx.top < yMin) yMin = bx.top;
-            if (bx.top > yMax) yMax = bx.top;
-            if (bx.bottom < yMin) yMin = bx.bottom;
-            if (bx.bottom > yMax) yMax = bx.bottom;
-        }
-
         // Use a SINGLE data entry spanning the full x-range so renderItem is always called.
         // ECharts filters a data item only when ALL its x-dimensions are on the same side
         // of the visible window.  With dims 0=0 and 1=lastBar the item always straddles
         // the viewport, so renderItem fires exactly once regardless of scroll position.
-        // Dims 2/3 are yMin/yMax for axis scaling.
+        // Note: We do NOT encode y-dimensions — drawing objects should not influence the
+        // y-axis auto-scaling.  Otherwise boxes drawn at the chart's end would prevent
+        // the y-axis from adapting when scrolling to earlier (lower-priced) history.
         const totalBars = (context.candlestickData?.length || 0) + offset;
         const lastBarIndex = Math.max(0, totalBars - 1);
 
@@ -87,16 +80,16 @@ export class BoxRenderer implements SeriesRenderer {
                     let w = pBottomRight[0] - pTopLeft[0];
                     let h = pBottomRight[1] - pTopLeft[1];
 
-                    // Handle extend (horizontal borders)
+                    // Handle extend (none/n | left/l | right/r | both/b)
                     const extend = bx.extend || 'none';
-                    if (extend !== 'none') {
+                    if (extend !== 'none' && extend !== 'n') {
                         const cs = params.coordSys;
-                        if (extend === 'left' || extend === 'both') {
+                        if (extend === 'left' || extend === 'l' || extend === 'both' || extend === 'b') {
                             x = cs.x;
-                            w = (extend === 'both') ? cs.width : (pBottomRight[0] - cs.x);
+                            w = (extend === 'both' || extend === 'b') ? cs.width : (pBottomRight[0] - cs.x);
                         }
-                        if (extend === 'right' || extend === 'both') {
-                            if (extend === 'right') {
+                        if (extend === 'right' || extend === 'r' || extend === 'both' || extend === 'b') {
+                            if (extend === 'right' || extend === 'r') {
                                 w = cs.x + cs.width - pTopLeft[0];
                             }
                         }
@@ -107,13 +100,18 @@ export class BoxRenderer implements SeriesRenderer {
                     children.push({
                         type: 'rect',
                         shape: { x, y, width: w, height: h },
-                        style: { fill: bgColor },
+                        style: { fill: bgColor, stroke: 'none' },
                     });
 
                     // Border rect (on top of fill)
-                    const borderColor = normalizeColor(bx.border_color) || '#2962ff';
+                    // border_color = na means no border (na resolves to NaN or undefined)
+                    const rawBorderColor = bx.border_color;
+                    const isNaBorder = rawBorderColor === null || rawBorderColor === undefined ||
+                        (typeof rawBorderColor === 'number' && isNaN(rawBorderColor)) ||
+                        rawBorderColor === 'na' || rawBorderColor === 'NaN';
+                    const borderColor = isNaBorder ? null : (normalizeColor(rawBorderColor) || '#2962ff');
                     const borderWidth = bx.border_width ?? 1;
-                    if (borderWidth > 0) {
+                    if (borderWidth > 0 && borderColor) {
                         children.push({
                             type: 'rect',
                             shape: { x, y, width: w, height: h },
@@ -150,9 +148,11 @@ export class BoxRenderer implements SeriesRenderer {
 
                 return { type: 'group', children };
             },
-            data: [[0, lastBarIndex, yMin, yMax]],
+            data: [[0, lastBarIndex]],
             clip: true,
-            encode: { x: [0, 1], y: [2, 3] },
+            encode: { x: [0, 1] },
+            // Prevent ECharts visual system from overriding element colors with palette
+            itemStyle: { color: 'transparent', borderColor: 'transparent' },
             z: 14,
             silent: true,
             emphasis: { disabled: true },
