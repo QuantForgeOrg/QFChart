@@ -100,7 +100,7 @@ export class BoxRenderer implements SeriesRenderer {
                     children.push({
                         type: 'rect',
                         shape: { x, y, width: w, height: h },
-                        style: { fill: bgColor },
+                        style: { fill: bgColor, stroke: 'none' },
                     });
 
                     // Border rect (on top of fill)
