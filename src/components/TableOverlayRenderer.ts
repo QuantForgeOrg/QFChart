@@ -64,8 +64,17 @@ export class TableOverlayRenderer {
 
     private static buildTable(tbl: any): HTMLElement {
         const table = document.createElement('table');
-        table.style.borderCollapse = 'separate';
-        table.style.borderSpacing = '0';
+        const borderWidth = tbl.border_width ?? 0;
+        const frameWidth = tbl.frame_width ?? 0;
+        // Use collapse when no visible borders — prevents sub-pixel hairlines between cells.
+        // Use separate when visible borders are present — so each cell's border is drawn independently.
+        const hasVisibleBorders = (borderWidth > 0 && !!tbl.border_color) || (frameWidth > 0 && !!tbl.frame_color);
+        if (hasVisibleBorders) {
+            table.style.borderCollapse = 'separate';
+            table.style.borderSpacing = '0';
+        } else {
+            table.style.borderCollapse = 'collapse';
+        }
         table.style.pointerEvents = 'auto';
         table.style.fontSize = '14px';
         table.style.lineHeight = '1.4';
@@ -80,12 +89,11 @@ export class TableOverlayRenderer {
         }
 
         // Frame (outer border)
-        const frameWidth = tbl.frame_width ?? 0;
+        // Pine Script default frame_color is "no color" (transparent), so only
+        // draw frame when an explicit color is provided.
         if (frameWidth > 0 && tbl.frame_color) {
             const { color: fc } = TableOverlayRenderer.safeParseColor(tbl.frame_color);
             table.style.border = `${frameWidth}px solid ${fc}`;
-        } else if (frameWidth > 0) {
-            table.style.border = `${frameWidth}px solid #999`;
         } else {
             table.style.border = 'none';
         }
@@ -112,12 +120,11 @@ export class TableOverlayRenderer {
         }
 
         // Cell border settings
-        const borderWidth = tbl.border_width ?? 0;
-        const hasCellBorders = borderWidth > 0;
+        // Pine Script default border_color is "no color" (transparent), so only
+        // draw cell borders when an explicit color is provided.
+        const hasCellBorders = borderWidth > 0 && !!tbl.border_color;
         const borderColorStr = hasCellBorders
-            ? (tbl.border_color
-                ? TableOverlayRenderer.safeParseColor(tbl.border_color).color
-                : '#999')
+            ? TableOverlayRenderer.safeParseColor(tbl.border_color).color
             : '';
 
         // Build rows
