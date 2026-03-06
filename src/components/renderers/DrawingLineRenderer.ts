@@ -35,20 +35,13 @@ export class DrawingLineRenderer implements SeriesRenderer {
             return { name: seriesName, type: 'custom', xAxisIndex, yAxisIndex, data: [], silent: true };
         }
 
-        // Compute y-range for axis scaling
-        let yMin = Infinity, yMax = -Infinity;
-        for (const ln of lineObjects) {
-            if (ln.y1 < yMin) yMin = ln.y1;
-            if (ln.y1 > yMax) yMax = ln.y1;
-            if (ln.y2 < yMin) yMin = ln.y2;
-            if (ln.y2 > yMax) yMax = ln.y2;
-        }
-
         // Use a SINGLE data entry spanning the full x-range so renderItem is always called.
         // ECharts filters a data item only when ALL its x-dimensions are on the same side
         // of the visible window.  With dims 0=0 and 1=lastBar the item always straddles
         // the viewport, so renderItem fires exactly once regardless of scroll position.
-        // Dims 2/3 are yMin/yMax for axis scaling.
+        // Note: We do NOT encode y-dimensions — drawing objects should not influence the
+        // y-axis auto-scaling.  Otherwise lines drawn at the chart's end would prevent
+        // the y-axis from adapting when scrolling to earlier (lower-priced) history.
         const totalBars = (context.candlestickData?.length || 0) + offset;
         const lastBarIndex = Math.max(0, totalBars - 1);
 
@@ -101,9 +94,9 @@ export class DrawingLineRenderer implements SeriesRenderer {
 
                 return { type: 'group', children };
             },
-            data: [[0, lastBarIndex, yMin, yMax]],
+            data: [[0, lastBarIndex]],
             clip: true,
-            encode: { x: [0, 1], y: [2, 3] },
+            encode: { x: [0, 1] },
             // Prevent ECharts visual system from overriding element colors with palette
             itemStyle: { color: 'transparent', borderColor: 'transparent' },
             z: 15,

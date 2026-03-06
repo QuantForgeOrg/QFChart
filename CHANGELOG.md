@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Histogram `histbase` Support**: Rewrote `HistogramRenderer` from ECharts `bar` type to a `custom` series so bars extend from the configured `histbase` value (e.g., 50) instead of always from 0. This matches TradingView behavior for indicators like RSI histograms centered on 50.
 - **Thin Histogram vs Thick Columns**: `style: 'histogram'` now renders as thin line-like bars whose pixel width is controlled by `linewidth`, while `style: 'columns'` renders as thick bars at 60% of candle width — matching the visual distinction TradingView makes between the two styles.
+- **Resizable Indicator Panes**: Pane borders between the main chart and sub-pane indicators (and between adjacent indicator panes) are now interactively draggable. Hovering over a pane boundary changes the cursor to `row-resize`; dragging redistributes height between the two neighbouring panes in real time (throttled via `requestAnimationFrame`). Minimum heights are enforced (`10 %` for the main pane, `5 %` per indicator). The `LayoutManager` now exposes a `PaneBoundary[]` array in its `LayoutResult` and accepts an optional `mainHeightOverride` parameter to persist user-adjusted heights across re-renders.
 
 ### Fixed
 
@@ -21,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Box & Line Extend Shorthand Values**: `BoxRenderer` and `DrawingLineRenderer` now accept single-letter extend values (`'n'`, `'l'`, `'r'`, `'b'`) in addition to the full words (`'none'`, `'left'`, `'right'`, `'both'`), matching the shorthand constants PineTS emits.
 - **Drawing Line Spurious Fill**: Added `fill: 'none'` to the line element style in `DrawingLineRenderer` to prevent ECharts from accidentally filling the area under the line shape.
 - **ECharts Palette Color Overrides**: Added `itemStyle: { color: 'transparent', borderColor: 'transparent' }` to the custom series config for `DrawingLineRenderer`, `BoxRenderer`, and `PolylineRenderer`. Without this, ECharts' visual system was overriding element colors set inside `renderItem` with its automatic color palette on re-renders.
+- **Table Mouse-Event Pass-Through**: Table overlay elements now have `pointer-events: none` so hover, click, and drag events on the underlying chart are no longer swallowed when the cursor passes over a rendered table. Previously `pointer-events: auto` caused the chart to become unresponsive to drawing tools and tooltips in table-covered areas.
 
 ## [0.7.2] - 2026-03-05 - Gradient Fill Support
 
