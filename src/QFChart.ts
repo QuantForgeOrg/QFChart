@@ -878,10 +878,16 @@ export class QFChart implements ChartContext {
                     markLine: candlestickSeries.markLine, // Ensure markLine is updated
                 },
                 ...indicatorSeries.map((s) => {
+                    // Custom series (drawing objects: boxes, polylines, lines, labels)
+                    // use a renderItem closure that captures the current drawing objects.
+                    // During streaming, these objects are rebuilt on each tick, but
+                    // ECharts merge-mode may skip re-rendering if the data array
+                    // (e.g. [[0, lastBarIndex]]) hasn't changed. Pass the FULL series
+                    // config so ECharts fully processes the updated renderItem.
+                    if (s.type === 'custom') {
+                        return s;
+                    }
                     const update: any = { data: s.data };
-                    // If the series has a renderItem function (custom series like background),
-                    // we MUST update it because it likely closes over variables (colorArray)
-                    // from the SeriesBuilder scope which have been recreated.
                     if (s.renderItem) {
                         update.renderItem = s.renderItem;
                     }
@@ -1280,11 +1286,16 @@ export class QFChart implements ChartContext {
         const startIdx = Math.round((zoomComp.start / 100) * totalLength);
         const endIdx = Math.round((zoomComp.end / 100) * totalLength);
 
+        // Count visible real candles (overlap between viewport and data range)
+        const dataStart = paddingPoints;
+        const dataEnd = paddingPoints + dataLength - 1;
+        const visibleCandles = Math.max(0, Math.min(endIdx, dataEnd) - Math.max(startIdx, dataStart) + 1);
+
         const nearLeftEdge = startIdx < this.LAZY_EDGE_THRESHOLD;
         const nearRightEdge = endIdx > totalLength - this.LAZY_EDGE_THRESHOLD;
 
-        // Expand if near either edge
-        if ((nearLeftEdge || nearRightEdge) && paddingPoints < this.LAZY_MAX_PADDING) {
+        // Don't expand when zoomed in very tight (fewer than 3 visible candles)
+        if ((nearLeftEdge || nearRightEdge) && paddingPoints < this.LAZY_MAX_PADDING && visibleCandles >= 3) {
             this._expandScheduled = true;
             requestAnimationFrame(() => {
                 this._expandScheduled = false;

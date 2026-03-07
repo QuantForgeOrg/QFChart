@@ -69,7 +69,12 @@ export class PolylineRenderer implements SeriesRenderer {
 
                     if (pixelPoints.length < 2) continue;
 
-                    const lineColor = pl.line_color || '#2962ff';
+                    // Detect na/NaN line_color (means no stroke)
+                    const rawLineColor = pl.line_color;
+                    const isNaLineColor = rawLineColor === null || rawLineColor === undefined ||
+                        (typeof rawLineColor === 'number' && isNaN(rawLineColor)) ||
+                        rawLineColor === 'na' || rawLineColor === 'NaN';
+                    const lineColor = isNaLineColor ? null : (rawLineColor || '#2962ff');
                     const lineWidth = pl.line_width || 1;
                     const dashPattern = this.getDashPattern(pl.line_style);
 
@@ -95,23 +100,25 @@ export class PolylineRenderer implements SeriesRenderer {
                         }
                     }
 
-                    // Stroke (line segments)
-                    if (pl.curved) {
-                        const pathData = this.buildCurvedPath(pixelPoints, pl.closed);
-                        children.push({
-                            type: 'path',
-                            shape: { pathData },
-                            style: { fill: 'none', stroke: lineColor, lineWidth, lineDash: dashPattern },
-                            silent: true,
-                        });
-                    } else {
-                        const allPoints = pl.closed ? [...pixelPoints, pixelPoints[0]] : pixelPoints;
-                        children.push({
-                            type: 'polyline',
-                            shape: { points: allPoints },
-                            style: { fill: 'none', stroke: lineColor, lineWidth, lineDash: dashPattern },
-                            silent: true,
-                        });
+                    // Stroke (line segments) — skip entirely if line_color is na
+                    if (lineColor && lineWidth > 0) {
+                        if (pl.curved) {
+                            const pathData = this.buildCurvedPath(pixelPoints, pl.closed);
+                            children.push({
+                                type: 'path',
+                                shape: { pathData },
+                                style: { fill: 'none', stroke: lineColor, lineWidth, lineDash: dashPattern },
+                                silent: true,
+                            });
+                        } else {
+                            const allPoints = pl.closed ? [...pixelPoints, pixelPoints[0]] : pixelPoints;
+                            children.push({
+                                type: 'polyline',
+                                shape: { points: allPoints },
+                                style: { fill: 'none', stroke: lineColor, lineWidth, lineDash: dashPattern },
+                                silent: true,
+                            });
+                        }
                     }
                 }
 
