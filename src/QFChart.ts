@@ -54,9 +54,11 @@ export class QFChart implements ChartContext {
                     const pGrid = this.chart.convertFromPixel({ gridIndex: i }, [point.x, point.y]);
 
                     if (pGrid) {
-                        // Store padded coordinates directly (don't subtract offset)
-                        // This ensures all coordinates are positive and within the valid padded range
-                        return { timeIndex: Math.round(pGrid[0]), value: pGrid[1], paneIndex: i };
+                        // Store in real data indices (subtract padding offset).
+                        // This makes drawing coordinates independent of lazy padding
+                        // expansion — when _resizePadding() changes dataIndexOffset,
+                        // stored coordinates stay valid without manual updating.
+                        return { timeIndex: Math.round(pGrid[0]) - this.dataIndexOffset, value: pGrid[1], paneIndex: i };
                     }
                 }
             }
@@ -64,8 +66,8 @@ export class QFChart implements ChartContext {
         },
         dataToPixel: (point: { timeIndex: number; value: number; paneIndex?: number }) => {
             const paneIdx = point.paneIndex || 0;
-            // Coordinates are already in padded space, so use directly
-            const p = this.chart.convertToPixel({ gridIndex: paneIdx }, [point.timeIndex, point.value]);
+            // Convert real data index back to padded space for ECharts
+            const p = this.chart.convertToPixel({ gridIndex: paneIdx }, [point.timeIndex + this.dataIndexOffset, point.value]);
             if (p) {
                 return { x: p[0], y: p[1] };
             }
@@ -1249,7 +1251,25 @@ export class QFChart implements ChartContext {
         const newStart = Math.max(0, ((oldStartIdx + delta) / newTotal) * 100);
         const newEnd = Math.min(100, ((oldEndIdx + delta) / newTotal) * 100);
 
-        // 5. Merge update — preserves drag/interaction state
+        // 5. Rebuild drawing series data with new offset so ECharts
+        //    viewport culling uses correct padded indices after expansion.
+        const drawingSeriesUpdates: any[] = [];
+        const drawingsByPane = new Map<number, import('./types').DrawingElement[]>();
+        this.drawings.forEach((d) => {
+            const paneIdx = d.paneIndex || 0;
+            if (!drawingsByPane.has(paneIdx)) drawingsByPane.set(paneIdx, []);
+            drawingsByPane.get(paneIdx)!.push(d);
+        });
+        drawingsByPane.forEach((paneDrawings) => {
+            drawingSeriesUpdates.push({
+                data: paneDrawings.map((d) => [
+                    d.points[0].timeIndex + this.dataIndexOffset, d.points[0].value,
+                    d.points[1].timeIndex + this.dataIndexOffset, d.points[1].value,
+                ]),
+            });
+        });
+
+        // 6. Merge update — preserves drag/interaction state
         const updateOption: any = {
             xAxis: currentOption.xAxis.map(() => ({ data: categoryData })),
             dataZoom: [
@@ -1263,6 +1283,7 @@ export class QFChart implements ChartContext {
                     if (s.renderItem) update.renderItem = s.renderItem;
                     return update;
                 }),
+                ...drawingSeriesUpdates,
             ],
         };
         this.chart.setOption(updateOption, { notMerge: false });
@@ -1491,9 +1512,10 @@ export class QFChart implements ChartContext {
 
                     if (!start || !end) return;
 
-                    // Coordinates are already in padded space, use directly
-                    const p1 = api.coord([start.timeIndex, start.value]);
-                    const p2 = api.coord([end.timeIndex, end.value]);
+                    // Convert real data indices to padded space for ECharts rendering
+                    const drawingOffset = this.dataIndexOffset;
+                    const p1 = api.coord([start.timeIndex + drawingOffset, start.value]);
+                    const p2 = api.coord([end.timeIndex + drawingOffset, end.value]);
 
                     const isSelected = drawing.id === this.selectedDrawingId;
 
@@ -1732,7 +1754,7 @@ export class QFChart implements ChartContext {
                         };
                     }
                 },
-                data: drawings.map((d) => [d.points[0].timeIndex, d.points[0].value, d.points[1].timeIndex, d.points[1].value]),
+                data: drawings.map((d) => [d.points[0].timeIndex + this.dataIndexOffset, d.points[0].value, d.points[1].timeIndex + this.dataIndexOffset, d.points[1].value]),
                 encode: { x: [0, 2], y: [1, 3] },
                 z: 100,
                 silent: false,

@@ -25,7 +25,7 @@ export class LabelRenderer implements SeriesRenderer {
         const labelData = labelObjects
             .map((lbl) => {
                 const text = lbl.text || '';
-                const color = lbl.color || '#2962ff';
+                const color = (lbl.color != null && lbl.color !== '') ? lbl.color : 'transparent';
                 const textcolor = lbl.textcolor || '#ffffff';
                 const yloc = lbl.yloc || 'price';
                 const styleRaw = lbl.style || 'style_label_down';
