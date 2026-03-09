@@ -34,8 +34,25 @@ export class FillRenderer implements SeriesRenderer {
             );
         }
 
-        // --- Simple (solid color) fill ---
-        const { color: fillColor, opacity: fillOpacity } = ColorUtils.parseColor(plotOptions.color || 'rgba(128, 128, 128, 0.2)');
+        // --- Simple fill (supports per-bar color when color is a series) ---
+        const { color: defaultFillColor, opacity: defaultFillOpacity } = ColorUtils.parseColor(plotOptions.color || 'rgba(128, 128, 128, 0.2)');
+
+        // Check if we have per-bar color data in optionsArray
+        const hasPerBarColor = optionsArray?.some((o: any) => o && o.color !== undefined);
+
+        // Pre-parse per-bar colors for efficiency
+        let barColors: { color: string; opacity: number }[] | null = null;
+        if (hasPerBarColor) {
+            barColors = [];
+            for (let i = 0; i < totalDataLength; i++) {
+                const opts = optionsArray?.[i];
+                if (opts && opts.color !== undefined) {
+                    barColors[i] = ColorUtils.parseColor(opts.color);
+                } else {
+                    barColors[i] = { color: defaultFillColor, opacity: defaultFillOpacity };
+                }
+            }
+        }
 
         // Create fill data with previous values for smooth polygon rendering
         const fillDataWithPrev: any[] = [];
@@ -75,14 +92,16 @@ export class FillRenderer implements SeriesRenderer {
                 const p2Curr = api.coord([index, y2]);
                 const p2Prev = api.coord([index - 1, prevY2]);
 
+                const fc = barColors ? barColors[index] : null;
+
                 return {
                     type: 'polygon',
                     shape: {
                         points: [p1Prev, p1Curr, p2Curr, p2Prev],
                     },
                     style: {
-                        fill: fillColor,
-                        opacity: fillOpacity,
+                        fill: fc ? fc.color : defaultFillColor,
+                        opacity: fc ? fc.opacity : defaultFillOpacity,
                     },
                     silent: true,
                 };
