@@ -5,6 +5,32 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] - 2026-03-11 - Canvas Table Renderer, Lazy Padding, Streaming Fixes & Rendering Overhaul
+
+### Added
+
+- **`TableCanvasRenderer` — Canvas-Based Table Rendering**: Completely rewrote table rendering from DOM overlays (`TableOverlayRenderer`) to ECharts canvas graphics (`TableCanvasRenderer`). All table cells are now emitted as flat, absolute-positioned `rect` + `text` graphic elements rendered directly on the ECharts canvas. Benefits: pixel-perfect sizing (Pine Script `%` maps directly to px via `gridRect`), participation in the single render pipeline (exports, animations, resize events), better performance for large tables, and correct z-ordering with other chart elements. Cell background, text color, border, font size, and alignment are all supported.
+- **Lazy Viewport Padding (Edge Expansion)**: The chart now starts with a minimal 5-bar padding buffer on each side instead of pre-allocating a fixed percentage of the data length as empty bars. When the user scrolls within 10 bars of an edge, the padding automatically expands by 50 bars per side (up to a hard cap of 500). The viewport position is preserved across expansions via `_resizePadding()` — bar indices and zoom percentages are recalculated so there is no visual jump. A public `expandPadding(n)` method is also exposed.
+- **Overlay Indicator Titles**: Overlay indicators (those rendered in the main chart pane) now display their name as a subtitle below the main chart title. Each subtitle is an ECharts canvas text graphic with a configurable `titleColor`.
+- **`QFChartOptions.grid` Block**: New `grid` configuration option controls grid split lines and axis borders: `show` (bool), `lineColor`, `lineOpacity`, `borderColor`, `borderShow`.
+- **`QFChartOptions.layout` Extended**: `mainPaneHeight` and `gap` are now optional. Added `left` and `right` string properties for controlling grid side margins.
+- **Documentation**: Added `docs/layout-and-customization.md` covering pane layout, grid options, margins, and the new lazy padding system.
+
+### Fixed
+
+- **Custom Candle Colors** (`OHLCBarRenderer`): ECharts' custom series coerces all data values to numbers via `api.value()`, so string colors stored as data dimensions would silently become `NaN`. Colors are now stored in a closure-accessible `colorLookup[]` array keyed by bar index and retrieved inside `renderItem`, keeping the data array purely numeric.
+- **`FillRenderer` Multi-Color Fill**: Fixed fill segments not applying per-segment colors when adjacent fills had different colors. Each polygon segment now independently resolves and applies its own fill color from the `colorArray`.
+- **`FillRenderer` Reference Data**: Fixed fill plots that lost their reference data after a streaming update. `SeriesBuilder` now correctly propagates `rawDataArray` references across incremental renders.
+- **Drawing Tool Coordinate Space**: Drawing tool points are now stored as real data indices (real bar number, no padding offset). When `_resizePadding()` expands the chart, stored coordinates remain valid without manual patching. On each render, real indices are converted back to padded ECharts coordinates by adding `dataIndexOffset`. Drawing series data entries are also rebuilt with the updated offset during expansion.
+- **Polyline Renderer — Streamed Data**: Fixed `PolylineRenderer` not correctly handling incremental updates from live (streaming) data. The renderer now reconstructs point coordinates from the latest drawing object state rather than caching stale positions from the initial render.
+- **Live Indicator Missing Rendering Options**: Fixed streaming indicator updates (via `updateTail`) not forwarding all rendering options (overlay axis map, pane offset, etc.) through the `SeriesBuilder` call, causing live indicators to render without correct colors and axis assignments.
+- **Bar/Candle Background Renderer**: Fixed `BackgroundRenderer` not applying custom per-bar background colors when set via `barcolor` or plot background options.
+- **Box Renderer Default Border Color**: Fixed `BoxRenderer` using the wrong fallback border color when `border_color` was not explicitly set. The correct default (`#2962ff`) is now consistently applied, and `border_color: na` still correctly suppresses the border.
+- **Table Background Color**: Fixed `TableOverlayRenderer` not applying the table-level `bgcolor` when individual cells did not specify their own background.
+- **Countdown Timer Display**: Fixed the bar countdown timer showing incorrect values or not updating on the last bar when live streaming was active.
+
+---
+
 ## [0.7.3] - 2026-03-06 - Histogram Rewrite, Table Fixes & Drawing Object Improvements
 
 ### Added
