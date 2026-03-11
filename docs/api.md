@@ -207,6 +207,8 @@ Configuration object passed to the constructor.
 | `backgroundColor`     | `string`                    | `"#1e293b"`                | Chart background color.                                                                                                           |
 | `databox`             | `object`                    | `{ position: 'floating' }` | Databox configuration: `position` ('floating', 'left', 'right'), `triggerOn` ('mousemove', 'click' [auto-hides on drag], 'none'). |
 | `dataZoom`            | `object`                    | -                          | Zoom slider configuration: `visible`, `position`, `height`, `start`, `end`, `zoomOnTouch` (enable pan/drag on touch).             |
+| `grid`                | `object`                    | -                          | Grid line styling: `show`, `lineColor`, `lineOpacity`, `borderColor`, `borderShow`. See [Grid Styling](/layout#grid-styling).     |
+| `layout`              | `object`                    | -                          | Chart area margins and pane sizing: `left`, `right`, `mainPaneHeight`, `gap`. See [Chart Margins](/layout#chart-margins).         |
 | `controls`            | `object`                    | `{}`                       | Enable control buttons (`collapse`, `maximize`, `fullscreen`).                                                                    |
 
 ### `OHLCV`

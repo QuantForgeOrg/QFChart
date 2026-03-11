@@ -20,6 +20,38 @@ function normalizeColor(color: string | undefined): string | undefined {
 }
 
 /**
+ * Parse a CSS color string into { r, g, b } (0-255 each).
+ * Supports #rgb, #rrggbb, #rrggbbaa, rgb(), rgba().
+ */
+function parseRGB(color: string | null | undefined): { r: number; g: number; b: number } | null {
+    if (!color || typeof color !== 'string') return null;
+    if (color.startsWith('#')) {
+        const hex = color.slice(1);
+        if (hex.length >= 6) {
+            const r = parseInt(hex.slice(0, 2), 16);
+            const g = parseInt(hex.slice(2, 4), 16);
+            const b = parseInt(hex.slice(4, 6), 16);
+            if (!isNaN(r) && !isNaN(g) && !isNaN(b)) return { r, g, b };
+        }
+        if (hex.length === 3) {
+            const r = parseInt(hex[0] + hex[0], 16);
+            const g = parseInt(hex[1] + hex[1], 16);
+            const b = parseInt(hex[2] + hex[2], 16);
+            if (!isNaN(r) && !isNaN(g) && !isNaN(b)) return { r, g, b };
+        }
+        return null;
+    }
+    const m = color.match(/rgba?\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/);
+    if (m) return { r: +m[1], g: +m[2], b: +m[3] };
+    return null;
+}
+
+/** Relative luminance (0 = black, 1 = white). */
+function luminance(r: number, g: number, b: number): number {
+    return (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+}
+
+/**
  * Renderer for Pine Script box.* drawing objects.
  * Each box is defined by two corners (left,top) → (right,bottom)
  * with fill, border, optional text, and optional extend.
@@ -96,14 +128,21 @@ export class BoxRenderer implements SeriesRenderer {
                     }
 
                     // Background fill rect
-                    const bgColor = normalizeColor(bx.bgcolor) || '#2962ff';
-                    children.push({
-                        type: 'rect',
-                        shape: { x, y, width: w, height: h },
-                        style: { fill: bgColor, stroke: 'none' },
-                    });
+                    // bgcolor = na means no fill (na resolves to NaN or undefined)
+                    const rawBgColor = bx.bgcolor;
+                    const isNaBgColor = rawBgColor === null || rawBgColor === undefined ||
+                        (typeof rawBgColor === 'number' && isNaN(rawBgColor)) ||
+                        rawBgColor === 'na' || rawBgColor === 'NaN' || rawBgColor === '';
+                    const bgColor = isNaBgColor ? null : (normalizeColor(rawBgColor) || '#2962ff');
+                    if (bgColor) {
+                        children.push({
+                            type: 'rect',
+                            shape: { x, y, width: w, height: h },
+                            style: { fill: bgColor, stroke: 'none' },
+                        });
+                    }
 
-                    // Border rect (on top of fill)
+                    // Explicit border rect (on top of fill)
                     // border_color = na means no border (na resolves to NaN or undefined)
                     const rawBorderColor = bx.border_color;
                     const isNaBorder = rawBorderColor === null || rawBorderColor === undefined ||
@@ -128,16 +167,38 @@ export class BoxRenderer implements SeriesRenderer {
                     if (bx.text) {
                         const textX = this.getTextX(x, w, bx.text_halign);
                         const textY = this.getTextY(y, h, bx.text_valign);
+
+                        // Auto-contrast: TradingView renders box text as bold white on dark
+                        // backgrounds. When text_color is the default black, compute luminance
+                        // of bgcolor and use white text if the background is dark.
+                        let textFill = normalizeColor(bx.text_color) || '#000000';
+                        const isDefaultTextColor = !bx.text_color || bx.text_color === '#000000' ||
+                            bx.text_color === 'black' || bx.text_color === 'color.black';
+                        if (isDefaultTextColor && bgColor) {
+                            const rgb = parseRGB(bgColor);
+                            if (rgb && luminance(rgb.r, rgb.g, rgb.b) < 0.5) {
+                                textFill = '#FFFFFF';
+                            }
+                        }
+
+                        // TradingView renders box text bold by default (format_none → bold)
+                        const isBold = !bx.text_formatting || bx.text_formatting === 'format_none' ||
+                            bx.text_formatting === 'format_bold';
+
+                        // Font size: for 'auto'/'size.auto', scale to fit within the box.
+                        // For named sizes (tiny, small, etc.), use fixed values.
+                        const fontSize = this.computeFontSize(bx.text_size, bx.text, Math.abs(w), Math.abs(h), isBold);
+
                         children.push({
                             type: 'text',
                             style: {
                                 x: textX,
                                 y: textY,
                                 text: bx.text,
-                                fill: normalizeColor(bx.text_color) || '#000000',
-                                fontSize: this.getSizePixels(bx.text_size),
+                                fill: textFill,
+                                fontSize,
                                 fontFamily: bx.text_font_family === 'monospace' ? 'monospace' : 'sans-serif',
-                                fontWeight: (bx.text_formatting === 'format_bold') ? 'bold' : 'normal',
+                                fontWeight: isBold ? 'bold' : 'normal',
                                 fontStyle: (bx.text_formatting === 'format_italic') ? 'italic' : 'normal',
                                 textAlign: this.mapHAlign(bx.text_halign),
                                 textVerticalAlign: this.mapVAlign(bx.text_valign),
@@ -170,12 +231,17 @@ export class BoxRenderer implements SeriesRenderer {
         }
     }
 
-    private getSizePixels(size: string | number): number {
+    /**
+     * Compute font size for box text.
+     * For 'auto'/'size.auto' (the default), dynamically scale text to fit within
+     * the box dimensions with a small gap — matching TradingView behavior.
+     * For explicit named sizes, return fixed pixel values.
+     */
+    private computeFontSize(size: string | number, text: string, boxW: number, boxH: number, bold: boolean): number {
         if (typeof size === 'number' && size > 0) return size;
+
+        // Fixed named sizes
         switch (size) {
-            case 'auto':
-            case 'size.auto':
-                return 12;
             case 'tiny':
             case 'size.tiny':
                 return 8;
@@ -191,9 +257,39 @@ export class BoxRenderer implements SeriesRenderer {
             case 'huge':
             case 'size.huge':
                 return 36;
-            default:
-                return 12;
         }
+
+        // 'auto' / 'size.auto' / default → scale to fit box
+        if (!text || boxW <= 0 || boxH <= 0) return 12;
+
+        const padding = 6; // px gap on each side
+        const availW = boxW - padding * 2;
+        const availH = boxH - padding * 2;
+        if (availW <= 0 || availH <= 0) return 6;
+
+        const lines = text.split('\n');
+        const numLines = lines.length;
+
+        // Find the longest line by character count
+        let maxChars = 1;
+        for (const line of lines) {
+            if (line.length > maxChars) maxChars = line.length;
+        }
+
+        // Average character width ratio (font-size relative).
+        // Bold sans-serif is ~0.62; regular is ~0.55.
+        const charWidthRatio = bold ? 0.62 : 0.55;
+
+        // Max font size constrained by width: availW = maxChars * fontSize * ratio
+        const maxByWidth = availW / (maxChars * charWidthRatio);
+
+        // Max font size constrained by height: availH = numLines * fontSize * lineHeight
+        const lineHeight = 1.3;
+        const maxByHeight = availH / (numLines * lineHeight);
+
+        // Use the smaller of the two, clamped to a reasonable range
+        const computed = Math.min(maxByWidth, maxByHeight);
+        return Math.max(6, Math.min(computed, 48));
     }
 
     private mapHAlign(align: string): string {

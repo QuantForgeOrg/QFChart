@@ -116,9 +116,18 @@ export interface QFChartOptions {
         position: 'floating' | 'left' | 'right';
         triggerOn?: 'mousemove' | 'click' | 'none'; // When to show tooltip/crosshair, default 'mousemove'
     };
+    grid?: {
+        show?: boolean;             // Show/hide split lines (default true)
+        lineColor?: string;         // Split line color (default '#334155')
+        lineOpacity?: number;       // Split line opacity (default 0.5 main, 0.3 indicator panes)
+        borderColor?: string;       // Axis line color (default '#334155')
+        borderShow?: boolean;       // Show/hide axis border lines (default true)
+    };
     layout?: {
-        mainPaneHeight: string; // e.g. "60%"
-        gap: number; // e.g. 5 (percent)
+        mainPaneHeight?: string;    // e.g. "60%"
+        gap?: number;               // Gap between panes in % (default ~5)
+        left?: string;              // Grid left margin (default '10%')
+        right?: string;             // Grid right margin (default '10%')
     };
     watermark?: boolean; // Default true
 }

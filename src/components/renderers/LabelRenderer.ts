@@ -24,14 +24,19 @@ export class LabelRenderer implements SeriesRenderer {
 
         const labelData = labelObjects
             .map((lbl) => {
-                const text = lbl.text || '';
-                const color = lbl.color || '#2962ff';
-                const textcolor = lbl.textcolor || '#ffffff';
-                const yloc = lbl.yloc || 'price';
-                const styleRaw = lbl.style || 'style_label_down';
-                const size = lbl.size || 'normal';
-                const textalign = lbl.textalign || 'align_center';
-                const tooltip = lbl.tooltip || '';
+                // Resolve any function/Series values that may not have been
+                // resolved at PineTS level (e.g. setters that skip _resolve()).
+                const resolve = (v: any) => typeof v === 'function' ? v() : v;
+
+                const text = resolve(lbl.text) || '';
+                const rawColor = resolve(lbl.color);
+                const color = (rawColor != null && rawColor !== '') ? rawColor : 'transparent';
+                const textcolor = resolve(lbl.textcolor) || '#ffffff';
+                const yloc = resolve(lbl.yloc) || 'price';
+                const styleRaw = resolve(lbl.style) || 'style_label_down';
+                const size = resolve(lbl.size) || 'normal';
+                const textalign = resolve(lbl.textalign) || 'align_center';
+                const tooltip = resolve(lbl.tooltip) || '';
 
                 // Map Pine style string to shape name for ShapeUtils
                 const shape = this.styleToShape(styleRaw);
@@ -160,7 +165,24 @@ export class LabelRenderer implements SeriesRenderer {
                 };
 
                 if (tooltip) {
-                    item.tooltip = { formatter: tooltip };
+                    // Store tooltip text for the custom tooltip overlay in QFChart.ts.
+                    // ECharts mouseover event can read this from params.data._tooltipText.
+                    item._tooltipText = tooltip;
+                    // Enable emphasis for this item so ECharts fires mouseover/mouseout
+                    // events, but prevent any visual change by mirroring normal styles.
+                    item.emphasis = {
+                        scale: false,
+                        itemStyle: { color: color },
+                        label: {
+                            show: item.label.show,
+                            color: textcolor,
+                            fontSize: fontSize,
+                            fontWeight: 'bold',
+                        },
+                    };
+                } else {
+                    // No tooltip: fully disable emphasis (no hover interaction)
+                    item.emphasis = { disabled: true };
                 }
 
                 return item;
@@ -174,6 +196,10 @@ export class LabelRenderer implements SeriesRenderer {
             yAxisIndex: yAxisIndex,
             data: labelData,
             z: 20,
+            // Per-item emphasis: disabled for labels without tooltips,
+            // scale:false for labels with tooltips (allows hover for custom tooltip).
+            animation: false,               // Prevent labels disappearing on zoom
+            clip: false,                    // Keep labels visible when partially outside viewport
         };
     }
 
