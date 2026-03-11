@@ -300,3 +300,90 @@ This configuration ensures:
 -   **Mobile users** can still zoom using the slider
 -   **Desktop users** get smooth hover-to-view and drag-to-pan experience
 -   **Auto-hide on drag**: When using `triggerOn: 'click'`, the tooltip automatically hides when the user starts dragging the chart
+
+## Grid Styling
+
+Control the visibility and appearance of the chart grid lines and axis borders.
+
+```javascript
+const chart = new QFChart(container, {
+    grid: {
+        show: false,          // Show/hide horizontal split lines (default: false)
+        lineColor: '#334155', // Split line color (default: '#334155')
+        lineOpacity: 0.5,     // Split line opacity (default: 0.5)
+        borderColor: '#334155', // Axis border line color (default: '#334155')
+        borderShow: false,    // Show/hide axis border lines (default: false)
+    },
+});
+```
+
+### Properties
+
+| Property      | Type      | Default      | Description                                                                 |
+| ------------- | --------- | ------------ | --------------------------------------------------------------------------- |
+| `show`        | `boolean` | `false`      | Show or hide horizontal split lines across the chart area.                  |
+| `lineColor`   | `string`  | `'#334155'`  | Color of the horizontal split lines.                                        |
+| `lineOpacity` | `number`  | `0.5`        | Opacity of split lines (0–1). Indicator panes use 60% of this value.        |
+| `borderColor` | `string`  | `'#334155'`  | Color of the axis border lines (edges of the chart area).                   |
+| `borderShow`  | `boolean` | `false`      | Show or hide axis border lines.                                             |
+
+### Examples
+
+**Enable grid lines**:
+
+```javascript
+grid: { show: true, borderShow: true }
+```
+
+**Subtle grid** (lighter lines):
+
+```javascript
+grid: { show: true, lineColor: '#ffffff', lineOpacity: 0.1 }
+```
+
+**High-contrast grid**:
+
+```javascript
+grid: { show: true, lineColor: '#475569', lineOpacity: 0.8, borderColor: '#64748b', borderShow: true }
+```
+
+## Chart Margins
+
+Control the left and right margins of the chart area, and pane sizing.
+
+```javascript
+const chart = new QFChart(container, {
+    layout: {
+        left: '10%',   // Left margin (default: '10%')
+        right: '10%',  // Right margin (default: '10%')
+    },
+});
+```
+
+### Properties
+
+| Property         | Type     | Default  | Description                                          |
+| ---------------- | -------- | -------- | ---------------------------------------------------- |
+| `left`           | `string` | `'10%'`  | Left margin of the chart grid area (CSS-like value).  |
+| `right`          | `string` | `'10%'`  | Right margin of the chart grid area (CSS-like value). |
+| `mainPaneHeight` | `string` | auto     | Explicit height for the main pane (e.g. `'60%'`).    |
+| `gap`            | `number` | ~5%      | Gap between panes as a percentage.                    |
+
+### Examples
+
+**Wider chart** (smaller margins):
+
+```javascript
+layout: { left: '5%', right: '5%' }
+```
+
+**Fixed pixel margins**:
+
+```javascript
+layout: { left: '60px', right: '80px' }
+```
+
+**Asymmetric** (more room for Y-axis labels on the right):
+
+```javascript
+layout: { left: '5%', right: '12%' }

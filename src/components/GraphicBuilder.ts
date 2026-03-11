@@ -7,7 +7,8 @@ export class GraphicBuilder {
         options: QFChartOptions,
         onToggle: (id: string, action?: 'collapse' | 'maximize' | 'fullscreen') => void,
         isMainCollapsed: boolean = false,
-        maximizedPaneId: string | null = null
+        maximizedPaneId: string | null = null,
+        overlayIndicators: { id: string; titleColor?: string }[] = []
     ): any[] {
         const graphic: any[] = [];
         const pixelToPercent = layout.pixelToPercent;
@@ -34,6 +35,26 @@ export class GraphicBuilder {
                     textVerticalAlign: 'top',
                 },
             });
+
+            // Overlay Indicator Titles (stacked below main chart title)
+            if (overlayIndicators.length > 0) {
+                const mainTitleHeight = 20 * pixelToPercent; // 16px font + padding
+                const overlayLineHeight = 16 * pixelToPercent; // 12px font + 4px gap
+                overlayIndicators.forEach((overlay, i) => {
+                    graphic.push({
+                        type: 'text',
+                        left: '8.5%',
+                        top: mainPaneTop + titleTopMargin + mainTitleHeight + i * overlayLineHeight + '%',
+                        z: 10,
+                        style: {
+                            text: overlay.id,
+                            fill: overlay.titleColor || '#9e9e9e',
+                            font: `bold 12px ${options.fontFamily || 'sans-serif'}`,
+                            textVerticalAlign: 'top',
+                        },
+                    });
+                });
+            }
 
             // Watermark
             if (options.watermark !== false) {

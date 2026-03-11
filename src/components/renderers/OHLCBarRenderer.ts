@@ -6,6 +6,10 @@ export class OHLCBarRenderer implements SeriesRenderer {
         const defaultColor = '#2962ff';
         const isCandle = plotOptions.style === 'candle';
 
+        // Build a separate color lookup — ECharts custom series coerces data values to numbers,
+        // so string colors stored in the data array would become NaN via api.value().
+        const colorLookup: { color: string; wickColor: string; borderColor: string }[] = [];
+
         const ohlcData = dataArray
             .map((val, i) => {
                 if (val === null || !Array.isArray(val) || val.length !== 4) return null;
@@ -16,8 +20,11 @@ export class OHLCBarRenderer implements SeriesRenderer {
                 const wickColor = pointOpts.wickcolor || plotOptions.wickcolor || color;
                 const borderColor = pointOpts.bordercolor || plotOptions.bordercolor || wickColor;
 
-                // Store colors in value array at positions 5, 6, and 7 for access in renderItem
-                return [i, open, close, low, high, color, wickColor, borderColor];
+                // Store colors in a closure-accessible lookup keyed by the data index
+                colorLookup[i] = { color, wickColor, borderColor };
+
+                // Data array contains only numeric values for ECharts
+                return [i, open, close, low, high];
             })
             .filter((item) => item !== null);
 
@@ -32,13 +39,16 @@ export class OHLCBarRenderer implements SeriesRenderer {
                 const closeValue = api.value(2);
                 const lowValue = api.value(3);
                 const highValue = api.value(4);
-                const color = api.value(5);
-                const wickColor = api.value(6);
-                const borderColor = api.value(7);
 
                 if (isNaN(openValue) || isNaN(closeValue) || isNaN(lowValue) || isNaN(highValue)) {
                     return null;
                 }
+
+                // Retrieve colors from the closure-based lookup using the original data index
+                const colors = colorLookup[xValue] || { color: defaultColor, wickColor: defaultColor, borderColor: defaultColor };
+                const color = colors.color;
+                const wickColor = colors.wickColor;
+                const borderColor = colors.borderColor;
 
                 const xPos = api.coord([xValue, 0])[0];
                 const openPos = api.coord([xValue, openValue])[1];

@@ -50,7 +50,7 @@ export class TableOverlayRenderer {
         byPosition.forEach((tbl) => {
             const paneIndex = tbl._paneIndex ?? 0;
             const gridRect = getGridRect ? getGridRect(paneIndex) : undefined;
-            const el = TableOverlayRenderer.buildTable(tbl);
+            const el = TableOverlayRenderer.buildTable(tbl, gridRect);
             TableOverlayRenderer.positionTable(el, tbl.position, gridRect);
             container.appendChild(el);
         });
@@ -62,7 +62,10 @@ export class TableOverlayRenderer {
         }
     }
 
-    private static buildTable(tbl: any): HTMLElement {
+    private static buildTable(
+        tbl: any,
+        gridRect?: { x: number; y: number; width: number; height: number },
+    ): HTMLElement {
         const table = document.createElement('table');
         const borderWidth = tbl.border_width ?? 0;
         const frameWidth = tbl.frame_width ?? 0;
@@ -80,6 +83,13 @@ export class TableOverlayRenderer {
         table.style.lineHeight = '1.4';
         table.style.fontFamily = 'sans-serif';
         table.style.margin = '4px';
+
+        // Constrain table to chart area so it doesn't overflow
+        if (gridRect) {
+            table.style.maxHeight = gridRect.height + 'px';
+            table.style.maxWidth = gridRect.width + 'px';
+            table.style.overflow = 'hidden';
+        }
 
         // Table background
         if (tbl.bgcolor) {
@@ -162,8 +172,10 @@ export class TableOverlayRenderer {
                     // Cell text
                     td.textContent = cellData.text || '';
 
-                    // Cell background
-                    if (cellData.bgcolor) {
+                    // Cell background — only apply if an explicit color string is set.
+                    // Empty string or na (NaN) means "no color" → transparent,
+                    // so the table's own bgcolor shows through.
+                    if (cellData.bgcolor && typeof cellData.bgcolor === 'string' && cellData.bgcolor.length > 0) {
                         const { color: bg, opacity: bgOp } = TableOverlayRenderer.safeParseColor(cellData.bgcolor);
                         td.style.backgroundColor = bg;
                         if (bgOp < 1) {
@@ -190,12 +202,23 @@ export class TableOverlayRenderer {
                         td.style.fontFamily = 'monospace';
                     }
 
-                    // Width/height (% of chart area, 0 = auto)
+                    // Width/height: Pine Script defines these as % of chart visual space (0-100).
+                    // Convert to pixels using gridRect so the table scales with chart size.
                     if (cellData.width > 0) {
-                        td.style.width = cellData.width + '%';
+                        if (gridRect) {
+                            const px = Math.max(1, cellData.width * gridRect.width / 100);
+                            td.style.width = px + 'px';
+                        } else {
+                            td.style.width = cellData.width + '%';
+                        }
                     }
                     if (cellData.height > 0) {
-                        td.style.height = cellData.height + '%';
+                        if (gridRect) {
+                            const px = Math.max(1, cellData.height * gridRect.height / 100);
+                            td.style.height = px + 'px';
+                        } else {
+                            td.style.height = cellData.height + '%';
+                        }
                     }
 
                     // Tooltip
@@ -204,8 +227,14 @@ export class TableOverlayRenderer {
                     }
                 }
 
-                // Default padding
-                td.style.padding = '4px 6px';
+                // Padding: use minimal padding for cells with tiny explicit heights
+                // (e.g., bar-chart rows with height=0.1 in PTAG indicators)
+                const cellHeight = cellData?.height ?? 0;
+                if (cellHeight > 0 && gridRect && cellHeight * gridRect.height / 100 < 4) {
+                    td.style.padding = '0';
+                } else {
+                    td.style.padding = '4px 6px';
+                }
                 td.style.whiteSpace = 'nowrap';
 
                 tr.appendChild(td);

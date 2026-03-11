@@ -2,6 +2,8 @@ import { OHLCV, Indicator as IndicatorType, QFChartOptions, IndicatorPlot, Indic
 import { PaneConfiguration } from './LayoutManager';
 import { SeriesRendererFactory } from './SeriesRendererFactory';
 import { AxisUtils } from '../utils/AxisUtils';
+import { FillRenderer, BatchedFillEntry } from './renderers/FillRenderer';
+import { ColorUtils } from '../utils/ColorUtils';
 
 export class SeriesBuilder {
     private static readonly DEFAULT_COLOR = '#2962ff';
@@ -121,8 +123,17 @@ export class SeriesBuilder {
                 return 0;
             });
 
+            // Collect non-gradient fill plots for batching (performance: N series → 1 series)
+            // Keyed by "xAxisIndex:yAxisIndex" to batch fills on the same axis pair
+            const pendingFills = new Map<string, { entries: BatchedFillEntry[]; xAxisIndex: number; yAxisIndex: number }>();
+
             sortedPlots.forEach((plotName) => {
                 const plot = indicator.plots[plotName];
+
+                // display.none: don't render visually, but still populate data arrays
+                // so that fill() plots referencing this plot can find the data.
+                const isDisplayNone = plot.options.display === 'none';
+
                 const seriesName = `${id}::${plotName}`;
 
                 // Find axis index for THIS SPECIFIC PLOT
@@ -219,6 +230,9 @@ export class SeriesBuilder {
                 // Fill plots need the actual numeric values even when the referenced plot is invisible (color=na)
                 plotDataArrays.set(`${id}::${plotName}`, rawDataArray);
 
+                // display.none plots: data is now stored for fill references, skip rendering
+                if (isDisplayNone) return;
+
                 if (plot.options?.style?.startsWith('style_')) {
                     plot.options.style = plot.options.style.replace('style_', '') as IndicatorStyle;
                 }
@@ -254,6 +268,64 @@ export class SeriesBuilder {
                     return;
                 }
 
+                // Batch non-gradient fill plots for performance
+                // Instead of creating N separate ECharts custom series (one per fill),
+                // collect them and render as a single batched series per axis pair.
+                if (plot.options.style === 'fill' && plot.options.gradient !== true) {
+                    const plot1Key = plot.options.plot1 ? `${id}::${plot.options.plot1}` : null;
+                    const plot2Key = plot.options.plot2 ? `${id}::${plot.options.plot2}` : null;
+
+                    if (plot1Key && plot2Key) {
+                        const plot1Data = plotDataArrays.get(plot1Key);
+                        const plot2Data = plotDataArrays.get(plot2Key);
+
+                        if (plot1Data && plot2Data) {
+                            // Parse per-bar colors
+                            const { color: defaultColor, opacity: defaultOpacity } =
+                                ColorUtils.parseColor(plot.options.color || 'rgba(128, 128, 128, 0.2)');
+                            const hasPerBarColor = optionsArray.some((o: any) => o && o.color !== undefined);
+
+                            const fillBarColors: { color: string; opacity: number }[] = [];
+                            for (let i = 0; i < totalDataLength; i++) {
+                                const opts = optionsArray[i];
+                                if (hasPerBarColor && opts && opts.color !== undefined) {
+                                    fillBarColors[i] = ColorUtils.parseColor(opts.color);
+                                } else {
+                                    fillBarColors[i] = { color: defaultColor, opacity: defaultOpacity };
+                                }
+                            }
+
+                            const axisKey = `${xAxisIndex}:${yAxisIndex}`;
+                            if (!pendingFills.has(axisKey)) {
+                                pendingFills.set(axisKey, { entries: [], xAxisIndex, yAxisIndex });
+                            }
+                            pendingFills.get(axisKey)!.entries.push({
+                                plot1Data,
+                                plot2Data,
+                                barColors: fillBarColors,
+                            });
+                            return; // Defer series creation to batch step below
+                        }
+                    }
+                }
+
+                // Skip fully transparent plots — they exist only as data sources for fills.
+                // Their data is already stored in plotDataArrays for fill references.
+                if (plot.options.color && typeof plot.options.color === 'string') {
+                    const parsed = ColorUtils.parseColor(plot.options.color);
+                    if (parsed.opacity < 0.01) {
+                        // Check that ALL per-bar colors are also transparent (or absent)
+                        const hasVisibleBarColor = colorArray.some((c: any) => {
+                            if (c == null) return false;
+                            const pc = ColorUtils.parseColor(c);
+                            return pc.opacity >= 0.01;
+                        });
+                        if (!hasVisibleBarColor) {
+                            return; // Skip rendering — data already in plotDataArrays for fills
+                        }
+                    }
+                }
+
                 // Use Factory to get appropriate renderer
                 const renderer = SeriesRendererFactory.get(plot.options.style);
                 const seriesConfig = renderer.render({
@@ -275,6 +347,38 @@ export class SeriesBuilder {
                     series.push(seriesConfig);
                 }
             });
+
+            // Batch pending fills: merge multiple fill series into single batched series per axis pair
+            if (pendingFills.size > 0) {
+                const fillRenderer = new FillRenderer();
+                pendingFills.forEach(({ entries, xAxisIndex, yAxisIndex }, axisKey) => {
+                    if (entries.length >= 2) {
+                        // Batch multiple fills into a single ECharts custom series
+                        const batchedConfig = fillRenderer.renderBatched(
+                            `${id}::fills_batch_${axisKey}`,
+                            xAxisIndex,
+                            yAxisIndex,
+                            totalDataLength,
+                            entries
+                        );
+                        if (batchedConfig) {
+                            series.push(batchedConfig);
+                        }
+                    } else if (entries.length === 1) {
+                        // Single fill — still use batched renderer for consistency (clip + encode)
+                        const batchedConfig = fillRenderer.renderBatched(
+                            `${id}::fills_batch_${axisKey}`,
+                            xAxisIndex,
+                            yAxisIndex,
+                            totalDataLength,
+                            entries
+                        );
+                        if (batchedConfig) {
+                            series.push(batchedConfig);
+                        }
+                    }
+                });
+            }
         });
 
         return { series, barColors };

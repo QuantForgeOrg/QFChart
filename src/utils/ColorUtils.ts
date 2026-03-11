@@ -4,7 +4,7 @@ export class ColorUtils {
      * Supports: hex (#RRGGBB, #RRGGBBAA), named colors (green, red), rgba(r,g,b,a), rgb(r,g,b)
      */
     public static parseColor(colorStr: string): { color: string; opacity: number } {
-        if (!colorStr) {
+        if (!colorStr || typeof colorStr !== 'string') {
             return { color: '#888888', opacity: 0.2 };
         }
 

@@ -1,8 +1,17 @@
 import { SeriesRenderer, RenderContext } from './SeriesRenderer';
+import { ColorUtils } from '../../utils/ColorUtils';
 
 export class BackgroundRenderer implements SeriesRenderer {
     render(context: RenderContext): any {
         const { seriesName, xAxisIndex, yAxisIndex, dataArray, colorArray } = context;
+
+        // Pre-parse colors to extract embedded alpha (e.g. #RRGGBBAA → rgb + opacity)
+        // This avoids the double-opacity problem where ECharts multiplies a hardcoded
+        // opacity with the alpha already embedded in the color string.
+        const parsedColors: { color: string; opacity: number }[] = [];
+        for (let i = 0; i < colorArray.length; i++) {
+            parsedColors[i] = colorArray[i] ? ColorUtils.parseColor(colorArray[i]) : { color: '', opacity: 0 };
+        }
 
         return {
             name: seriesName,
@@ -24,6 +33,9 @@ export class BackgroundRenderer implements SeriesRenderer {
 
                 if (!barColor || val === null || val === undefined || isNaN(val)) return;
 
+                const parsed = parsedColors[params.dataIndex];
+                if (!parsed || parsed.opacity <= 0) return; // Skip fully transparent
+
                 return {
                     type: 'rect',
                     shape: {
@@ -33,8 +45,8 @@ export class BackgroundRenderer implements SeriesRenderer {
                         height: sys.height,
                     },
                     style: {
-                        fill: barColor,
-                        opacity: 0.3,
+                        fill: parsed.color,
+                        opacity: parsed.opacity,
                     },
                     silent: true,
                 };

@@ -51,6 +51,17 @@ export class LayoutManager {
         // Get Y-axis padding percentage (default 5%)
         const yAxisPaddingPercent = options.yAxisPadding !== undefined ? options.yAxisPadding : 5;
 
+        // Grid styling options
+        const gridShow = options.grid?.show === true;               // default false
+        const gridLineColor = options.grid?.lineColor ?? '#334155';
+        const gridLineOpacity = options.grid?.lineOpacity ?? 0.5;
+        const gridBorderColor = options.grid?.borderColor ?? '#334155';
+        const gridBorderShow = options.grid?.borderShow === true;    // default false
+
+        // Layout margin options
+        const layoutLeft = options.layout?.left ?? '10%';
+        const layoutRight = options.layout?.right ?? '10%';
+
         // Identify unique separate panes (indices > 0) and sort them
         const separatePaneIndices = Array.from(indicators.values())
             .map((ind) => ind.paneIndex)
@@ -122,8 +133,8 @@ export class LayoutManager {
 
                 // Grid
                 grid.push({
-                    left: '10%',
-                    right: '10%',
+                    left: layoutLeft,
+                    right: layoutRight,
                     top: isTarget ? '5%' : '0%',
                     height: isTarget ? '90%' : '0%',
                     show: isTarget,
@@ -141,10 +152,10 @@ export class LayoutManager {
                         color: '#94a3b8',
                         fontFamily: options.fontFamily,
                     },
-                    axisLine: { show: isTarget, lineStyle: { color: '#334155' } },
+                    axisLine: { show: isTarget && gridBorderShow, lineStyle: { color: gridBorderColor } },
                     splitLine: {
-                        show: isTarget,
-                        lineStyle: { color: '#334155', opacity: 0.5 },
+                        show: isTarget && gridShow,
+                        lineStyle: { color: gridLineColor, opacity: gridLineOpacity },
                     },
                 });
 
@@ -191,8 +202,8 @@ export class LayoutManager {
                         },
                     },
                     splitLine: {
-                        show: isTarget,
-                        lineStyle: { color: '#334155', opacity: 0.5 },
+                        show: isTarget && gridShow,
+                        lineStyle: { color: gridLineColor, opacity: gridLineOpacity },
                     },
                 });
 
@@ -349,8 +360,8 @@ export class LayoutManager {
         const grid: any[] = [];
         // Main Grid (index 0)
         grid.push({
-            left: '10%',
-            right: '10%',
+            left: layoutLeft,
+            right: layoutRight,
             top: mainPaneTop + '%',
             height: mainHeightVal + '%',
             containLabel: false, // We handle margins explicitly
@@ -359,8 +370,8 @@ export class LayoutManager {
         // Separate Panes Grids
         paneConfigs.forEach((pane) => {
             grid.push({
-                left: '10%',
-                right: '10%',
+                left: layoutLeft,
+                right: layoutRight,
                 top: pane.top + '%',
                 height: pane.height + '%',
                 containLabel: false,
@@ -381,12 +392,12 @@ export class LayoutManager {
             // boundaryGap will be set in QFChart.ts based on padding option
             axisLine: {
                 onZero: false,
-                show: !isMainCollapsed,
-                lineStyle: { color: '#334155' },
+                show: !isMainCollapsed && gridBorderShow,
+                lineStyle: { color: gridBorderColor },
             },
             splitLine: {
-                show: !isMainCollapsed,
-                lineStyle: { color: '#334155', opacity: 0.5 },
+                show: !isMainCollapsed && gridShow,
+                lineStyle: { color: gridLineColor, opacity: gridLineOpacity },
             },
             axisLabel: {
                 show: !isMainCollapsed,
@@ -420,7 +431,7 @@ export class LayoutManager {
                 gridIndex: i + 1, // 0 is main
                 data: [], // Shared data
                 axisLabel: { show: false }, // Hide labels on indicator panes
-                axisLine: { show: !pane.isCollapsed, lineStyle: { color: '#334155' } },
+                axisLine: { show: !pane.isCollapsed && gridBorderShow, lineStyle: { color: gridBorderColor } },
                 axisTick: { show: false },
                 splitLine: { show: false },
                 axisPointer: {
@@ -460,10 +471,10 @@ export class LayoutManager {
             max: mainYAxisMax,
             gridIndex: 0,
             splitLine: {
-                show: !isMainCollapsed,
-                lineStyle: { color: '#334155', opacity: 0.5 },
+                show: !isMainCollapsed && gridShow,
+                lineStyle: { color: gridLineColor, opacity: gridLineOpacity },
             },
-            axisLine: { show: !isMainCollapsed, lineStyle: { color: '#334155' } },
+            axisLine: { show: !isMainCollapsed && gridBorderShow, lineStyle: { color: gridBorderColor } },
             axisLabel: {
                 show: !isMainCollapsed,
                 color: '#94a3b8',
@@ -613,8 +624,8 @@ export class LayoutManager {
                 max: AxisUtils.createMaxFunction(yAxisPaddingPercent),
                 gridIndex: i + 1,
                 splitLine: {
-                    show: !pane.isCollapsed,
-                    lineStyle: { color: '#334155', opacity: 0.3 },
+                    show: !pane.isCollapsed && gridShow,
+                    lineStyle: { color: gridLineColor, opacity: gridLineOpacity * 0.6 },
                 },
                 axisLabel: {
                     show: !pane.isCollapsed,
@@ -631,7 +642,7 @@ export class LayoutManager {
                         return AxisUtils.formatValue(value, decimals);
                     },
                 },
-                axisLine: { show: !pane.isCollapsed, lineStyle: { color: '#334155' } },
+                axisLine: { show: !pane.isCollapsed && gridBorderShow, lineStyle: { color: gridBorderColor } },
             });
         });
 
